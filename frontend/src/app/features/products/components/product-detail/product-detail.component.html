@@ -1,0 +1,91 @@
+<div class="product-detail-container" *ngIf="product">
+  <div class="product-images">
+    <div class="main-image">
+      <img [src]="selectedImage || '/placeholder.svg?height=400&width=400'" 
+           [alt]="product.name" class="main-product-image">
+    </div>
+    <div class="thumbnail-images" *ngIf="product.imageUrls.length > 1">
+      <img *ngFor="let image of product.imageUrls" 
+           [src]="image" 
+           [alt]="product.name"
+           class="thumbnail"
+           [class.active]="selectedImage === image"
+           (click)="selectImage(image)">
+    </div>
+  </div>
+
+  <div class="product-info">
+    <div class="product-header">
+      <h1>{{ product.name }}</h1>
+      <div class="product-meta">
+        <span class="category">{{ product.categoryName }}</span>
+        <span class="supplier">par {{ product.supplierName }}</span>
+      </div>
+    </div>
+
+    <div class="product-price">
+      <span class="current-price">{{ product.displayedPrice | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</span>
+      <span class="dynamic-price" *ngIf="product.dynamicPrice && product.dynamicPrice !== product.displayedPrice">
+        {{ product.dynamicPrice | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+      </span>
+    </div>
+
+    <div class="product-stock" *ngIf="product.syncedStock !== undefined">
+      <mat-icon [color]="product.syncedStock > 0 ? 'primary' : 'warn'">
+        {{ product.syncedStock > 0 ? 'check_circle' : 'error' }}
+      </mat-icon>
+      <span>{{ product.syncedStock > 0 ? 'En stock (' + product.syncedStock + ')' : 'Rupture de stock' }}</span>
+    </div>
+
+    <div class="product-description">
+      <h3>Description</h3>
+      <p>{{ product.description }}</p>
+    </div>
+
+    <div class="product-actions">
+      <div class="quantity-selector">
+        <mat-form-field appearance="outline">
+          <mat-label>Quantité</mat-label>
+          <input matInput type="number" [(ngModel)]="quantity" min="1" [max]="product.syncedStock || 999">
+        </mat-form-field>
+      </div>
+
+      <div class="action-buttons">
+        <button mat-raised-button color="primary" 
+                (click)="addToCart()" 
+                [disabled]="product.syncedStock === 0 || quantity <= 0" class="cta">
+          <mat-icon>shopping_cart</mat-icon>
+          Ajouter au panier
+        </button>
+        <button mat-stroked-button>
+          <mat-icon>favorite_border</mat-icon>
+          Ajouter aux favoris
+        </button>
+      </div>
+    </div>
+
+    <div class="product-details" *ngIf="product.lastFetched">
+      <h3>Détails</h3>
+      <div class="detail-item" *ngIf="product.externalProductId">
+        <strong>Référence:</strong> {{ product.externalProductId }}
+      </div>
+      <div class="detail-item">
+        <strong>Dernière mise à jour:</strong> {{ product.lastFetched | date:'medium' }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="!product && !loading" class="not-found">
+  <mat-icon>error</mat-icon>
+  <h2>Produit introuvable</h2>
+  <p>Le produit recherché n'existe pas.</p>
+  <button mat-raised-button color="primary" routerLink="/products">
+    Retour aux produits
+  </button>
+</div>
+
+<div *ngIf="loading" class="loading-container">
+  <mat-spinner></mat-spinner>
+  <p>Chargement du produit…</p>
+</div>

@@ -1,0 +1,56 @@
+<section class="hero-section">
+  <div class="container">
+    <h1>Bienvenue sur notre marketplace</h1>
+    <p>Des milliers de produits au meilleur prix, livrés rapidement.</p>
+    <button routerLink="/products" class="cta">Découvrir le catalogue</button>
+  </div>
+</section>
+
+<section class="search-section">
+  <div class="container search-bar">
+    <mat-icon>search</mat-icon>
+    <input type="text" [(ngModel)]="searchKeyword" placeholder="Rechercher un produit…" />
+    <button (click)="search()">Rechercher</button>
+  </div>
+</section>
+
+<section class="categories-section">
+  <div class="container">
+    <h2>Catégories populaires</h2>
+    <div class="category-list">
+      <div *ngFor="let category of categories" class="category-item" (click)="navigateToCategory(category.id)" tabindex="0">
+        <div class="icon">🏷️</div>
+        <div class="name">{{ category.name }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="featured-products-section">
+  <div class="container">
+    <h2>Produits en vedette</h2>
+    <div class="product-list">
+      <ng-container *ngFor="let product of featuredProducts">
+        <app-product-card [product]="product"></app-product-card>
+      </ng-container>
+    </div>
+  </div>
+</section>
+
+<!-- Quick links -->
+<section class="quick-links">
+    <div class="container">
+        <a routerLink="/login">Login</a>
+        <a routerLink="/signup">Signup</a>
+        <ng-container *ngIf="isAdmin">
+          <a routerLink="/admin">Admin Access</a>
+        </ng-container>
+    </div>
+</section>
+
+<!-- Mini-cart/item counter placeholder -->
+<section class="mini-cart-placeholder">
+    <div class="container">
+        <p>Cart (X items)</p>
+    </div>
+</section>

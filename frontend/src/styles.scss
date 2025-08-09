@@ -1,0 +1,101 @@
+@use '@angular/material' as mat;
+
+// 1) Color palettes (amber/black-like)
+
+$primary-palette: mat.define-palette(mat.$yellow-palette, 500, 300, 700);
+$accent-palette: mat.define-palette(mat.$blue-grey-palette, 500);
+$warn-palette: mat.define-palette(mat.$red-palette);
+
+// 2) Typography
+$custom-typography: mat.define-typography-config(
+  $font-family: 'Inter, Roboto, "Helvetica Neue", Arial, sans-serif',
+  $headline-1: mat.define-typography-level(96px, 112px, 300),
+  $headline-2: mat.define-typography-level(60px, 72px, 300),
+  $headline-3: mat.define-typography-level(48px, 56px, 400),
+  $headline-4: mat.define-typography-level(34px, 40px, 400),
+  $headline-5: mat.define-typography-level(24px, 32px, 400),
+  $headline-6: mat.define-typography-level(20px, 28px, 500),
+  $subtitle-1: mat.define-typography-level(16px, 24px, 400),
+  $subtitle-2: mat.define-typography-level(14px, 20px, 500),
+  $body-1: mat.define-typography-level(14px, 20px, 400),
+  $body-2: mat.define-typography-level(12px, 16px, 400),
+  $button: mat.define-typography-level(14px, 14px, 500),
+  $caption: mat.define-typography-level(12px, 16px, 400)
+);
+
+// 3) Theme (light)
+$light-theme: mat.define-light-theme((
+  color: (
+    primary: $primary-palette,
+    accent: $accent-palette,
+    warn: $warn-palette,
+  ),
+  typography: $custom-typography,
+  density: 0,
+));
+
+@include mat.core();
+@include mat.all-component-themes($light-theme);
+@include mat.typography-hierarchy($custom-typography);
+
+// 4) Global resets and layout
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #fafafa;
+  color: #1B1B1B;
+}
+
+// CSS variables for brand accents
+:root {
+  --brand-primary: #FFEA00;
+  --brand-primary-contrast: #{mat.get-contrast-color-from-palette($primary-palette, 500)};
+  --brand-accent: #{mat.get-color-from-palette($accent-palette, 600)};
+  --text-secondary: #6A6A6A;
+  --bg: #FFFFFF;
+  --bg-soft: #F7F7F8;
+}
+
+// Reusable tokens
+.card-radius { border-radius: 12px; }
+.soft-surface { background: var(--bg-soft); }
+.cta-yellow { background: var(--brand-primary); color: #1B1B1B; font-weight: 600; }
+.cta-yellow:hover { filter: brightness(0.97); }
+.outlined-yellow { border: 1px solid var(--brand-primary); color: #1B1B1B; }
+
+.full-width { width: 100%; }
+.text-center { text-align: center; }
+.spacer { flex: 1 1 auto; }
+
+// 5) Scrollbar polish
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+// 6) Material surface polish
+.mat-mdc-card { box-shadow: 0 6px 16px rgba(0,0,0,0.08) !important; border-radius: 12px !important; }
+.mat-mdc-button, .mat-mdc-raised-button, .mat-mdc-outlined-button { border-radius: 8px !important; }
+
+// 7) High-contrast mode support
+@media (prefers-contrast: more) {
+  :root {
+    --outline-color: #000;
+  }
+  .mat-mdc-card { box-shadow: none !important; outline: 2px solid var(--outline-color); }
+}
+
+// 8) Motion preference
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+// 9) Responsive helpers
+@media (max-width: 768px) { .hide-mobile { display: none !important; } }
+@media (min-width: 769px) { .hide-desktop { display: none !important; } }

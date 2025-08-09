@@ -1,0 +1,57 @@
+<div class="auth-container">
+  <div class="auth-content">
+    <div class="auth-header">
+      <h1>Vérification Email</h1>
+      <p class="subtitle">Entrez le code de vérification envoyé à votre email</p>
+      <p class="email-display" *ngIf="emailReadonly">{{ userEmail }}</p>
+    </div>
+    
+    <mat-card class="auth-card">
+      <mat-card-content>
+        <form [formGroup]="verifyForm" (ngSubmit)="onSubmit()" class="verify-form">
+          <!-- Only show email field if not coming from signup -->
+          <mat-form-field appearance="outline" class="full-width" *ngIf="!emailReadonly">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email" required>
+            <mat-icon matPrefix>email</mat-icon>
+            <mat-error *ngIf="verifyForm.get('email')?.hasError('required')">
+              L'email est requis
+            </mat-error>
+            <mat-error *ngIf="verifyForm.get('email')?.hasError('email')">
+              Veuillez entrer un email valide
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Code de vérification (6 chiffres)</mat-label>
+            <input matInput formControlName="otp" maxlength="6" placeholder="123456" required>
+            <mat-icon matPrefix>security</mat-icon>
+            <mat-error *ngIf="verifyForm.get('otp')?.hasError('required')">
+              Le code de vérification est requis
+            </mat-error>
+            <mat-error *ngIf="verifyForm.get('otp')?.hasError('pattern')">
+              Le code doit contenir 6 chiffres
+            </mat-error>
+          </mat-form-field>
+
+          <button mat-raised-button color="primary" type="submit" 
+                  class="verify-btn" [disabled]="verifyForm.invalid || (loading$ | async)">
+            <mat-spinner diameter="20" *ngIf="loading$ | async"></mat-spinner>
+            <span *ngIf="!(loading$ | async)">Vérifier Email</span>
+          </button>
+
+          <button mat-stroked-button type="button" (click)="resendCode()" 
+                  class="resend-btn" [disabled]="loading$ | async">
+            Renvoyer le code
+          </button>
+        </form>
+        
+        <div class="auth-links">
+          <a mat-button routerLink="/auth/login" class="link-btn">
+            Retour à la connexion
+          </a>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

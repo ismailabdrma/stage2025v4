@@ -1,0 +1,17 @@
+{
+  "name": "stage2025",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "dev": "cd frontend && npm start",
+    "install-all": "npm install && cd frontend && npm install"
+  },
+  "dependencies": {
+    "@stripe/stripe-js": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.18.0"
+  }
+}
