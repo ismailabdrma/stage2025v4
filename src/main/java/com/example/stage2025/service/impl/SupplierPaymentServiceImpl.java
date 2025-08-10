@@ -1,9 +1,12 @@
 package com.example.stage2025.service.impl;
 
 import com.example.stage2025.dto.SupplierPaymentDto;
+import com.example.stage2025.dto.SupplierPaymentSummaryDto;
+import com.example.stage2025.entity.Order;
 import com.example.stage2025.entity.Supplier;
 import com.example.stage2025.entity.SupplierPayment;
 import com.example.stage2025.enums.PaymentStatus;
+import com.example.stage2025.enums.PaymentType;
 import com.example.stage2025.mapper.SupplierPaymentMapper;
 import com.example.stage2025.repository.SupplierPaymentRepository;
 import com.example.stage2025.repository.SupplierRepository;
@@ -12,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -59,5 +63,132 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
                 .build();
 
         return SupplierPaymentMapper.toDto(paymentRepository.save(payment));
+    }
+
+    // --- Additional interface methods (simple/default implementations) ---
+
+    @Override
+    public SupplierPaymentDto createPaymentForOrder(Order order) {
+        throw new UnsupportedOperationException("Not supported in simple implementation");
+    }
+
+    @Override
+    public SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId) {
+        throw new UnsupportedOperationException("Not supported in simple implementation");
+    }
+
+    @Override
+    public List<SupplierPaymentDto> processScheduledPayments() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<SupplierPaymentDto> createWeeklyPayments() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<SupplierPaymentDto> createMonthlyPayments() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public SupplierPaymentDto processGroupedPayment(Long supplierId, PaymentType type, LocalDateTime periodStart, LocalDateTime periodEnd) {
+        throw new UnsupportedOperationException("Not supported in simple implementation");
+    }
+
+    @Override
+    public SupplierPaymentDto updatePaymentStatus(Long paymentId, PaymentStatus status, String notes, Long adminId) {
+        SupplierPayment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        payment.setStatus(status);
+        payment.setProcessingNotes(notes);
+        payment.setProcessedByAdminId(adminId);
+        if (status == PaymentStatus.PAID) {
+            payment.setProcessedDate(LocalDateTime.now());
+        }
+        SupplierPayment saved = paymentRepository.save(payment);
+        return SupplierPaymentMapper.toDto(saved);
+    }
+
+    @Override
+    public SupplierPaymentDto confirmPaymentReceived(Long paymentId, String supplierApiResponse) {
+        SupplierPayment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        payment.setSupplierApiResponse(supplierApiResponse);
+        payment.setConfirmedDate(LocalDateTime.now());
+        payment.setStatus(PaymentStatus.PAID);
+        SupplierPayment saved = paymentRepository.save(payment);
+        return SupplierPaymentMapper.toDto(saved);
+    }
+
+    @Override
+    public SupplierPaymentDto cancelPayment(Long paymentId, String reason, Long adminId) {
+        SupplierPayment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        payment.setStatus(PaymentStatus.CANCELLED);
+        payment.setProcessingNotes(reason);
+        payment.setProcessedByAdminId(adminId);
+        SupplierPayment saved = paymentRepository.save(payment);
+        return SupplierPaymentMapper.toDto(saved);
+    }
+
+    @Override
+    public void notifySupplierPayment(SupplierPayment payment) {
+        // no-op in simple implementation
+    }
+
+    @Override
+    public void sendPaymentToSupplierApi(SupplierPayment payment) {
+        // no-op in simple implementation
+    }
+
+    @Override
+    public List<SupplierPaymentDto> getPaymentsByStatus(PaymentStatus status) {
+        return paymentRepository.findByStatus(status)
+                .stream()
+                .map(SupplierPaymentMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<SupplierPaymentDto> getPaymentsByDateRange(LocalDateTime start, LocalDateTime end) {
+        return paymentRepository.findByCreatedDateBetween(start, end)
+                .stream()
+                .map(SupplierPaymentMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<SupplierPaymentDto> getPendingPayments() {
+        return paymentRepository.findPendingAndProcessing()
+                .stream()
+                .map(SupplierPaymentMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public SupplierPaymentSummaryDto getPaymentSummary() {
+        return null;
+    }
+
+    @Override
+    public SupplierPaymentSummaryDto getSupplierPaymentSummary(Long supplierId) {
+        return null;
+    }
+
+    @Override
+    public List<SupplierPaymentSummaryDto> getAllSupplierSummaries() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<SupplierPaymentDto> getPaymentHistory(Long paymentId) {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public void auditPaymentAction(Long paymentId, String action, String details, Long adminId) {
+        // no-op in simple implementation
     }
 }

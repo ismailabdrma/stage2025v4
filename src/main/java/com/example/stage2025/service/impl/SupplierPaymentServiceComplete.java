@@ -11,8 +11,10 @@ import com.example.stage2025.service.SupplierPaymentService;
 import com.example.stage2025.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
@@ -23,6 +25,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service("supplierPaymentServiceComplete")
+@Primary
 @RequiredArgsConstructor
 @Slf4j
 public class SupplierPaymentServiceComplete implements SupplierPaymentService {
@@ -36,6 +39,15 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
     @Override
     public SupplierPaymentDto createPayment(SupplierPaymentDto dto) {
         throw new UnsupportedOperationException("Use createPaymentForOrder or scheduled processors");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SupplierPaymentDto> getAllPayments() {
+        return supplierPaymentRepository.findAll()
+            .stream()
+            .map(this::mapToDto)
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -89,8 +101,9 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         
         for (OrderItem item : items) {
             // Get the actual supplier price from product
-            BigDecimal supplierPrice = item.getProduct().getSupplierPrice(); // Need to add this field
-            BigDecimal customerPaidPrice = item.getUnitPrice();
+            Double supplierPriceRaw = item.getProduct().getSupplierPrice();
+            BigDecimal supplierPrice = supplierPriceRaw != null ? BigDecimal.valueOf(supplierPriceRaw) : BigDecimal.ZERO;
+            BigDecimal customerPaidPrice = BigDecimal.valueOf(item.getUnitPrice());
             BigDecimal commissionPerUnit = customerPaidPrice.subtract(supplierPrice);
             
             BigDecimal totalCustomerAmountForItem = customerPaidPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -157,8 +170,9 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         List<SupplierPaymentItem> paymentItems = new ArrayList<>();
         
         for (OrderItem item : items) {
-            BigDecimal customerPaidPrice = item.getUnitPrice();
-            BigDecimal supplierPrice = item.getProduct().getSupplierPrice(); // Actual supplier price
+            BigDecimal customerPaidPrice = BigDecimal.valueOf(item.getUnitPrice());
+            Double supplierPriceRaw = item.getProduct().getSupplierPrice();
+            BigDecimal supplierPrice = supplierPriceRaw != null ? BigDecimal.valueOf(supplierPriceRaw) : BigDecimal.ZERO;
             BigDecimal commissionPerUnit = customerPaidPrice.subtract(supplierPrice);
             
             BigDecimal totalCustomerAmountForItem = customerPaidPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -256,6 +270,40 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         }
         
         return processedPayments;
+    }
+
+    // --- Schedulers ---
+    // Process due payments daily at 02:00
+    @Scheduled(cron = "0 0 2 * * *")
+    public void scheduledProcessDuePayments() {
+        try {
+            List<SupplierPaymentDto> processed = processScheduledPayments();
+            log.info("Scheduled: processed {} due payments", processed.size());
+        } catch (Exception e) {
+            log.error("Scheduled: processing due payments failed: {}", e.getMessage());
+        }
+    }
+
+    // Create weekly payments every Monday at 03:00
+    @Scheduled(cron = "0 0 3 * * MON")
+    public void scheduledCreateWeekly() {
+        try {
+            List<SupplierPaymentDto> created = createWeeklyPayments();
+            log.info("Scheduled: created {} weekly payments", created.size());
+        } catch (Exception e) {
+            log.error("Scheduled: create weekly payments failed: {}", e.getMessage());
+        }
+    }
+
+    // Create monthly payments on 1st at 04:00
+    @Scheduled(cron = "0 0 4 1 * *")
+    public void scheduledCreateMonthly() {
+        try {
+            List<SupplierPaymentDto> created = createMonthlyPayments();
+            log.info("Scheduled: created {} monthly payments", created.size());
+        } catch (Exception e) {
+            log.error("Scheduled: create monthly payments failed: {}", e.getMessage());
+        }
     }
 
     private SupplierPaymentDto processBatchPayment(List<SupplierPayment> payments) {
@@ -493,6 +541,11 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
 
     // Minimal implementations for interface compliance
     @Override public SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId) { return null; }
+    @Override public SupplierPaymentDto getPaymentById(Long paymentId) {
+        SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found"));
+        return mapToDto(payment);
+    }
     @Override public void notifySupplierPayment(SupplierPayment payment) {}
     @Override public void sendPaymentToSupplierApi(SupplierPayment payment) {}
     @Override public void auditPaymentAction(Long paymentId, String action, String details, Long adminId) {}

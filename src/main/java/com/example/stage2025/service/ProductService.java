@@ -33,4 +33,14 @@ public interface ProductService {
     List<ProductDto> getFeaturedProducts();
     List<ProductDto> getSuggestedProducts(Long productId);
 
+    // Admin Product Management
+    List<ProductDto> getPendingProducts();
+    ProductDto approveProduct(Long id);
+    void rejectProduct(Long id);
+    List<ProductDto> approveMultipleProducts(List<Long> productIds);
+    ProductDto suspendProduct(Long id);
+    ProductDto activateProduct(Long id);
+    void permanentDeleteProduct(Long id);
+    List<ProductDto> bulkUpdateProducts(List<Long> productIds, ProductDto updateData);
+
 }

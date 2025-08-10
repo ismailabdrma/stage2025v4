@@ -1,0 +1,17 @@
+name: stage2025_mobile
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  dio: ^5.4.0
+  provider: ^6.1.2
+
+flutter:
+  uses-material-design: true
+

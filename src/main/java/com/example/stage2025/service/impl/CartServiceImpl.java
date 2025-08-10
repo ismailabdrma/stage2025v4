@@ -8,12 +8,14 @@ import com.example.stage2025.mapper.CartMapper;
 import com.example.stage2025.repository.*;
 import com.example.stage2025.service.CartService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
 @Service
+@Primary
 @RequiredArgsConstructor
 public class CartServiceImpl implements CartService {
 

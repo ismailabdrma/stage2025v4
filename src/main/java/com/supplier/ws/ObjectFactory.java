@@ -1,7 +1,7 @@
 
 package com.supplier.ws;
 
-import jakarta.xml.bind.annotation.XmlRegistry;
+import javax.xml.bind.annotation.XmlRegistry;
 
 
 /**

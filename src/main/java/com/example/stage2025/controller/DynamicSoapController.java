@@ -51,6 +51,8 @@ public class DynamicSoapController {
                     new SoapFieldDto("displayedPrice", "xs:double"),
                     new SoapFieldDto("availableQuantity", "xs:int"),
                     new SoapFieldDto("pictureUrl", "xs:string"),
+                    new SoapFieldDto("pictureData", "xs:base64Binary"),
+                    new SoapFieldDto("pictureFormat", "xs:string"),
                     new SoapFieldDto("realTimeStock", "xs:int"),
                     new SoapFieldDto("lastStockUpdate", "xs:string")
             ));

@@ -1,22 +1,19 @@
 <div class="container">
   <div class="filters-sorting">
     <div class="filters">
-      <mat-form-field appearance="outline">
+  <mat-form-field appearance="outline">
         <mat-label>Category</mat-label>
-        <mat-select [(ngModel)]="selectedCategory" (selectionChange)="onCategoryChange($event.value)">
- <mat-option [value]="null">All Categories</mat-option>
-          <!-- Options populated from backend -->
- <mat-option *ngFor="let category of categories" [value]="category.id">{{ category.name }}</mat-option>
+    <mat-select [(ngModel)]="selectedCategory" (selectionChange)="onCategoryChange($event.value)">
+      <mat-option [value]="null">All Categories</mat-option>
+      <mat-option *ngFor="let category of categories" [value]="category.name">{{ category.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
+  <mat-form-field appearance="outline">
         <mat-label>Supplier</mat-label>
-        <mat-select [(ngModel)]="selectedSupplier" (selectionChange)="onSupplierChange($event.value)">
- <mat-option [value]="null">All Suppliers</mat-option>
-          <!-- Options populated from backend -->
-          <!-- TODO: Populate suppliers from backend -->
- <mat-option *ngFor="let supplier of suppliers" [value]="supplier.id">{{ supplier.name }}</mat-option>
+    <mat-select [(ngModel)]="selectedSupplier" (selectionChange)="onSupplierChange($event.value)">
+      <mat-option [value]="null">All Suppliers</mat-option>
+      <mat-option *ngFor="let supplier of suppliers" [value]="supplier.name">{{ supplier.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 

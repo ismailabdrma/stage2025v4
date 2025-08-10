@@ -2,6 +2,7 @@ package com.example.stage2025.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,4 +18,6 @@ public class SoapSupplier extends Supplier {
 
     @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     private List<SoapSupplierOperationMeta> operations = new ArrayList<>();
+    
+    private LocalDateTime lastMetadataRefresh;
 }

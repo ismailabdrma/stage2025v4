@@ -27,10 +27,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     // OPTIONAL: Skip filter for public endpoints
     // Uncomment to enable
     @Override
-   protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getServletPath();
-        return path.startsWith("/api/auth") || path.startsWith("/api/products"); // adapt to your needs
-   }
+        // Public endpoints: auth, products, categories, suppliers (read), and home assets
+        return path.startsWith("/api/auth")
+                || path.startsWith("/api/products")
+                || path.startsWith("/api/categories")
+                || ("GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/api/suppliers"));
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

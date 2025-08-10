@@ -57,9 +57,10 @@
           <mat-icon>shopping_cart</mat-icon>
           Ajouter au panier
         </button>
-        <button mat-stroked-button>
-          <mat-icon>favorite_border</mat-icon>
-          Ajouter aux favoris
+        <button mat-stroked-button (click)="addToWishlist()" 
+                [color]="isInWishlist ? 'warn' : 'default'">
+          <mat-icon>{{ isInWishlist ? 'favorite' : 'favorite_border' }}</mat-icon>
+          {{ isInWishlist ? 'Retirer des favoris' : 'Ajouter aux favoris' }}
         </button>
       </div>
     </div>

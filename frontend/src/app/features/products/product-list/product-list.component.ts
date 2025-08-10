@@ -62,6 +62,7 @@ export class ProductListComponent implements OnInit {
       this.pageSize = +params['size'] || 12; // Convert to number
 
       this.loadProducts();
+      this.loadSuppliers();
     }));
 
     // Debounce search terms and trigger product loading
@@ -84,22 +85,24 @@ export class ProductListComponent implements OnInit {
     if (this.selectedSupplier) params['supplier'] = this.selectedSupplier;
     if (this.searchTerm) params['search'] = this.searchTerm;
 
-    this.productService.getAllProducts(params).subscribe(
-      (data: any) => { // Adjust type based on API response structure
-        this.products = data.content; // Assuming paginated response with 'content'
-        this.totalProducts = data.totalElements; // Assuming paginated response with 'totalElements'
-       // this.totalPages = data.totalPages; // Assuming paginated response with 'totalPages'
-       // Calculate totalPages manually if not provided
-        this.totalPages = Math.ceil(this.totalProducts / this.pageSize);
+    this.productService.getAllProducts(params).subscribe({
+      next: (data: any) => {
+        if (Array.isArray(data)) {
+          this.products = data;
+          this.totalProducts = data.length;
+        } else {
+          this.products = data?.content ?? [];
+          this.totalProducts = data?.totalElements ?? this.products.length;
+        }
+        this.totalPages = Math.ceil(Math.max(1, this.totalProducts) / this.pageSize);
         this.loadingProducts = false;
-
-        // Update query params in URL
         this.updateQueryParams();
       },
-      (error) => {
+      error: (error) => {
+        this.loadingProducts = false;
         this.snackBar.open('Error fetching products: ' + error.message, 'Close', { duration: 3000 });
       }
-    );
+    });
   }
 
   // Removed this method as categories are loaded in ngOnInit
@@ -116,17 +119,18 @@ export class ProductListComponent implements OnInit {
   }
 
   loadSuppliers(): void {
- this.loadingSuppliers = true;
- this.supplierService.getAllSuppliers().subscribe({
+    this.loadingSuppliers = true;
+    this.supplierService.getAllSuppliers().subscribe({
       next: (suppliers) => {
- this.suppliers = suppliers;
- this.loadingSuppliers = false;
-      },
-      error: (error) => {
- console.error('Error fetching suppliers:', error);
- this.snackBar.open('Failed to load suppliers for filtering.', 'Close', { duration: 3000 });
+        this.suppliers = suppliers;
         this.loadingSuppliers = false;
       },
+      error: (error) => {
+        console.error('Error fetching suppliers:', error);
+        this.snackBar.open('Failed to load suppliers for filtering.', 'Close', { duration: 3000 });
+        this.loadingSuppliers = false;
+      },
+    });
   }
 
   onCategoryChange(categoryId: string): void {
@@ -134,10 +138,7 @@ export class ProductListComponent implements OnInit {
     this.applyFilters();
   }
 
-  onSupplierChange(supplierId: string): void {
-    this.selectedSupplier = supplierId === '' ? null : supplierId;
-    this.applyFilters();
-  }
+  
 
   // Method to handle search input changes
   onSearchInput(event: Event): void {
@@ -180,8 +181,9 @@ export class ProductListComponent implements OnInit {
     });
   }
 
-  onPageChange(page: number): void {
-    this.currentPage = page;
+  onPageChange(event: PageEvent): void {
+    this.pageSize = event.pageSize;
+    this.currentPage = (event.pageIndex ?? 0) + 1; // MatPaginator is 0-based
     this.loadProducts();
   }
 }

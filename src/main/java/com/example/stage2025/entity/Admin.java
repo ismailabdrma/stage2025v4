@@ -8,17 +8,17 @@ import lombok.*;
 
 @Entity
 @PrimaryKeyJoinColumn(name = "user_id")
-@Getter
-@Setter
+@Data
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 public class Admin extends User {
 
-
     public Admin(String username, String email, String password, Role role) {
-        this.setUsername(username);
-        this.setEmail(email);
-        this.setPassword(password);
-        this.setRole(role);
+        super();
+        super.setUsername(username);
+        super.setEmail(email);
+        super.setPassword(password);
+        super.setRole(role);
     }
     // Add admin-specific fields if needed
 }

@@ -41,15 +41,9 @@ public class DataSeeder implements CommandLineRunner {
         
         if (!adminExists) {
             try {
-                Admin admin = new Admin();
-                admin.setUsername(adminUsername);
-                admin.setEmail(adminEmail);
-                admin.setPassword(passwordEncoder.encode(adminPassword));
-                admin.setRole(Role.ADMIN);
+                Admin admin = new Admin(adminUsername, adminEmail, passwordEncoder.encode(adminPassword), Role.ADMIN);
                 admin.setEmailVerified(true); // Admin doesn't need email verification
                 admin.setActive(true);
-                admin.setCreated(LocalDateTime.now());
-                admin.setUpdated(LocalDateTime.now());
 
                 userRepository.save(admin);
                 

@@ -1,6 +1,7 @@
 package com.example.stage2025.service.impl;
 
 import com.example.stage2025.dto.CartDto;
+import com.example.stage2025.dto.CartItemDto;
 import com.example.stage2025.entity.*;
 import com.example.stage2025.exception.ResourceNotFoundException;
 import com.example.stage2025.exception.InsufficientStockException;
@@ -34,10 +35,9 @@ public class EnterpriseCartService implements CartService {
     private final Map<Long, ReentrantLock> cartLocks = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> sessionActivity = new ConcurrentHashMap<>();
 
-    @Override
+    // Enterprise-specific helper method
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CartDto addToCart(Long clientId, Long productId, int quantity) {
-        String operationKey = "cart_" + clientId + "_product_" + productId;
         ReentrantLock cartLock = cartLocks.computeIfAbsent(clientId, k -> new ReentrantLock());
         
         try {
@@ -111,7 +111,7 @@ public class EnterpriseCartService implements CartService {
         }
     }
 
-    @Override
+    // Enterprise-specific helper method
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CartDto updateCartItem(Long clientId, Long productId, int quantity) {
         ReentrantLock cartLock = cartLocks.computeIfAbsent(clientId, k -> new ReentrantLock());
@@ -156,7 +156,7 @@ public class EnterpriseCartService implements CartService {
         }
     }
 
-    @Override
+    // Enterprise-specific helper method
     @Transactional(readOnly = true)
     public CartDto getCartByClient(Long clientId) {
         trackSessionActivity(clientId);
@@ -205,7 +205,7 @@ public class EnterpriseCartService implements CartService {
         }
     }
 
-    @Override
+    // Enterprise-specific helper method
     @Transactional
     public CartDto removeFromCart(Long clientId, Long productId) {
         ReentrantLock cartLock = cartLocks.computeIfAbsent(clientId, k -> new ReentrantLock());
@@ -237,7 +237,86 @@ public class EnterpriseCartService implements CartService {
         }
     }
 
-    // Enterprise-specific methods
+    // CartService interface methods
+
+    @Override
+    @Transactional(readOnly = true)
+    public CartDto getCartByClientId(Long clientId) {
+        return getCartByClient(clientId);
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public CartDto addItemToCart(Long clientId, CartItemDto itemDto) {
+        if (itemDto == null || itemDto.getProductId() == null || itemDto.getQuantity() <= 0) {
+            throw new IllegalArgumentException("Invalid cart item payload");
+        }
+        return addToCart(clientId, itemDto.getProductId(), itemDto.getQuantity());
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public CartDto updateItemQuantity(Long cartItemId, int quantity) {
+        CartItem item = cartItemRepository.findById(cartItemId)
+            .orElseThrow(() -> new ResourceNotFoundException("Item de panier introuvable"));
+
+        Long clientId = item.getCart().getClient().getId();
+        ReentrantLock cartLock = cartLocks.computeIfAbsent(clientId, k -> new ReentrantLock());
+
+        try {
+            cartLock.lock();
+
+            if (quantity <= 0) {
+                Cart cart = item.getCart();
+                cart.getItems().remove(item);
+                cartItemRepository.delete(item);
+                updateCartTotals(cart);
+                cart.setLastUpdated(LocalDateTime.now());
+                Cart savedCart = cartRepository.save(cart);
+                return CartMapper.toDto(savedCart);
+            }
+
+            // Validate stock and update quantity
+            Product product = item.getProduct();
+            validateProductAvailability(product, quantity);
+
+            item.setQuantity(quantity);
+            item.setLastUpdated(LocalDateTime.now());
+            cartItemRepository.save(item);
+
+            Cart cart = item.getCart();
+            updateCartTotals(cart);
+            cart.setLastUpdated(LocalDateTime.now());
+            Cart savedCart = cartRepository.save(cart);
+            return CartMapper.toDto(savedCart);
+        } finally {
+            cartLock.unlock();
+        }
+    }
+
+    @Override
+    @Transactional
+    public void removeItemFromCart(Long cartItemId) {
+        CartItem item = cartItemRepository.findById(cartItemId)
+            .orElseThrow(() -> new ResourceNotFoundException("Item introuvable"));
+
+        Long clientId = item.getCart().getClient().getId();
+        ReentrantLock cartLock = cartLocks.computeIfAbsent(clientId, k -> new ReentrantLock());
+
+        try {
+            cartLock.lock();
+
+            Cart cart = item.getCart();
+            cart.getItems().remove(item);
+            cartItemRepository.delete(item);
+
+            updateCartTotals(cart);
+            cart.setLastUpdated(LocalDateTime.now());
+            cartRepository.save(cart);
+        } finally {
+            cartLock.unlock();
+        }
+    }
 
     /**
      * Validate that product is available and has sufficient stock

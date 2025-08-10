@@ -38,8 +38,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/products/**","/api/payments/stripe-webhook").permitAll()
-                        .requestMatchers("/api/admin/**","/api/suppliers/**").hasRole("ADMIN")
+                        .requestMatchers("/api/auth/**", "/api/products/**", "/api/categories/**", "/api/images/**", "/api/payments/stripe-webhook").permitAll()
+                        .requestMatchers("/images/**", "/assets/**", "/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/suppliers/**").permitAll()
+                        .requestMatchers("/api/admin/**", "/api/suppliers/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

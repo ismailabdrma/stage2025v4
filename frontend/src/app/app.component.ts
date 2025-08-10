@@ -87,6 +87,7 @@ import type { User } from "./core/models/user.model"
       <mat-sidenav-container class="sidenav-container">
         <mat-sidenav #sidenav mode="side" opened="false" class="sidenav">
           <mat-nav-list>
+            <ng-container *ngIf="!isAdmin; else adminMenu">
             <a mat-list-item routerLink="/products" routerLinkActive="active">
               <mat-icon matListItemIcon>inventory</mat-icon>
               <span matListItemTitle>Produits</span>
@@ -103,11 +104,13 @@ import type { User } from "./core/models/user.model"
               <mat-icon matListItemIcon>person</mat-icon>
               <span matListItemTitle>Profil</span>
             </a>
-            <mat-divider></mat-divider>
-            <a mat-list-item routerLink="/admin" routerLinkActive="active" *ngIf="isAdmin">
-              <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
-              <span matListItemTitle>Administration</span>
-            </a>
+            </ng-container>
+            <ng-template #adminMenu>
+              <a mat-list-item routerLink="/admin" routerLinkActive="active">
+                <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+                <span matListItemTitle>Administration</span>
+              </a>
+            </ng-template>
           </mat-nav-list>
         </mat-sidenav>
 

@@ -10,7 +10,9 @@ import com.example.stage2025.repository.CategoryRepository;
 import com.example.stage2025.repository.ProductRepository;
 import com.example.stage2025.repository.SupplierRepository;
 import com.example.stage2025.service.ProductService;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
@@ -36,6 +39,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductDto getProductById(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec ID " + id));
@@ -127,6 +131,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Page<Product> getAllProducts(String category,
                                         String supplier,
                                         String search,
@@ -163,12 +168,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ProductDto> getFeaturedProducts() {
-        // Simple heuristic: latest active products
-        return productRepository.findAll().stream()
-                .filter(p -> Boolean.TRUE.equals(p.getActive()))
-                .sorted((a, b) -> Long.compare(b.getId(), a.getId()))
-                .limit(12)
+        return productRepository.findTop12ByActiveTrueOrderByIdDesc()
+                .stream()
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -181,6 +184,138 @@ public class ProductServiceImpl implements ProductService {
         return productRepository.findByCategory(base.getCategory()).stream()
                 .filter(p -> !p.getId().equals(productId) && Boolean.TRUE.equals(p.getActive()))
                 .limit(8)
+                .map(ProductMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    // Admin Product Management Implementation
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDto> getPendingProducts() {
+        return productRepository.findByActiveFalse().stream()
+                .map(ProductMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public ProductDto approveProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
+        
+        product.setActive(true);
+        Product saved = productRepository.save(product);
+        
+        // Log admin action
+        log.info("Product {} approved by admin", id);
+        
+        return ProductMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public void rejectProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
+        
+        // Instead of deleting, we mark as rejected (you could add a status field)
+        productRepository.delete(product);
+        
+        // Log admin action
+        log.info("Product {} rejected and deleted by admin", id);
+    }
+
+    @Override
+    @Transactional
+    public List<ProductDto> approveMultipleProducts(List<Long> productIds) {
+        List<Product> products = productRepository.findAllById(productIds);
+        
+        for (Product product : products) {
+            product.setActive(true);
+        }
+        
+        List<Product> savedProducts = productRepository.saveAll(products);
+        
+        // Log admin action
+        log.info("Bulk approved {} products by admin", productIds.size());
+        
+        return savedProducts.stream()
+                .map(ProductMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public ProductDto suspendProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
+        
+        product.setActive(false);
+        Product saved = productRepository.save(product);
+        
+        // Log admin action
+        log.info("Product {} suspended by admin", id);
+        
+        return ProductMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public ProductDto activateProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
+        
+        product.setActive(true);
+        Product saved = productRepository.save(product);
+        
+        // Log admin action
+        log.info("Product {} activated by admin", id);
+        
+        return ProductMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public void permanentDeleteProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
+        
+        productRepository.delete(product);
+        
+        // Log admin action
+        log.info("Product {} permanently deleted by admin", id);
+    }
+
+    @Override
+    @Transactional
+    public List<ProductDto> bulkUpdateProducts(List<Long> productIds, ProductDto updateData) {
+        List<Product> products = productRepository.findAllById(productIds);
+        
+        for (Product product : products) {
+            // Update fields that are provided
+            if (updateData.getName() != null) {
+                product.setName(updateData.getName());
+            }
+            if (updateData.getDescription() != null) {
+                product.setDescription(updateData.getDescription());
+            }
+            if (updateData.getDisplayedPrice() != null) {
+                product.setDisplayedPrice(updateData.getDisplayedPrice());
+            }
+            if (updateData.getCategoryName() != null) {
+                Category category = categoryRepository.findByName(updateData.getCategoryName())
+                        .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + updateData.getCategoryName()));
+                product.setCategory(category);
+            }
+            // Add more fields as needed
+        }
+        
+        List<Product> savedProducts = productRepository.saveAll(products);
+        
+        // Log admin action
+        log.info("Bulk updated {} products by admin", productIds.size());
+        
+        return savedProducts.stream()
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
     }

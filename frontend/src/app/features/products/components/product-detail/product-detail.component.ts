@@ -1,6 +1,6 @@
 import { Component, type OnInit, inject } from "@angular/core"
 import { CommonModule } from "@angular/common"
-import { RouterModule, ActivatedRoute } from "@angular/router"
+import { RouterModule, ActivatedRoute, Router } from "@angular/router"
 import { FormsModule } from "@angular/forms"
 import { MatCardModule } from "@angular/material/card"
 import { MatButtonModule } from "@angular/material/button"
@@ -11,6 +11,8 @@ import { MatProgressSpinnerModule } from "@angular/material/progress-spinner"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { ProductService } from "@core/services/product.service"
 import { CartService } from "@core/services/cart.service"
+import { AuthService } from "@core/services/auth.service"
+import { WishlistService } from "@core/services/wishlist.service"
 import type { Product } from "@core/models/product.model"
 
 @Component({
@@ -34,12 +36,14 @@ export class ProductDetailComponent implements OnInit {
   private route = inject(ActivatedRoute)
   private productService = inject(ProductService)
   private cartService = inject(CartService)
+  private wishlistService = inject(WishlistService)
   private snackBar = inject(MatSnackBar)
 
   product: Product | null = null
   loading = true
   quantity = 1
   selectedImage = ""
+  isInWishlist = false
 
   ngOnInit(): void {
     const id = this.route.snapshot.params["id"]
@@ -52,12 +56,13 @@ export class ProductDetailComponent implements OnInit {
     this.productService.getProductById(id).subscribe({
       next: (product) => {
         this.product = product
-        this.selectedImage = product.imageUrls[0] || ""
+        this.selectedImage = (product.imageUrls && product.imageUrls.length) ? product.imageUrls[0] : ""
+        this.isInWishlist = this.wishlistService.isInWishlist(product.id)
         this.loading = false
       },
       error: (error) => {
-        console.error("Error loading product:", error)
         this.loading = false
+        this.product = null
       },
     })
   }
@@ -68,6 +73,18 @@ export class ProductDetailComponent implements OnInit {
 
   addToCart(): void {
     if (!this.product) return
+
+    // Check if user is authenticated first
+    const authService = inject(AuthService)
+    if (!authService.isAuthenticated()) {
+      const snackBarRef = this.snackBar.open("Please login to add items to cart", "Login", {
+        duration: 5000
+      })
+      snackBarRef.onAction().subscribe(() => {
+        inject(Router).navigate(['/auth/login'])
+      })
+      return
+    }
 
     this.cartService
       .addItemToCart({
@@ -84,17 +101,37 @@ export class ProductDetailComponent implements OnInit {
         },
         error: (error) => {
           console.error("Error adding to cart:", error)
-          this.snackBar.open("Error adding product to cart", "Close", {
-            duration: 3000,
-          })
+          if (error.status === 401) {
+            const snackBarRef = this.snackBar.open("Please login to add items to cart", "Login", {
+              duration: 5000,
+            })
+            snackBarRef.onAction().subscribe(() => {
+              inject(Router).navigate(['/auth/login'])
+            })
+          } else {
+            this.snackBar.open("Error adding product to cart", "Close", {
+              duration: 3000,
+            })
+          }
         },
       })
   }
 
   addToWishlist(): void {
-    // TODO: Implement wishlist functionality
-    this.snackBar.open("Wishlist feature coming soon!", "Close", {
-      duration: 3000,
-    })
+    if (!this.product) return
+
+    if (this.isInWishlist) {
+      this.wishlistService.removeFromWishlist(this.product.id)
+      this.isInWishlist = false
+      this.snackBar.open(`${this.product.name} removed from favorites!`, "Close", {
+        duration: 3000,
+      })
+    } else {
+      this.wishlistService.addToWishlist(this.product)
+      this.isInWishlist = true
+      this.snackBar.open(`${this.product.name} added to favorites!`, "Close", {
+        duration: 3000,
+      })
+    }
   }
 }

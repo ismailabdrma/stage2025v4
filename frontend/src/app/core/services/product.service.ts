@@ -71,4 +71,38 @@ export class ProductService {
   getAllCategories(): Observable<Category[]> {
     return this.http.get<Category[]>(`${this.apiUrl}/categories`);
   }
+
+  // Product approval methods
+  getPendingProducts(): Observable<Product[]> {
+    return this.http.get<Product[]>(`${this.apiUrl}/products/pending`)
+  }
+
+  approveProduct(id: number): Observable<Product> {
+    return this.http.put<Product>(`${this.apiUrl}/products/${id}/approve`, {})
+  }
+
+  rejectProduct(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/products/${id}/reject`)
+  }
+
+  approveMultipleProducts(ids: number[]): Observable<Product[]> {
+    return this.http.put<Product[]>(`${this.apiUrl}/products/approve-multiple`, { productIds: ids })
+  }
+
+  // Additional admin product operations
+  suspendProduct(id: number): Observable<Product> {
+    return this.http.put<Product>(`${this.apiUrl}/products/${id}/suspend`, {})
+  }
+
+  activateProduct(id: number): Observable<Product> {
+    return this.http.put<Product>(`${this.apiUrl}/products/${id}/activate`, {})
+  }
+
+  permanentDeleteProduct(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/products/${id}/permanent`)
+  }
+
+  bulkUpdateProducts(productIds: number[], updateData: Partial<Product>): Observable<Product[]> {
+    return this.http.put<Product[]>(`${this.apiUrl}/products/bulk-update`, { productIds, updateData })
+  }
 }

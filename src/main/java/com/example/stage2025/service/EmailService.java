@@ -19,4 +19,11 @@ public interface EmailService {
     // Admin notifications
     void sendAdminNewOrderNotification(Order order);
     void sendAdminNewSupplierNotification(Supplier supplier);
+    
+    // User management notifications
+    void sendUserSuspensionNotification(User user, String reason);
+    void sendUserReactivationNotification(User user);
+    void sendRoleChangeNotification(User user, com.example.stage2025.enums.Role oldRole, com.example.stage2025.enums.Role newRole);
+    void sendPasswordResetByAdmin(User user, String tempPassword);
+    void sendForcePasswordChangeNotification(User user);
 }

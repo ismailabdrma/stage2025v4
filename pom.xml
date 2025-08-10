@@ -99,10 +99,11 @@
             <version>4.0.0</version>
         </dependency>
         
+        <!-- JAX-WS runtime (single) -->
         <dependency>
             <groupId>com.sun.xml.ws</groupId>
             <artifactId>jaxws-rt</artifactId>
-            <version>4.0.0</version>
+            <version>4.0.2</version>
         </dependency>
         
         <dependency>
@@ -182,20 +183,14 @@
             <version>2.16.1</version>
         </dependency>
 
-        <!-- JAXB API -->
+        <!-- JAXB API (single) -->
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
-            <version>4.0.0</version>
+            <version>4.0.2</version>
         </dependency>
 
-        <!-- JAXB Implementation (ADDED) -->
-        <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-runtime</artifactId>
-            <version>4.0.4</version>
-            <scope>runtime</scope>
-        </dependency>
+
 
         <!-- Jakarta Annotations -->
         <dependency>
@@ -211,20 +206,7 @@
             <version>1.10.0</version>
         </dependency>
 
-        <!-- JAX-WS API -->
-        <dependency>
-            <groupId>jakarta.xml.ws</groupId>
-            <artifactId>jakarta.xml.ws-api</artifactId>
-            <version>4.0.1</version>
-        </dependency>
 
-        <!-- JAX-WS Implementation (ADDED) -->
-        <dependency>
-            <groupId>com.sun.xml.ws</groupId>
-            <artifactId>jaxws-rt</artifactId>
-            <version>4.0.1</version>
-            <scope>runtime</scope>
-        </dependency>
 
         <!-- JSON Web Token -->
         <dependency>
@@ -290,29 +272,7 @@
             <artifactId>jaxb-impl</artifactId>
             <version>2.3.1</version>
         </dependency>
-        <dependency>
-            <groupId>com.sun.xml.ws</groupId>
-            <artifactId>jaxws-rt</artifactId>
-            <version>2.3.3</version>
-            <type>pom</type>
-        </dependency>
-        <dependency>
-            <groupId>com.sun.xml.ws</groupId>
-            <artifactId>jaxws-rt</artifactId>
-            <version>4.0.2</version>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.xml.bind</groupId>
-            <artifactId>jakarta.xml.bind-api</artifactId>
-            <version>4.0.2</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/com.sun.xml.ws/jaxws-ri -->
-        <dependency>
-            <groupId>com.sun.xml.ws</groupId>
-            <artifactId>jaxws-ri</artifactId>
-            <version>2.3.2</version>
-            <type>pom</type>
-        </dependency>
+        <!-- removed duplicate jaxws/jaxb entries -->
         <!-- https://mvnrepository.com/artifact/javax.annotation/javax.annotation-api -->
         <dependency>
             <groupId>javax.annotation</groupId>
@@ -322,18 +282,38 @@
 
 
 
+
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <release>${java.version}</release>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.38</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- Temporarily disabled due to javax/jakarta conflicts -->
+            <!--
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
+                <groupId>com.sun.xml.ws</groupId>
                 <artifactId>jaxws-maven-plugin</artifactId>
-                <version>2.6</version>
+                <version>4.0.0</version>
                 <executions>
                     <execution>
                         <id>wsimport-from-wsdl</id>
@@ -342,7 +322,6 @@
                         </goals>
                         <configuration>
                             <wsdlUrls>
-                                <!-- Use file path or URL -->
                                 <wsdlUrl>file:src/main/java/com/example/stage2025/supplier.wsdl</wsdlUrl>
                             </wsdlUrls>
                             <packageName>com.supplier.ws</packageName>
@@ -351,6 +330,7 @@
                     </execution>
                 </executions>
             </plugin>
+            -->
 
 
 

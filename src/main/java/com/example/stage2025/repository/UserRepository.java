@@ -14,5 +14,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
   boolean existsByEmail(String email);
   boolean existsByUsernameOrEmail(String username, String email);
   boolean existsByRole(Role role);
-
+  
+  // Dashboard statistics methods
+  long countByCreatedAtAfter(java.time.LocalDateTime date);
+  long countByCreatedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

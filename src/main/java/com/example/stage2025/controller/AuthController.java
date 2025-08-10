@@ -96,7 +96,7 @@ public class AuthController {
         }
     }
 
-    /** --- 3. Login + 2FA (OTP sent after password is correct) --- */
+    /** --- 3. Login (Admins get direct JWT, Users get OTP) --- */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req) {
         try {
@@ -115,8 +115,15 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Account not activated."));
         }
 
-        otpService.sendOtp(user.getEmail(), user.getId(), "LOGIN");
-        return ResponseEntity.ok(new ApiResponse("OTP_REQUIRED", "OTP sent to your email. Please verify to complete login."));
+        // Admins skip OTP and get direct JWT token for better UX
+        if (user.getRole() == Role.ADMIN) {
+            String token = jwtUtils.generateToken(user);
+            return ResponseEntity.ok(new JwtResponse(token, user.getUsername(), user.getEmail(), user.getRole().name()));
+        } else {
+            // Regular users still need OTP verification
+            otpService.sendOtp(user.getEmail(), user.getId(), "LOGIN");
+            return ResponseEntity.ok(new ApiResponse("OTP_REQUIRED", "OTP sent to your email. Please verify to complete login."));
+        }
     }
 
     /** --- 4. Complete Login with OTP (return JWT) --- */

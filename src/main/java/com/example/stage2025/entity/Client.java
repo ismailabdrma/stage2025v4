@@ -9,8 +9,8 @@ import java.util.List;
 
 @Entity
 @PrimaryKeyJoinColumn(name = "user_id")
-@Getter
-@Setter
+@Data
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 public class Client extends User {
 
@@ -27,9 +27,10 @@ public class Client extends User {
     private List<Order> orders;
 
     public Client(String username, String email, String password, Role role) {
-        this.setUsername(username);
-        this.setEmail(email);
-        this.setPassword(password);
-        this.setRole(role);
+        super();
+        super.setUsername(username);
+        super.setEmail(email);
+        super.setPassword(password);
+        super.setRole(role);
     }
 }

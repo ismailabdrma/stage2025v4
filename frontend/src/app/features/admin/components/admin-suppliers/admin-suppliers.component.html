@@ -1,10 +1,16 @@
 <div class="admin-suppliers-container">
     <div class="header">
         <h2>Manage Suppliers</h2>
-        <button mat-raised-button color="primary" (click)="openCreateSupplierDialog()">
-            <mat-icon>add</mat-icon>
-            Add Supplier
-        </button>
+        <div class="header-buttons">
+            <button mat-raised-button color="accent" (click)="refreshAllSoapMetadata()">
+                <mat-icon>refresh</mat-icon>
+                Refresh All SOAP
+            </button>
+            <button mat-raised-button color="primary" (click)="openCreateSupplierDialog()">
+                <mat-icon>add</mat-icon>
+                Add Supplier
+            </button>
+        </div>
     </div>
     <mat-card>
         <mat-card-content>
@@ -41,9 +47,14 @@
                         <button mat-icon-button color="warn" (click)="deleteSupplier(supplier.id)">
  <mat-icon>delete</mat-icon>
  </button>
- <button mat-icon-button color="primary" (click)="importProducts(supplier.id)">
-                            <mat-icon>cloud_upload</mat-icon>
+                        <button mat-icon-button color="primary" (click)="fileInput.click()" matTooltip="Import Excel">
+                            <mat-icon>upload_file</mat-icon>
                         </button>
+                        <button mat-icon-button color="accent" *ngIf="supplier.type === 'SOAP'" 
+                                (click)="refreshSupplierMetadata(supplier.id)" matTooltip="Refresh SOAP Metadata">
+                            <mat-icon>sync</mat-icon>
+                        </button>
+                        <input type="file" #fileInput accept=".xlsx,.xls" style="display:none" (change)="onExcelSelected($event, supplier.id)">
                     </td>
                 </ng-container>
                 <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -52,3 +63,17 @@
         </mat-card-content>
     </mat-card>
 </div>
+
+<style>
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 10px;
+}
+</style>

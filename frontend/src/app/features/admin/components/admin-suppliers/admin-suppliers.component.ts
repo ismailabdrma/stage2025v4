@@ -118,5 +118,54 @@ export class AdminSuppliersComponent implements OnInit {
             }
         });
     }
+
+  onExcelSelected(event: Event, supplierId: number): void {
+    const input = event.target as HTMLInputElement
+    const file = input.files && input.files[0]
+    if (!file) return
+    this.supplierService.uploadExcel(file, supplierId).subscribe({
+      next: () => {
+        this.snackBar.open('Excel uploaded and import started.', 'Close', { duration: 3000 })
+      },
+      error: (err) => {
+        console.error('Excel upload failed', err)
+        this.snackBar.open('Excel upload failed.', 'Close', { duration: 3000 })
+      }
+    })
+    // reset input
+    input.value = ''
+  }
+
+  refreshSupplierMetadata(supplierId: number): void {
+    this.supplierService.refreshMetadata(supplierId).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.snackBar.open('Metadata refreshed successfully!', 'Close', { duration: 3000 })
+        } else {
+          this.snackBar.open(response.message, 'Close', { duration: 3000 })
+        }
+      },
+      error: (err) => {
+        console.error('Failed to refresh metadata', err)
+        this.snackBar.open('Failed to refresh metadata.', 'Close', { duration: 3000 })
+      }
+    })
+  }
+
+  refreshAllSoapMetadata(): void {
+    this.supplierService.refreshAllSoapMetadata().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.snackBar.open(`${response.message}`, 'Close', { duration: 5000 })
+        } else {
+          this.snackBar.open(response.message, 'Close', { duration: 3000 })
+        }
+      },
+      error: (err) => {
+        console.error('Failed to refresh all SOAP metadata', err)
+        this.snackBar.open('Failed to refresh all SOAP metadata.', 'Close', { duration: 3000 })
+      }
+    })
+  }
 }
 

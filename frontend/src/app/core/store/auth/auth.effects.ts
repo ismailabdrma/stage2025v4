@@ -19,19 +19,23 @@ export class AuthEffects {
             exhaustMap(({ request }) =>
                 this.authService.login(request).pipe(
                     mergeMap((response : any) => {
-                        // TODO: Handle successful login with JWT token response and dispatch AuthActions.loginComplete
                         if (response && response.status === "OTP_REQUIRED") {
-                            // Redirect to verify-otp page with email as query param
+                            // Regular users need OTP verification
                             this.router.navigate(["/auth/verify-otp"], {
-
                                 queryParams: { email: request.identifier }
                             });
                             return [
                                 AuthActions.loginRequiresOTP({ email: request.identifier }),
                                 AuthActions.loginSuccess({ message: "OTP sent to your email. Please verify." })
                             ];
+                        } else if (response && response.token) {
+                            // Admin users get JWT token directly - handle it
+                            this.authService.setToken(response.token);
+                            return this.authService.getCurrentUser().pipe(
+                                map((user) => AuthActions.loginComplete({ response, user })),
+                                catchError((error) => of(AuthActions.authError({ error: error.message })))
+                            );
                         } else {
-                            // If backend returns a JWT, handle that here (future)
                             return [AuthActions.authError({ error: "Unexpected response from server." })];
                         }
                     }),
@@ -63,12 +67,18 @@ export class AuthEffects {
         )
     );
 
-    // After login/OTP, go to home
+    // After login/OTP, route by role
     loginSuccess$ = createEffect(
         () =>
             this.actions$.pipe(
                 ofType(AuthActions.loginComplete),
-                tap(() => this.router.navigate(["/"]))
+                tap(({ user }: any) => {
+                    if (user?.role === 'ADMIN') {
+                        this.router.navigate(["/admin"]);
+                    } else {
+                        this.router.navigate(["/"]);
+                    }
+                })
             ),
         { dispatch: false }
     );

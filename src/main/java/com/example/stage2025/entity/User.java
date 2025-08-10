@@ -5,8 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
 @Entity
 @Inheritance(strategy = InheritanceType.JOINED)
 @NoArgsConstructor
@@ -17,6 +16,9 @@ public abstract class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, nullable = false)
+    private String username;
+    
     private String firstName;
     private String lastName;
 
@@ -28,22 +30,19 @@ public abstract class User {
     private boolean active = true;
     private boolean emailVerified = false;
 
-    private LocalDateTime created;
-    private LocalDateTime updated;
-
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    @Column(nullable = false, unique = true)
-    private String username;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.created = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updated = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 }

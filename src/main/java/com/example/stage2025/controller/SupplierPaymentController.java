@@ -40,7 +40,7 @@ public class SupplierPaymentController {
     @GetMapping("/supplier/{supplierId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<SupplierPaymentDto>> getBySupplier(@PathVariable Long supplierId) {
-        return ResponseEntity.ok(supplierPaymentService.getPaymentsBySupplierId(supplierId));
+        return ResponseEntity.ok(supplierPaymentService.getPaymentsBySupplier(supplierId));
     }
 
     /**

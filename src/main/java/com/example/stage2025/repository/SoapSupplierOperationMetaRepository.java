@@ -9,4 +9,5 @@ import java.util.List;
 
 public interface SoapSupplierOperationMetaRepository extends JpaRepository<SoapSupplierOperationMeta, Long> {
     List<SoapSupplierOperationMeta> findBySupplier(SoapSupplier supplier);
+    void deleteBySupplier(SoapSupplier supplier);
 }

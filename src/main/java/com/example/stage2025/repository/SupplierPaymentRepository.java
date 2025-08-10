@@ -33,4 +33,7 @@ public interface SupplierPaymentRepository extends JpaRepository<SupplierPayment
     
     @Query("SELECT sp FROM SupplierPayment sp WHERE sp.scheduledDate < :date AND sp.status = 'PENDING'")
     List<SupplierPayment> findOverduePayments(@Param("date") LocalDateTime date);
+    
+    // Dashboard statistics methods
+    List<SupplierPayment> findBySupplierAndStatus(com.example.stage2025.entity.Supplier supplier, PaymentStatus status);
 }

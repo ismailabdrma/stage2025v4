@@ -317,6 +317,144 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    public void sendUserSuspensionNotification(User user, String reason) {
+        try {
+            String subject = "Suspension de votre compte Stage2025";
+            String content = String.format("""
+                Bonjour %s,
+                
+                Nous vous informons que votre compte Stage2025 a été temporairement suspendu.
+                
+                Raison: %s
+                
+                Si vous pensez qu'il s'agit d'une erreur ou si vous souhaitez faire appel de cette décision,
+                veuillez contacter notre équipe de support à support@stage2025.com
+                
+                L'équipe Stage2025
+                """, user.getUsername(), reason);
+
+            sendSimpleEmail(user.getEmail(), subject, content);
+            
+        } catch (Exception e) {
+            log.error("Failed to send suspension notification to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendUserReactivationNotification(User user) {
+        try {
+            String subject = "Réactivation de votre compte Stage2025";
+            String content = String.format("""
+                Bonjour %s,
+                
+                Bonne nouvelle! Votre compte Stage2025 a été réactivé.
+                
+                Vous pouvez maintenant:
+                • Vous connecter à votre compte
+                • Passer des commandes
+                • Accéder à tous les services
+                
+                Connexion: %s/auth/login
+                
+                Merci de votre patience.
+                
+                L'équipe Stage2025
+                """, user.getUsername(), baseUrl);
+
+            sendSimpleEmail(user.getEmail(), subject, content);
+            
+        } catch (Exception e) {
+            log.error("Failed to send reactivation notification to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendRoleChangeNotification(User user, com.example.stage2025.enums.Role oldRole, com.example.stage2025.enums.Role newRole) {
+        try {
+            String subject = "Modification de votre rôle Stage2025";
+            String content = String.format("""
+                Bonjour %s,
+                
+                Votre rôle sur Stage2025 a été modifié par un administrateur.
+                
+                Ancien rôle: %s
+                Nouveau rôle: %s
+                
+                Cette modification peut affecter vos permissions et l'accès à certaines fonctionnalités.
+                
+                Si vous avez des questions, contactez notre équipe de support.
+                
+                Connexion: %s/auth/login
+                
+                L'équipe Stage2025
+                """, user.getUsername(), oldRole.name(), newRole.name(), baseUrl);
+
+            sendSimpleEmail(user.getEmail(), subject, content);
+            
+        } catch (Exception e) {
+            log.error("Failed to send role change notification to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendPasswordResetByAdmin(User user, String tempPassword) {
+        try {
+            String subject = "Réinitialisation de votre mot de passe Stage2025";
+            String content = String.format("""
+                Bonjour %s,
+                
+                Votre mot de passe Stage2025 a été réinitialisé par un administrateur.
+                
+                Mot de passe temporaire: %s
+                
+                IMPORTANT:
+                • Utilisez ce mot de passe temporaire pour vous connecter
+                • Changez immédiatement votre mot de passe après connexion
+                • Ce mot de passe temporaire expirera dans 24 heures
+                
+                Connexion: %s/auth/login
+                
+                Pour votre sécurité, ne partagez jamais vos identifiants.
+                
+                L'équipe Stage2025
+                """, user.getUsername(), tempPassword, baseUrl);
+
+            sendSimpleEmail(user.getEmail(), subject, content);
+            
+        } catch (Exception e) {
+            log.error("Failed to send password reset notification to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendForcePasswordChangeNotification(User user) {
+        try {
+            String subject = "Changement de mot de passe requis - Stage2025";
+            String content = String.format("""
+                Bonjour %s,
+                
+                Pour des raisons de sécurité, vous devez changer votre mot de passe Stage2025.
+                
+                Lors de votre prochaine connexion, vous serez invité à définir un nouveau mot de passe.
+                
+                Recommandations pour un mot de passe sécurisé:
+                • Au moins 8 caractères
+                • Mélange de lettres, chiffres et symboles
+                • Évitez les mots de passe faciles à deviner
+                
+                Connexion: %s/auth/login
+                
+                L'équipe Stage2025
+                """, user.getUsername(), baseUrl);
+
+            sendSimpleEmail(user.getEmail(), subject, content);
+            
+        } catch (Exception e) {
+            log.error("Failed to send force password change notification to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
     private void sendSimpleEmail(String to, String subject, String content) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();

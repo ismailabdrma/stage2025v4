@@ -4,6 +4,8 @@ package com.example.stage2025.controller;
 import com.example.stage2025.dto.CartDto;
 import com.example.stage2025.dto.CartItemDto;
 import com.example.stage2025.service.CartService;
+import com.example.stage2025.repository.UserRepository;
+import com.example.stage2025.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -15,12 +17,14 @@ import org.springframework.web.bind.annotation.*;
 public class CartController {
 
     private final CartService cartService;
+    private final UserRepository userRepository;
 
-    // Helper to get client ID from authentication (adapt as needed)
+    // Helper to get client ID from authentication
     private Long getClientId(Authentication auth) {
-        // You can extract clientId from JWT claims or UserDetails.
-        // Here, assume username == clientId (as String).
-        return Long.valueOf(auth.getName());
+        String principal = auth.getName(); // username or email
+        return userRepository.findByUsernameOrEmail(principal, principal)
+                .map(User::getId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found for principal: " + principal));
     }
 
     /** 1. Get current user's cart */

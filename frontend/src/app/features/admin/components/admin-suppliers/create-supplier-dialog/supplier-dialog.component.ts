@@ -42,7 +42,7 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                         <mat-option value="SOAP">SOAP</mat-option>
                     </mat-select>
                 </mat-form-field>
-                <mat-form-field class="full-width">
+                <mat-form-field class="full-width" *ngIf="supplierForm.get('type')?.value !== 'SOAP'">
                     <mat-label>Endpoint / File URL</mat-label>
                     <input matInput formControlName="url" required placeholder="API endpoint or file path">
                 </mat-form-field>
@@ -52,6 +52,18 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                         <mat-label>WSDL URL</mat-label>
                         <input matInput formControlName="wsdlUrl" (blur)="loadSoapOperations()" required>
                         <mat-hint>Enter WSDL, then select operation below</mat-hint>
+                    </mat-form-field>
+                    <mat-form-field class="full-width">
+                        <mat-label>Namespace</mat-label>
+                        <input matInput formControlName="namespace" required placeholder="http://supplier.com/ws">
+                    </mat-form-field>
+                    <mat-form-field class="full-width">
+                        <mat-label>Username (optional)</mat-label>
+                        <input matInput formControlName="username">
+                    </mat-form-field>
+                    <mat-form-field class="full-width">
+                        <mat-label>Password (optional)</mat-label>
+                        <input matInput type="password" formControlName="password">
                     </mat-form-field>
                     <mat-form-field class="full-width">
                         <mat-label>SOAP Operation</mat-label>
@@ -94,8 +106,11 @@ export class CreateSupplierDialogComponent {
         this.supplierForm = this.fb.group({
             name: [data?.name || '', Validators.required],
             type: [data?.type || 'API', Validators.required],
-            url: [data?.url || '', Validators.required],
+            url: [data?.url || ''],
             wsdlUrl: [data?.wsdlUrl || '', data?.type === 'SOAP' ? Validators.required : []],
+            namespace: [data?.namespace || '', data?.type === 'SOAP' ? Validators.required : []],
+            username: [data?.username || ''],
+            password: [data?.password || ''],
             operation: [data?.operation || '', data?.type === 'SOAP' ? Validators.required : []]
         });
     }
@@ -143,12 +158,37 @@ export class CreateSupplierDialogComponent {
  });
             });
         } else {
-            this.supplierService.createSupplier(supplier).subscribe(() => {
- this.snackBar.open('Supplier created successfully!', 'Close', {
- duration: 3000,
- });
+            const body = supplier.type === 'SOAP'
+              ? {
+                  name: supplier.name,
+                  type: 'SOAP',
+                  wsdlUrl: supplier.wsdlUrl,
+                  namespace: supplier.namespace,
+                  username: supplier.username || undefined,
+                  password: supplier.password || undefined,
+                }
+              : supplier
+            const req$ = supplier.type === 'SOAP'
+              ? this.supplierService.createSupplierAutoSoap(body)
+              : this.supplierService.createSupplier(body)
+            req$.subscribe((created: any) => {
+              // Auto-refresh metadata for SOAP and close after success
+              if (supplier.type === 'SOAP' && created?.id) {
+                this.supplierService.refreshMetadata(created.id).subscribe({
+                  next: () => {
+                    this.snackBar.open('Supplier created and metadata loaded!', 'Close', { duration: 3000 });
+                    this.dialogRef.close(true);
+                  },
+                  error: () => {
+                    this.snackBar.open('Supplier created but metadata refresh failed.', 'Close', { duration: 3000 });
+                    this.dialogRef.close(true);
+                  }
+                })
+              } else {
+                this.snackBar.open('Supplier created successfully!', 'Close', { duration: 3000 });
                 this.dialogRef.close(true);
- }, error => {
+              }
+            }, error => {
  console.error('Error creating supplier:', error);
  this.snackBar.open('Failed to create supplier.', 'Close', { duration: 3000 });
             });

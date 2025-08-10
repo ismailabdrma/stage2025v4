@@ -1,12 +1,13 @@
 // src/app/core/services/supplier.service.ts
 import { Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
+import { environment } from "@environments/environment";
 import { Observable } from "rxjs";
 import type { Supplier } from "@core/models/supplier.model";
 
 @Injectable({ providedIn: "root" })
 export class SupplierService {
-    private api = "/api/suppliers";
+    private api = `${environment.apiUrl}/api/suppliers`;
 
     constructor(private http: HttpClient) {}
 
@@ -17,6 +18,19 @@ export class SupplierService {
     createSupplier(supplier: any): Observable<Supplier> {
         return this.http.post<Supplier>(this.api, supplier);
     }
+
+  // Create SOAP supplier and auto-extract WSDL operations on backend
+  createSupplierAutoSoap(supplier: any): Observable<Supplier> {
+    return this.http.post<Supplier>(`${this.api}/auto-soap`, supplier)
+  }
+
+  // Upload Excel file for a supplier import
+  uploadExcel(file: File, supplierId: number): Observable<any> {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('supplierId', String(supplierId))
+    return this.http.post(`${environment.apiUrl}/api/admin/product-import/excel`, form)
+  }
 
     updateSupplier(id: number, supplier: any): Observable<Supplier> {
         return this.http.put<Supplier>(`${this.api}/${id}`, supplier);
@@ -36,5 +50,13 @@ export class SupplierService {
 
     importProducts(id: number): Observable<any> {
         return this.http.post<any>(`${this.api}/${id}/import-products`, {});
+    }
+
+    refreshMetadata(id: number): Observable<any> {
+        return this.http.post<any>(`${this.api}/${id}/refresh-metadata`, {});
+    }
+
+    refreshAllSoapMetadata(): Observable<any> {
+        return this.http.post<any>(`${this.api}/refresh-all-soap-metadata`, {});
     }
 }

@@ -1,135 +1,103 @@
-import { Component, type OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { FormsModule } from '@angular/forms';
-import { CategoryService } from '@core/services/category.service'; // Using CategoryService for categories
-import type { Category } from '@core/models/product.model';
-import { CategoryDialogComponent } from '../category-dialog/category-dialog.component';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { CategoryService } from '@core/services/category.service';
 
-import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confirm-dialog.component';
 @Component({
   selector: 'app-admin-categories',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatTableModule,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatDialogModule,
-    MatProgressSpinnerModule,
-    MatSnackBarModule,
-    MatPaginatorModule,
-    MatFormFieldModule,
-    MatInputModule,
-    FormsModule,
-  ],
-  templateUrl: './admin-categories.component.html',
-  styleUrl: './admin-categories.component.scss',
+  imports: [CommonModule, FormsModule, MatTableModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
+  template: `
+  <div class="admin-categories">
+    <h2>Categories</h2>
+
+    <div class="create-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Name</mat-label>
+        <input matInput [(ngModel)]="newName" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Description</mat-label>
+        <input matInput [(ngModel)]="newDesc" />
+      </mat-form-field>
+      <button mat-raised-button color="primary" (click)="create()">Add</button>
+    </div>
+
+    <table mat-table [dataSource]="rows" class="mat-elevation-z1">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Name</th>
+        <td mat-cell *matCellDef="let r">
+          <input [(ngModel)]="r.name" />
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="description">
+        <th mat-header-cell *matHeaderCellDef>Description</th>
+        <td mat-cell *matCellDef="let r">
+          <input [(ngModel)]="r.description" />
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let r">
+          <button mat-icon-button color="primary" (click)="update(r)"><mat-icon>save</mat-icon></button>
+          <button mat-icon-button color="warn" (click)="remove(r)"><mat-icon>delete</mat-icon></button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="cols"></tr>
+      <tr mat-row *matRowDef="let row; columns: cols;"></tr>
+    </table>
+  </div>
+  `,
+  styles: [`
+    .admin-categories { padding: 16px; }
+    .create-row { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+    table { width: 100%; }
+    td input { width: 100%; }
+  `]
 })
 export class AdminCategoriesComponent implements OnInit {
-  private categoryService = inject(CategoryService);
-  private dialog = inject(MatDialog);
-  private snackBar = inject(MatSnackBar);
+  private service = inject(CategoryService);
+  private snack = inject(MatSnackBar);
 
-  categories: Category[] = [];
-  filtered: Category[] = [];
-  loading = true;
-  displayedColumns: string[] = ['name', 'actions'];
+  rows: any[] = [];
+  cols = ['name', 'description', 'actions'];
+  newName = '';
+  newDesc = '';
 
-  // Search & pagination
-  searchTerm = '';
-  pageIndex = 0;
-  pageSize = 10;
+  ngOnInit(): void { this.load(); }
 
-  ngOnInit(): void {
-    this.loadCategories();
+  load(): void {
+    this.service.getCategories().subscribe({ next: (data) => this.rows = data });
   }
 
-  loadCategories(): void {
-    this.loading = true;
-    this.categoryService.getCategories().subscribe({
-      next: (categories) => {
-        this.categories = categories;
-        this.applyFilter();
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('Error loading categories:', error);
-        this.snackBar.open('Failed to load categories.', 'Close', { duration: 3000 });
-        this.loading = false;
-      },
+  create(): void {
+    if (!this.newName.trim()) { return; }
+    this.service.createCategory({ name: this.newName, description: this.newDesc, active: true }).subscribe({
+      next: () => { this.snack.open('Category created', 'Close', { duration: 2000 }); this.newName=''; this.newDesc=''; this.load(); },
+      error: () => this.snack.open('Failed to create category', 'Close', { duration: 3000 })
     });
   }
 
-  applyFilter(): void {
-    const term = this.searchTerm.toLowerCase().trim();
-    this.filtered = this.categories.filter(c => !term || c.name.toLowerCase().includes(term));
-    this.pageIndex = 0;
-  }
-
-  onPage(event: PageEvent): void {
-    this.pageIndex = event.pageIndex;
-    this.pageSize = event.pageSize;
-  }
-
-  get paged(): Category[] {
-    const start = this.pageIndex * this.pageSize;
-    return this.filtered.slice(start, start + this.pageSize);
-  }
-
-  openCategoryDialog(category?: Category): void {
-    const dialogRef = this.dialog.open(CategoryDialogComponent, {
-      width: '400px',
-      data: category, // Pass category data for editing
-    });
-
-    dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
-        if (result.id) {
-          this.snackBar.open('Category updated successfully!', 'Close', { duration: 3000 });
-        } else {
-          this.snackBar.open('Category added successfully!', 'Close', { duration: 3000 });
-        }
-        this.loadCategories();
-      }
+  update(r: any): void {
+    this.service.updateCategory(r.id, { name: r.name, description: r.description, active: true }).subscribe({
+      next: () => this.snack.open('Category updated', 'Close', { duration: 2000 }),
+      error: () => this.snack.open('Failed to update category', 'Close', { duration: 3000 })
     });
   }
 
-  editCategory(category: Category): void {
-    this.openCategoryDialog(category);
-  }
-
-  deleteCategory(id: number): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        title: 'Confirm Deletion',
-        message: 'Are you sure you want to delete this category?',
-      },
-    });
-
-    dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
-        this.categoryService.deleteCategory(id).subscribe({
-          next: () => {
-            this.snackBar.open('Category deleted successfully!', 'Close', { duration: 3000 });
-            this.loadCategories();
-          },
-          error: (error) => {
-            console.error('Error deleting category:', error);
-            this.snackBar.open('Failed to delete category.', 'Close', { duration: 3000 });
-          },
-        });
-      }
+  remove(r: any): void {
+    this.service.deleteCategory(r.id).subscribe({
+      next: () => { this.snack.open('Category deleted', 'Close', { duration: 2000 }); this.load(); },
+      error: () => this.snack.open('Failed to delete category', 'Close', { duration: 3000 })
     });
   }
 }

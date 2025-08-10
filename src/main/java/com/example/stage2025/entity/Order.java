@@ -49,13 +49,13 @@ public class Order {
     
     private LocalDateTime deliveryDate;
 
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(nullable = false)
     private Double subtotal;
     
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(nullable = false)
     private Double shippingFee;
     
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(nullable = false)
     private Double total;
 
     @Column(length = 1000)

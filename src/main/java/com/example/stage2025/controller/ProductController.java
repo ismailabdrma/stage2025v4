@@ -126,4 +126,62 @@ public class ProductController {
         List<ProductDto> products = productService.getSuggestedProducts(id);
         return ResponseEntity.ok(products);
     }
+    
+    // --- Admin: Product approval endpoints ---
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductDto>> getPendingProducts() {
+        return ResponseEntity.ok(productService.getPendingProducts());
+    }
+    
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductDto> approveProduct(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.approveProduct(id));
+    }
+    
+    @DeleteMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> rejectProduct(@PathVariable Long id) {
+        productService.rejectProduct(id);
+        return ResponseEntity.noContent().build();
+    }
+    
+    @PutMapping("/approve-multiple")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductDto>> approveMultipleProducts(@RequestBody java.util.Map<String, List<Long>> request) {
+        List<Long> productIds = request.get("productIds");
+        return ResponseEntity.ok(productService.approveMultipleProducts(productIds));
+    }
+    
+    @PutMapping("/{id}/suspend")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductDto> suspendProduct(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.suspendProduct(id));
+    }
+    
+    @DeleteMapping("/{id}/permanent")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> permanentDeleteProduct(@PathVariable Long id) {
+        productService.permanentDeleteProduct(id);
+        return ResponseEntity.noContent().build();
+    }
+    
+    @PutMapping("/bulk-update")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductDto>> bulkUpdateProducts(@RequestBody java.util.Map<String, Object> request) {
+        @SuppressWarnings("unchecked")
+        List<Long> productIds = (List<Long>) request.get("productIds");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> updateData = (java.util.Map<String, Object>) request.get("updateData");
+        
+        // Convert map to ProductDto (simplified)
+        ProductDto updateDto = new ProductDto();
+        if (updateData.containsKey("name")) updateDto.setName((String) updateData.get("name"));
+        if (updateData.containsKey("description")) updateDto.setDescription((String) updateData.get("description"));
+        if (updateData.containsKey("displayedPrice")) updateDto.setDisplayedPrice(((Number) updateData.get("displayedPrice")).doubleValue());
+        if (updateData.containsKey("categoryName")) updateDto.setCategoryName((String) updateData.get("categoryName"));
+        
+        return ResponseEntity.ok(productService.bulkUpdateProducts(productIds, updateDto));
+    }
 }

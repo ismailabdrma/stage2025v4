@@ -1,8 +1,9 @@
-<div class="product-card">
-  <img [src]="product.imageUrl || 'placeholder.jpg'" alt="{{ product.name }}" class="product-image">
-  <div class="product-details">
+<a class="product-card" [routerLink]="['/products', product.id]">
+  <img [src]="(product.imageUrls && product.imageUrls.length ? product.imageUrls[0] : 'assets/placeholder.png')"
+       [alt]="product.name"
+       class="product-image">
+  <div class="product-info">
     <h3>{{ product.name }}</h3>
-    <p class="product-price">{{ product.price | currency }}</p>
-    <!-- Add more details like badges (promo, stock) later -->
+    <div class="price">{{ product.displayedPrice | currency }}</div>
   </div>
-</div>
+</a>
