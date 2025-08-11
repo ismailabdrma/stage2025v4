@@ -12,6 +12,7 @@ C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\repository
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\config\DataSeeder.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\dto\SupplierPaymentSummaryDto.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\entity\ActivityLog.java
+C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\exception\GlobalExceptionHandler.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\utils\JsonUtils.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\controller\AdminSupplierPaymentController.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\service\DashboardService.java
@@ -117,6 +118,7 @@ C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\dto\Produc
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\enums\Role.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\repository\ExcelSupplierRepository.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\entity\OrderItem.java
+C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\exception\ErrorResponse.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\config\WebConfig.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\entity\Payment.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\service\parser\XmlProductParser.java
@@ -148,6 +150,7 @@ C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\mapper\Add
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\mapper\UserMapper.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\dto\AddressDto.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\service\impl\OtpServiceImpl.java
+C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\dto\CreateSupplierDto.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\controller\ProductImportController.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\repository\CartRepository.java
 C:\Users\asus\Desktop\stage2025v2\src\main\java\com\example\stage2025\service\impl\EnterpriseOrderService.java

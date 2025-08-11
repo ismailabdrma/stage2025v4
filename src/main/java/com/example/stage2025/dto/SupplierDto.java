@@ -17,6 +17,9 @@ public class SupplierDto {
     private String apiUrl;
     private String apiKey;
     private String authMethod;
+    private String dataFormat;           // JSON, XML
+    private String productsEndpoint;     // /products
+    private String singleEndpoint;       // /product/{id}
     private String fileName;
     private String filePath;
     private String wsdlUrl;
@@ -33,4 +36,9 @@ public class SupplierDto {
     private boolean hasOwnPaymentSystem = false;
     private String paymentApiEndpoint;
     private String commissionApiEndpoint;
+    private String customPaymentSchedule;
+    private String customPaymentDays;
+    private Integer customPaymentHour = 18;
+    private Integer minimumPaymentAmount = 50;
+    private Integer maximumPaymentDelay = 30;
 }

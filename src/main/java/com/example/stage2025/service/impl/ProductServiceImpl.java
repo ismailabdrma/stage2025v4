@@ -70,6 +70,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public ProductDto updateProduct(Long id, ProductDto dto) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec ID " + id));
@@ -88,7 +89,11 @@ public class ProductServiceImpl implements ProductService {
         product.setCategory(category);
         product.setSupplier(supplier);
 
-        return ProductMapper.toDto(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        // Reload with eager graph to avoid LazyInitializationException in mapper
+        Product reloaded = productRepository.findById(saved.getId())
+                .orElse(saved);
+        return ProductMapper.toDto(reloaded);
     }
 
     @Override

@@ -2,6 +2,7 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
+import { environment } from '@environments/environment';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
     const authService = inject(AuthService);
@@ -21,7 +22,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     // Check if the request URL ends with one of the above endpoints
     const shouldSkipAuth = noAuthEndpoints.some((endpoint) => req.url.endsWith(endpoint));
 
-    if (token && !shouldSkipAuth) {
+    // Only attach token for same-origin or API base URL
+    const isRelative = req.url.startsWith('/');
+    const isApiBase = req.url.startsWith(environment.apiUrl);
+    const isSameOrigin = isRelative || isApiBase;
+
+    if (token && !shouldSkipAuth && isSameOrigin) {
         return next(
             req.clone({
                 setHeaders: {

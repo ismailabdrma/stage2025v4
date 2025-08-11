@@ -41,9 +41,16 @@ public class SoapMetadataRefreshService {
         
         for (SoapSupplier supplier : soapSuppliers) {
             try {
+                if (supplier.getWsdlUrl() == null || supplier.getWsdlUrl().isBlank()) {
+                    log.warn("Skipping metadata refresh for supplier {} - no WSDL URL configured", supplier.getName());
+                    continue;
+                }
+                
                 refreshSupplierMetadata(supplier);
             } catch (Exception e) {
-                log.error("Failed to refresh metadata for supplier {}: {}", supplier.getName(), e.getMessage());
+                log.error("Failed to refresh metadata for supplier {} with WSDL {}: {}", 
+                         supplier.getName(), supplier.getWsdlUrl(), e.getMessage());
+                // Continue processing other suppliers even if one fails
             }
         }
         
@@ -56,15 +63,49 @@ public class SoapMetadataRefreshService {
     @Transactional
     public boolean refreshSupplierMetadata(SoapSupplier supplier) {
         try {
-            log.info("Refreshing SOAP metadata for supplier: {}", supplier.getName());
+            log.info("🔄 Refreshing SOAP metadata for supplier: '{}' with WSDL: {}", 
+                    supplier.getName(), supplier.getWsdlUrl());
             
-            // Fetch latest operation metadata from WSDL
-            List<SoapOperationMeta> latestOps = WsdlFullMetadataUtils.getAllOperationMetadata(supplier.getWsdlUrl());
-            
-            if (latestOps.isEmpty()) {
-                log.warn("No operations found in WSDL for supplier: {}", supplier.getName());
+            // Validate WSDL URL first
+            if (supplier.getWsdlUrl() == null || supplier.getWsdlUrl().isBlank()) {
+                log.error("❌ WSDL URL is null or empty for supplier: {}", supplier.getName());
                 return false;
             }
+            
+            // Test WSDL connectivity first
+            try {
+                java.net.URL url = new java.net.URL(supplier.getWsdlUrl());
+                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
+                
+                int responseCode = connection.getResponseCode();
+                if (responseCode != 200) {
+                    log.error("❌ WSDL not accessible - HTTP {}: {}", responseCode, supplier.getWsdlUrl());
+                    return false;
+                }
+                log.info("✅ WSDL accessible - HTTP {}: {}", responseCode, supplier.getWsdlUrl());
+            } catch (Exception e) {
+                log.error("❌ Failed to connect to WSDL {}: {}", supplier.getWsdlUrl(), e.getMessage());
+                return false;
+            }
+            
+            // Fetch latest operation metadata from WSDL
+            log.debug("📡 Fetching operation metadata from WSDL...");
+            List<SoapOperationMeta> latestOps = WsdlFullMetadataUtils.getAllOperationMetadata(supplier.getWsdlUrl());
+            
+            log.info("📊 Found {} operations in WSDL for supplier: {}", latestOps.size(), supplier.getName());
+            
+            if (latestOps.isEmpty()) {
+                log.warn("⚠️  No operations found in WSDL for supplier: {} - WSDL might be invalid or empty", supplier.getName());
+                return false;
+            }
+            
+            // Log found operations for debugging
+            log.debug("📋 Operations found:");
+            latestOps.forEach(op -> log.debug("  - Operation: '{}', Input: '{}', Output: '{}'", 
+                    op.getOperationName(), op.getInputElement(), op.getOutputElement()));
             
             // Check if metadata has changed
             if (hasMetadataChanged(supplier, latestOps)) {
@@ -217,4 +258,5 @@ public class SoapMetadataRefreshService {
         return updatedCount;
     }
 }
+
 

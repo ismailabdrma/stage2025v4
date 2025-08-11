@@ -29,9 +29,18 @@ public class ProductMapper {
                 .collect(Collectors.toList()) 
             : List.of();
         dto.setImageUrls(processedImageUrls);
-        dto.setCategoryName(p.getCategory() != null ? p.getCategory().getName() : null);
+        // Guard against LazyInitialization if category is proxy and session closed
+        try {
+            dto.setCategoryName(p.getCategory() != null ? p.getCategory().getName() : null);
+        } catch (Exception ignored) {
+            dto.setCategoryName(null);
+        }
         // Avoid lazy init: use supplierRef or safe access
-        dto.setSupplierName(p.getSupplier() != null ? p.getSupplier().getName() : p.getSupplierRef());
+        try {
+            dto.setSupplierName(p.getSupplier() != null ? p.getSupplier().getName() : p.getSupplierRef());
+        } catch (Exception ignored) {
+            dto.setSupplierName(p.getSupplierRef());
+        }
 
         dto.setExternalProductId(p.getExternalProductId()); // <-- ADD THIS LINE
 
@@ -48,6 +57,10 @@ public class ProductMapper {
         
         // If it's already a proxy URL, don't double-wrap
         if (originalUrl.startsWith("/api/images/proxy")) {
+            return originalUrl;
+        }
+        // If it's a data URL, return as-is so the browser can render directly
+        if (originalUrl.startsWith("data:")) {
             return originalUrl;
         }
         

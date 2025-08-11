@@ -9,6 +9,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Base64;
 
 @RestController
 @RequestMapping("/api/images")
@@ -17,6 +18,26 @@ public class ImageController {
     @GetMapping("/proxy")
     public ResponseEntity<byte[]> proxyImage(@RequestParam String url) {
         try {
+            // Support data URLs: data:<mime>;base64,<data>
+            if (url.startsWith("data:")) {
+                int commaIndex = url.indexOf(',');
+                if (commaIndex > 0) {
+                    String header = url.substring(5, commaIndex); // strip "data:"
+                    String base64Data = url.substring(commaIndex + 1);
+                    String contentType = "image/jpeg";
+                    int semicolonIndex = header.indexOf(';');
+                    if (semicolonIndex > 0) {
+                        contentType = header.substring(0, semicolonIndex);
+                    } else if (!header.isBlank()) {
+                        contentType = header;
+                    }
+                    byte[] imageBytes = Base64.getDecoder().decode(base64Data);
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CONTENT_TYPE, contentType)
+                            .body(imageBytes);
+                }
+            }
+
             // If it's a local file path, serve it directly
             if (!url.startsWith("http")) {
                 Path imagePath = Paths.get(url);

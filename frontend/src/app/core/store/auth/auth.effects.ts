@@ -19,7 +19,7 @@ export class AuthEffects {
             exhaustMap(({ request }) =>
                 this.authService.login(request).pipe(
                     mergeMap((response : any) => {
-                        if (response && response.status === "OTP_REQUIRED") {
+                        if (response && (response.status === "OTP_REQUIRED" || response?.status?.toUpperCase?.() === 'OTP_REQUIRED')) {
                             // Regular users need OTP verification
                             this.router.navigate(["/auth/verify-otp"], {
                                 queryParams: { email: request.identifier }

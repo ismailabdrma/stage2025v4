@@ -17,7 +17,12 @@ import java.util.Map;
 @Slf4j
 public class SystemMonitoringService implements HealthIndicator {
 
-    // Performance metrics
+    // Dependencies for real metrics
+    private final com.example.stage2025.repository.OrderRepository orderRepository;
+    private final com.example.stage2025.repository.PaymentRepository paymentRepository;
+    private final com.example.stage2025.repository.UserRepository userRepository;
+
+    // Performance metrics (counters remain but are complemented by live queries)
     private final AtomicLong totalOrders = new AtomicLong(0);
     private final AtomicLong totalPayments = new AtomicLong(0);
     private final AtomicLong activeUsers = new AtomicLong(0);
@@ -37,9 +42,15 @@ public class SystemMonitoringService implements HealthIndicator {
         
         Health.Builder status = isHealthy ? Health.up() : Health.down();
         
+        // Live metrics
+        long ordersCount = orderRepository.count();
+        Double paymentsSum = paymentRepository.sumTotalPayments();
+        long usersCount = userRepository.count();
+
         return status
-            .withDetail("totalOrders", totalOrders.get())
-            .withDetail("totalPayments", totalPayments.get())
+            .withDetail("totalOrders", ordersCount)
+            .withDetail("paymentsTotal", paymentsSum == null ? 0.0 : paymentsSum)
+            .withDetail("usersTotal", usersCount)
             .withDetail("activeUsers", activeUsers.get())
             .withDetail("errorCount", errorCount.get())
             .withDetail("systemLoad", getSystemLoad())
@@ -164,6 +175,11 @@ public class SystemMonitoringService implements HealthIndicator {
     public void monitorSystemHealth() {
         try {
             updateSystemMetrics();
+            // Refresh live counters periodically too
+            totalOrders.set(orderRepository.count());
+            double sum = paymentRepository.sumTotalPayments() == null ? 0.0 : paymentRepository.sumTotalPayments();
+            totalPayments.set((long) Math.round(sum));
+            activeUsers.set(userRepository.count());
             checkResourceUsage();
             cleanupOldMetrics();
         } catch (Exception e) {

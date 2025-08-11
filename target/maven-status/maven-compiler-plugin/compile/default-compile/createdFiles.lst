@@ -15,6 +15,7 @@ com\example\stage2025\entity\OtpToken$OtpTokenBuilder.class
 com\supplier\ws\ObjectFactory.class
 com\example\stage2025\service\impl\SupplierPaymentServiceImpl.class
 com\example\stage2025\service\ProductService.class
+com\example\stage2025\exception\ErrorResponse.class
 com\example\stage2025\entity\SupplierPayment.class
 com\example\stage2025\controller\AuthController$JwtResponse.class
 com\example\stage2025\controller\DynamicSoapController.class
@@ -54,6 +55,7 @@ com\example\stage2025\enums\DeliveryStatus.class
 com\example\stage2025\service\EmailService.class
 com\supplier\ws\GetAllProductsRequest.class
 com\example\stage2025\dto\SoapFieldDto$1.class
+com\example\stage2025\exception\ErrorResponse$ErrorResponseBuilder.class
 com\example\stage2025\entity\Order$OrderBuilder.class
 com\example\stage2025\config\DataSeeder.class
 com\example\stage2025\service\ImageProcessingService.class
@@ -110,6 +112,7 @@ com\example\stage2025\config\EnterpriseConfiguration$ProductionConfiguration.cla
 com\supplier\ws\ProcessPaymentResponse.class
 com\example\stage2025\dto\SupplierProductDto.class
 com\example\stage2025\controller\AuthController$SignupRequest.class
+com\example\stage2025\dto\CreateSupplierDto.class
 com\example\stage2025\enums\Status.class
 com\example\stage2025\entity\Order.class
 com\example\stage2025\controller\UserController.class
@@ -178,6 +181,7 @@ com\example\stage2025\service\impl\UserManagementServiceImpl.class
 com\example\stage2025\entity\Category.class
 com\example\stage2025\service\SystemMonitoringService.class
 com\example\stage2025\entity\Admin.class
+com\example\stage2025\exception\GlobalExceptionHandler.class
 com\example\stage2025\dto\SupplierPaymentDto.class
 com\example\stage2025\controller\AuthController$OtpVerifyRequest.class
 com\example\stage2025\enums\DataFormat.class

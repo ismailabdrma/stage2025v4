@@ -362,7 +362,7 @@ import { DashboardService, DashboardStats, SystemHealth } from '@core/services/d
             </mat-card-header>
             <mat-card-content>
               <div class="action-buttons">
-                <button mat-raised-button color="primary" (click)="navigateTo('/admin/products/pending')">
+                <button mat-raised-button color="primary" (click)="navigateTo('/admin/product-approval')">
                   <mat-icon>approval</mat-icon>
                   Review Pending Products ({{ stats.pendingProducts }})
                 </button>
@@ -370,7 +370,7 @@ import { DashboardService, DashboardStats, SystemHealth } from '@core/services/d
                   <mat-icon>business</mat-icon>
                   Manage Suppliers
                 </button>
-                <button mat-raised-button color="warn" (click)="navigateTo('/admin/payments')">
+                <button mat-raised-button color="warn" (click)="navigateTo('/admin/supplier-payments')">
                   <mat-icon>payment</mat-icon>
                   Process Payments
                 </button>

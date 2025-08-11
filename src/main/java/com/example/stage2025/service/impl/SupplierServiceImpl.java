@@ -3,18 +3,22 @@ package com.example.stage2025.service.impl;
 import com.example.stage2025.dto.SupplierDto;
 import com.example.stage2025.entity.ApiSupplier;
 import com.example.stage2025.entity.ExcelSupplier;
+import com.example.stage2025.entity.Product;
 import com.example.stage2025.entity.SoapSupplier;
 import com.example.stage2025.entity.SoapSupplierOperationMeta;
 import com.example.stage2025.entity.Supplier;
 import com.example.stage2025.exception.ResourceNotFoundException;
 import com.example.stage2025.mapper.SupplierMapper;
+import com.example.stage2025.repository.ProductRepository;
 import com.example.stage2025.repository.SoapSupplierOperationMetaRepository;
 import com.example.stage2025.repository.SupplierRepository;
 import com.example.stage2025.service.SupplierService;
 import com.example.stage2025.service.EmailService;
 import com.example.stage2025.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,9 +27,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SupplierServiceImpl implements SupplierService {
 
     private final SupplierRepository supplierRepository;
+    private final ProductRepository productRepository;
     private final SoapSupplierOperationMetaRepository operationMetaRepository;
     private final EmailService emailService;
 
@@ -176,11 +182,29 @@ public class SupplierServiceImpl implements SupplierService {
     }
 
     @Override
+    @Transactional
     public void deleteSupplier(Long id) {
-        if (!supplierRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Supplier not found");
+        Supplier supplier = supplierRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
+        
+        // Check if supplier has products
+        List<Product> products = productRepository.findBySupplierId(id);
+        
+        if (!products.isEmpty()) {
+            log.warn("Supplier '{}' has {} associated products. Proceeding with cascade deletion.", 
+                     supplier.getName(), products.size());
+            
+            // Option: Delete products first (safer cascade deletion)
+            for (Product product : products) {
+                log.debug("Deleting product: {} (ID: {})", product.getName(), product.getId());
+                productRepository.delete(product);
+            }
+            log.info("Deleted {} products associated with supplier '{}'", products.size(), supplier.getName());
         }
+        
+        // Delete supplier (this will also cascade delete import logs and operation metadata)
         supplierRepository.deleteById(id);
+        log.info("Supplier '{}' deleted successfully", supplier.getName());
     }
 
     @Override

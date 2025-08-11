@@ -20,8 +20,11 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                 switch (error.status) {
                     case 401:
                         errorMessage = "Unauthorized access"
-                        localStorage.removeItem("token")
-                        router.navigate(["/auth/login"])
+                        // Do not auto-logout on GET 401s (e.g., initial data loads)
+                        if (req.method !== 'GET') {
+                            localStorage.removeItem("token")
+                            router.navigate(["/auth/login"])
+                        }
                         break
                     case 403:
                         errorMessage = "Access forbidden"

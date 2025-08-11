@@ -7,6 +7,7 @@ import com.example.stage2025.enums.PaymentStatus;
 import com.example.stage2025.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class DashboardService {
     private final SupplierPaymentRepository supplierPaymentRepository;
     private final CategoryRepository categoryRepository;
 
+    @Transactional(readOnly = true)
     public DashboardStatsDto getDashboardStats() {
         DashboardStatsDto stats = new DashboardStatsDto();
         
@@ -222,7 +224,7 @@ public class DashboardService {
         
         stats.setTopSellingProducts(topProducts);
         
-        // Category distribution
+        // Category distribution - fetch with eager loading to avoid LazyInitializationException
         Map<String, Long> categoryStats = productRepository.findAll()
             .stream()
             .filter(Product::getActive)

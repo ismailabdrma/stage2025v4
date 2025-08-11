@@ -50,3 +50,4 @@ class AuthResult {
   factory AuthResult.error({required String message}) => AuthResult._(false, false, null, null, message);
 }
 
+

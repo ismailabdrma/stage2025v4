@@ -25,14 +25,31 @@ public class SoapProductFetcher implements ProductFetcher {
         if (!(supplier instanceof SoapSupplier soap)) {
             throw new IllegalArgumentException("Supplier is not SOAP based");
         }
+        
+        if (soap.getWsdlUrl() == null || soap.getWsdlUrl().isBlank()) {
+            throw new IllegalStateException("No WSDL URL configured for SOAP supplier: " + soap.getName());
+        }
+        
+        if (soap.getOperations() == null || soap.getOperations().isEmpty()) {
+            throw new IllegalStateException("No SOAP operations configured for supplier: " + soap.getName() + 
+                                          ". Please refresh metadata first.");
+        }
 
         System.out.println("SoapProductFetcher: Starting fetch for supplier: " + soap.getName());
         System.out.println("SoapProductFetcher: Available operations: " + 
                           soap.getOperations().stream().map(SoapSupplierOperationMeta::getOperationName).toList());
 
         // 1) Pick listing operation from the saved entity list, then MAP to DTO
+        System.out.println("SoapProductFetcher: Looking for product listing operation...");
         SoapSupplierOperationMeta opEntity = soap.getOperations().stream()
-                .filter(o -> eq(o.getOperationName(), "getAllProducts") || eq(o.getOperationName(), "FETCH_PRODUCTS"))
+                .filter(o -> {
+                    String opName = o.getOperationName();
+                    boolean matches = eq(opName, "getAllProducts") || eq(opName, "FETCH_PRODUCTS") || 
+                                     eq(opName, "getProducts") || eq(opName, "fetchProducts") ||
+                                     opName.toLowerCase().contains("products") || opName.toLowerCase().contains("list");
+                    System.out.println("SoapProductFetcher: Checking operation '" + opName + "' - matches: " + matches);
+                    return matches;
+                })
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No suitable SOAP operation for fetching products. Available: " + 
                             soap.getOperations().stream().map(SoapSupplierOperationMeta::getOperationName).toList()));
@@ -94,10 +111,10 @@ public class SoapProductFetcher implements ProductFetcher {
             String pictureUrl = s(p.get("pictureUrl"));
             
             if (pictureData != null && !pictureData.isBlank()) {
-                // Convert base64 to data URL for direct frontend use
-                String dataUrl = imageProcessingService.convertBase64ToDataUrl(pictureData, pictureFormat);
-                if (dataUrl != null) {
-                    imageUrls.add(dataUrl);
+                // Save base64 to file and return a local URL (more reliable than huge data: URLs)
+                String fileUrl = imageProcessingService.saveBase64Image(pictureData, pictureFormat, id != null ? id : name);
+                if (fileUrl != null) {
+                    imageUrls.add(fileUrl);
                 }
             } else if (pictureUrl != null && !pictureUrl.isBlank()) {
                 // normalize relative image URL (base = endpoint)

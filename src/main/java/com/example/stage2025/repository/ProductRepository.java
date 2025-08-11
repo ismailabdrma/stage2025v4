@@ -28,6 +28,12 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
   Optional<Product> findByExternalProductIdAndSupplier(String externalProductId, Supplier supplier);
 
   @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
+  Optional<Product> findByExternalProductId(String externalProductId);
+
+  @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
+  Optional<Product> findByNameIgnoreCaseAndSupplier(String name, Supplier supplier);
+
+  @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
   List<Product> findByActiveFalse();
 
   @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
@@ -62,5 +68,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
   long countByActiveFalse();
   long countBySupplier(Supplier supplier);
   List<Product> findBySyncedStockLessThanAndActiveTrue(int threshold);
+  
+  // Eager fetch products with categories for dashboard stats
+  @EntityGraph(attributePaths = {"category", "supplier"})
+  @Override
+  List<Product> findAll();
   
 }

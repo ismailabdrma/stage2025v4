@@ -3,17 +3,21 @@ package com.example.stage2025.controller;
 import com.example.stage2025.dto.SupplierDto;
 import com.example.stage2025.dto.SupplierProductDto;
 import com.example.stage2025.dto.SoapOperationMeta;
-import com.example.stage2025.entity.Supplier;
+
 import com.example.stage2025.repository.SupplierRepository;
 import com.example.stage2025.service.ProductFetcherFactory;
 import com.example.stage2025.service.impl.ProductImportService;
 import com.example.stage2025.service.SupplierService;
 import com.example.stage2025.service.SoapMetadataRefreshService;
 import com.example.stage2025.utils.WsdlFullMetadataUtils;
+import com.example.stage2025.dto.CreateSupplierDto;
+import com.example.stage2025.enums.PayoutFrequency;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 
 import java.util.List;
 import java.util.Map;
@@ -61,26 +65,132 @@ public class SupplierController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<SupplierDto> create(@RequestBody SupplierDto dto) {
-        return ResponseEntity.ok(supplierService.createSupplier(dto));
+    public ResponseEntity<SupplierDto> create(@Valid @RequestBody CreateSupplierDto dto) {
+        validateSupplierDto(dto);
+        SupplierDto supplierDto = convertToSupplierDto(dto);
+        return ResponseEntity.ok(supplierService.createSupplier(supplierDto));
     }
 
     // --- Create SOAP supplier & auto-extract WSDL metadata ---
     @PostMapping("/auto-soap")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<SupplierDto> createSoapAuto(@RequestBody SupplierDto dto) throws Exception {
+    public ResponseEntity<SupplierDto> createSoapAuto(@Valid @RequestBody CreateSupplierDto dto) throws Exception {
         if (!"SOAP".equalsIgnoreCase(dto.getType())) {
             throw new IllegalArgumentException("Type must be SOAP");
         }
         List<SoapOperationMeta> ops = WsdlFullMetadataUtils.getAllOperationMetadata(dto.getWsdlUrl());
-        dto.setOperationsMeta(ops);
-        return ResponseEntity.ok(supplierService.createSupplier(dto));
+        // Convert to SupplierDto for processing
+        SupplierDto supplierDto = convertToSupplierDto(dto);
+        supplierDto.setOperationsMeta(ops);
+        return ResponseEntity.ok(supplierService.createSupplier(supplierDto));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<SupplierDto> update(@PathVariable Long id, @RequestBody SupplierDto dto) {
-        return ResponseEntity.ok(supplierService.updateSupplier(id, dto));
+    public ResponseEntity<SupplierDto> update(@PathVariable @Min(1) Long id, @Valid @RequestBody CreateSupplierDto dto) {
+        validateSupplierDto(dto);
+        SupplierDto supplierDto = convertToSupplierDto(dto);
+        return ResponseEntity.ok(supplierService.updateSupplier(id, supplierDto));
+    }
+    
+    // Helper method to convert CreateSupplierDto to SupplierDto
+    private SupplierDto convertToSupplierDto(CreateSupplierDto dto) {
+        SupplierDto supplierDto = new SupplierDto();
+        // Basic fields
+        supplierDto.setName(dto.getName());
+        supplierDto.setType(dto.getType());
+        supplierDto.setContactEmail(dto.getContactEmail());
+        supplierDto.setActive(dto.getActive());
+        
+        // API fields
+        supplierDto.setApiUrl(dto.getApiUrl());
+        supplierDto.setAuthMethod(dto.getAuthMethod());
+        supplierDto.setApiKey(dto.getApiKey());
+        supplierDto.setDataFormat(dto.getDataFormat());
+        supplierDto.setProductsEndpoint(dto.getProductsEndpoint());
+        supplierDto.setSingleEndpoint(dto.getSingleEndpoint());
+        
+        // SOAP fields
+        supplierDto.setWsdlUrl(dto.getWsdlUrl());
+        supplierDto.setNamespace(dto.getNamespace());
+        supplierDto.setUsername(dto.getUsername());
+        supplierDto.setPassword(dto.getPassword());
+        
+        // File fields
+        supplierDto.setFileName(dto.getFileName());
+        supplierDto.setFilePath(dto.getFilePath());
+        
+        // Payment fields
+        try {
+            if (dto.getPayoutFrequency() != null && !dto.getPayoutFrequency().isEmpty()) {
+                supplierDto.setPayoutFrequency(PayoutFrequency.valueOf(dto.getPayoutFrequency().toUpperCase()));
+            } else {
+                supplierDto.setPayoutFrequency(PayoutFrequency.WEEKLY); // Default
+            }
+        } catch (IllegalArgumentException e) {
+            supplierDto.setPayoutFrequency(PayoutFrequency.WEEKLY); // Fallback to default
+        }
+        supplierDto.setHasOwnPaymentSystem(dto.getHasOwnPaymentSystem());
+        supplierDto.setPaymentApiEndpoint(dto.getPaymentApiEndpoint());
+        supplierDto.setCommissionApiEndpoint(dto.getCommissionApiEndpoint());
+        supplierDto.setCustomPaymentSchedule(dto.getCustomPaymentSchedule());
+        supplierDto.setCustomPaymentDays(dto.getCustomPaymentDays());
+        supplierDto.setCustomPaymentHour(dto.getCustomPaymentHour());
+        supplierDto.setMinimumPaymentAmount(dto.getMinimumPaymentAmount());
+        supplierDto.setMaximumPaymentDelay(dto.getMaximumPaymentDelay());
+        
+        return supplierDto;
+    }
+    
+    /**
+     * Validate supplier-specific required fields based on type
+     */
+    private void validateSupplierDto(CreateSupplierDto dto) {
+        switch (dto.getType().toUpperCase()) {
+            case "API":
+                if (dto.getApiUrl() == null || dto.getApiUrl().isBlank()) {
+                    throw new IllegalArgumentException("API URL is required for API suppliers");
+                }
+                // Validate API URL format
+                if (!dto.getApiUrl().matches("^https?://.*")) {
+                    throw new IllegalArgumentException("API URL must be a valid HTTP/HTTPS URL");
+                }
+                if (dto.getProductsEndpoint() == null || dto.getProductsEndpoint().isBlank()) {
+                    dto.setProductsEndpoint("/products"); // Default value
+                }
+                break;
+                
+            case "SOAP":
+                if (dto.getWsdlUrl() == null || dto.getWsdlUrl().isBlank()) {
+                    throw new IllegalArgumentException("WSDL URL is required for SOAP suppliers");
+                }
+                // Validate WSDL URL format
+                if (!dto.getWsdlUrl().matches("^https?://.*")) {
+                    throw new IllegalArgumentException("WSDL URL must be a valid HTTP/HTTPS URL");
+                }
+                break;
+                
+            case "EXCEL":
+            case "CSV":
+                if (dto.getFilePath() == null || dto.getFilePath().isBlank()) {
+                    throw new IllegalArgumentException("File path is required for file-based suppliers");
+                }
+                break;
+        }
+        
+        // Validate payment system URLs only if hasOwnPaymentSystem is true
+        if (Boolean.TRUE.equals(dto.getHasOwnPaymentSystem())) {
+            if (dto.getPaymentApiEndpoint() != null && !dto.getPaymentApiEndpoint().isBlank()) {
+                if (!dto.getPaymentApiEndpoint().matches("^https?://.*")) {
+                    throw new IllegalArgumentException("Payment API endpoint must be a valid HTTP/HTTPS URL");
+                }
+            }
+            if (dto.getCommissionApiEndpoint() != null && !dto.getCommissionApiEndpoint().isBlank()) {
+                if (!dto.getCommissionApiEndpoint().matches("^https?://.*")) {
+                    throw new IllegalArgumentException("Commission API endpoint must be a valid HTTP/HTTPS URL");
+                }
+            }
+        }
     }
 
     @DeleteMapping("/{id}")

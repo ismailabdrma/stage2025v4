@@ -40,29 +40,43 @@ public class ProductImportService {
 
     @Transactional
     public void importProductsFromSupplier(Supplier supplier) {
-        log.info("Starting import for supplier: {} (type: {})", supplier.getName(), supplier.getClass().getSimpleName());
+        log.info("🚀 Starting import for supplier: '{}' (ID: {}, Type: {}, Active: {})", 
+                supplier.getName(), supplier.getId(), supplier.getClass().getSimpleName(), supplier.isActive());
         try {
             // Auto-refresh SOAP metadata if needed
             if (supplier instanceof com.example.stage2025.entity.SoapSupplier) {
-                log.debug("Refreshing SOAP metadata for supplier: {}", supplier.getName());
+                log.debug("🔄 Refreshing SOAP metadata for supplier: {}", supplier.getName());
                 try {
                     metadataRefreshService.refreshSupplierMetadata((com.example.stage2025.entity.SoapSupplier) supplier);
+                    log.debug("✅ SOAP metadata refresh completed for supplier: {}", supplier.getName());
                 } catch (Exception metaEx) {
-                    log.warn("Failed to refresh metadata for supplier {}: {}", supplier.getName(), metaEx.getMessage());
+                    log.warn("⚠️  Failed to refresh metadata for supplier {}: {}", supplier.getName(), metaEx.getMessage());
                     // Continue with import even if metadata refresh fails
                 }
             }
             
-            log.debug("Fetching products using fetcherFactory for supplier: {}", supplier.getId());
+            log.debug("🔍 Fetching products using fetcherFactory for supplier: {} (ID: {})", supplier.getName(), supplier.getId());
             List<SupplierProductDto> products = fetcherFactory.fetch(supplier);
-            log.info("Fetched {} products from supplier: {}", products.size(), supplier.getName());
+            log.info("📦 Fetched {} products from supplier: '{}' (ID: {})", products.size(), supplier.getName(), supplier.getId());
             
             if (products.isEmpty()) {
-                log.warn("No products returned from supplier: {}", supplier.getName());
+                log.warn("⚠️  NO PRODUCTS returned from supplier: '{}' (ID: {})", supplier.getName(), supplier.getId());
+                log.warn("🔍 This could indicate:");
+                log.warn("   1. Supplier API/file has no products");
+                log.warn("   2. Supplier configuration is incorrect");
+                log.warn("   3. Network/connectivity issues");
+                log.warn("   4. Authentication problems");
                 importLogService.saveLog(
-                        supplier.getId(), ImportStatus.SUCCESS, 0, 0, "No products found");
+                        supplier.getId(), ImportStatus.SUCCESS, 0, 0, "No products found from source");
                 return;
             }
+            
+            // Log sample of fetched products for debugging
+            log.debug("📋 Sample of fetched products:");
+            products.stream().limit(3).forEach(p -> 
+                log.debug("  - External ID: '{}', Name: '{}', Price: {}, Stock: {}", 
+                         p.getExternalProductId(), p.getName(), p.getPrice(), p.getStock())
+            );
             
             log.debug("Processing {} products for import", products.size());
             ImportStatus status = processImportedProducts(products, supplier);
@@ -105,14 +119,36 @@ public class ProductImportService {
 
     private ImportStatus processImportedProducts(List<SupplierProductDto> products, Supplier supplier) {
         int errorCount = 0;
+        int successCount = 0;
+        
+        log.info("🔄 Processing {} products for supplier: {}", products.size(), supplier.getName());
+        
         for (SupplierProductDto dto : products) {
             try {
                 upsertProduct(dto, supplier);
+                successCount++;
+                if (successCount % 10 == 0) {
+                    log.debug("Processed {} products successfully...", successCount);
+                }
             } catch (Exception e) {
                 errorCount++;
-                log.error("Error processing product {}: {}", dto.getExternalProductId(), e.getMessage());
+                log.error("❌ Error processing product '{}' (External ID: '{}'): {}", 
+                         dto.getName(), dto.getExternalProductId(), e.getMessage());
+                // For database constraint errors, log more details
+                if (e.getMessage().contains("Data truncation") || e.getMessage().contains("too long")) {
+                    log.error("🔍 This looks like a database column size issue. Check image URLs or field lengths.");
+                    if (dto.getImageUrls() != null) {
+                        log.error("   Product has {} image URLs, first URL length: {}", 
+                                dto.getImageUrls().size(), 
+                                dto.getImageUrls().isEmpty() ? 0 : dto.getImageUrls().get(0).length());
+                    }
+                }
             }
         }
+        
+        log.info("📊 Import results for supplier '{}': {} successful, {} errors out of {} total", 
+                supplier.getName(), successCount, errorCount, products.size());
+        
         supplier.setLastImport(LocalDateTime.now());
         supplierRepository.save(supplier);
         return errorCount == 0 ? ImportStatus.SUCCESS : ImportStatus.PARTIAL;
@@ -125,13 +161,22 @@ public class ProductImportService {
             String fallbackId = supplier.getId() + "-" + Math.abs((dto.getName() + ":" + dto.getPrice()).hashCode());
             dto.setExternalProductId(fallbackId);
         }
+        
+        // CRITICAL: Ensure external ID is unique per supplier to prevent cross-supplier conflicts
+        String uniqueExternalId = supplier.getId() + "_" + dto.getExternalProductId();
+        
+        log.debug("Import: Processing product '{}' with externalId '{}' -> unique ID '{}' for supplier '{}'", 
+                 dto.getName(), dto.getExternalProductId(), uniqueExternalId, supplier.getName());
+        
+        // Prefer lookup by unique external ID only (robust across supplier proxies)
         Product product = productRepository
-                .findByExternalProductIdAndSupplier(dto.getExternalProductId(), supplier)
+                .findByExternalProductId(uniqueExternalId)
+                .or(() -> productRepository.findByNameIgnoreCaseAndSupplier(dto.getName(), supplier))
                 .orElseGet(Product::new);
 
         // IMPORTANT: set keys/relations first
         product.setSupplier(supplier);
-        product.setExternalProductId(dto.getExternalProductId()); // ✅ ensures future updates match the same row
+        product.setExternalProductId(uniqueExternalId); // ✅ ensures future updates match the same row AND are supplier-specific
 
         product.setName(dto.getName());
         product.setDescription(dto.getDescription());
@@ -140,7 +185,19 @@ public class ProductImportService {
         product.setDisplayedPrice(dto.getPrice());
         product.setSyncedStock(dto.getStock());
         product.setLastFetched(LocalDateTime.now());
-        product.setImageUrls(dto.getImageUrls());
+        
+        // Handle image URLs with proper validation and error handling
+        if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
+            log.debug("Processing {} image URLs for product '{}'", dto.getImageUrls().size(), dto.getName());
+            try {
+                product.setImageUrls(dto.getImageUrls());
+            } catch (Exception e) {
+                log.warn("Failed to set image URLs for product '{}': {}. Setting empty list.", dto.getName(), e.getMessage());
+                product.setImageUrls(List.of()); // Set empty list to avoid save failure
+            }
+        } else {
+            product.setImageUrls(List.of());
+        }
 
         // default category
         if (product.getCategory() == null) {
@@ -155,12 +212,19 @@ public class ProductImportService {
             product.setCategory(cat);
         }
 
-        // new products require admin approval
+        // Only require approval for brand new products
         if (product.getId() == null) {
             product.setActive(false);
         }
 
-        Product saved = productRepository.save(product);
-        log.debug("Import: Saved product id={} externalId={} name='{}' for supplier {}", saved.getId(), saved.getExternalProductId(), saved.getName(), supplier.getName());
+        try {
+            Product saved = productRepository.save(product);
+            log.debug("✅ Import: Successfully saved product id={} externalId={} name='{}' for supplier {}", 
+                     saved.getId(), saved.getExternalProductId(), saved.getName(), supplier.getName());
+        } catch (Exception e) {
+            log.error("❌ Import: Failed to save product '{}' for supplier '{}': {}", 
+                     product.getName(), supplier.getName(), e.getMessage());
+            throw e; // Re-throw to trigger proper error handling in processImportedProducts
+        }
     }
 }

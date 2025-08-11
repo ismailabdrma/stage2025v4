@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
@@ -36,7 +36,8 @@ import { Product, Category } from '@core/models/product.model';
     MatDialogModule,
     MatTableModule,
     MatPaginatorModule,
-    MatSortModule
+    MatSortModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="product-approval-container">
@@ -60,20 +61,15 @@ import { Product, Category } from '@core/models/product.model';
             </mat-form-field>
 
             <mat-form-field appearance="outline">
-              <mat-label>Supplier Filter</mat-label>
-              <mat-select [(ngModel)]="supplierFilter" (selectionChange)="applyFilters()">
-                <mat-option value="">All Suppliers</mat-option>
-                <mat-option *ngFor="let supplier of suppliers" [value]="supplier.id">
-                  {{ supplier.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
               <mat-label>Search Products</mat-label>
               <input matInput [(ngModel)]="searchTerm" (input)="applyFilters()" placeholder="Search by name or description">
               <mat-icon matSuffix>search</mat-icon>
             </mat-form-field>
+
+            <button mat-raised-button color="primary" (click)="loadProducts()">
+              <mat-icon>refresh</mat-icon>
+              Refresh
+            </button>
           </div>
 
           <!-- Products Table -->
@@ -104,30 +100,24 @@ import { Product, Category } from '@core/models/product.model';
                 <td mat-cell *matCellDef="let product">{{ product.name }}</td>
               </ng-container>
 
-              <!-- Supplier Column -->
-              <ng-container matColumnDef="supplier">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header>Supplier</th>
-                <td mat-cell *matCellDef="let product">{{ product.supplier?.name || 'N/A' }}</td>
-              </ng-container>
-
               <!-- Price Column -->
               <ng-container matColumnDef="price">
                 <th mat-header-cell *matHeaderCellDef mat-sort-header>Price</th>
-                <td mat-cell *matCellDef="let product">${{ product.displayedPrice | number:'1.2-2' }}</td>
+                <td mat-cell *matCellDef="let product">\${{ product.displayedPrice | number:'1.2-2' }}</td>
               </ng-container>
 
               <!-- Stock Column -->
               <ng-container matColumnDef="stock">
                 <th mat-header-cell *matHeaderCellDef mat-sort-header>Stock</th>
-                <td mat-cell *matCellDef="let product">{{ product.syncedStock }}</td>
+                <td mat-cell *matCellDef="let product">{{ product.syncedStock || 'N/A' }}</td>
               </ng-container>
 
               <!-- Status Column -->
               <ng-container matColumnDef="status">
                 <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
                 <td mat-cell *matCellDef="let product">
-                  <span [class]="'status-badge status-' + product.status?.toLowerCase()">
-                    {{ product.status }}
+                  <span [class]="'status-badge status-' + getProductStatus(product).toLowerCase()">
+                    {{ getProductStatus(product) }}
                   </span>
                 </td>
               </ng-container>
@@ -136,21 +126,23 @@ import { Product, Category } from '@core/models/product.model';
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef>Actions</th>
                 <td mat-cell *matCellDef="let product">
-                  <button mat-icon-button (click)="viewProduct(product)" matTooltip="View Details">
-                    <mat-icon>visibility</mat-icon>
-                  </button>
                   <button mat-icon-button (click)="editProduct(product)" matTooltip="Edit Product">
                     <mat-icon>edit</mat-icon>
                   </button>
                   <button mat-icon-button (click)="approveProduct(product)" 
-                          *ngIf="product.status === 'PENDING'"
+                          *ngIf="!isProductActive(product)"
                           matTooltip="Approve Product">
                     <mat-icon>check</mat-icon>
                   </button>
                   <button mat-icon-button (click)="rejectProduct(product)" 
-                          *ngIf="product.status === 'PENDING'"
+                          *ngIf="!isProductActive(product)"
                           matTooltip="Reject Product">
                     <mat-icon>close</mat-icon>
+                  </button>
+                  <button mat-icon-button (click)="deactivateProduct(product)" 
+                          *ngIf="isProductActive(product)"
+                          matTooltip="Deactivate Product">
+                    <mat-icon>block</mat-icon>
                   </button>
                 </td>
               </ng-container>
@@ -169,6 +161,23 @@ import { Product, Category } from '@core/models/product.model';
             <mat-icon>inventory_2</mat-icon>
             <h3>No products found</h3>
             <p>No products match your current filters.</p>
+          </div>
+
+          <!-- Bulk Actions -->
+          <div *ngIf="selectedProducts.length > 0" class="bulk-actions">
+            <mat-card>
+              <mat-card-content>
+                <p>{{ selectedProducts.length }} products selected</p>
+                <button mat-raised-button color="primary" (click)="bulkApprove()">
+                  <mat-icon>check</mat-icon>
+                  Approve Selected
+                </button>
+                <button mat-raised-button color="warn" (click)="bulkReject()">
+                  <mat-icon>close</mat-icon>
+                  Reject Selected
+                </button>
+              </mat-card-content>
+            </mat-card>
           </div>
         </mat-card-content>
       </mat-card>
@@ -252,6 +261,7 @@ import { Product, Category } from '@core/models/product.model';
       gap: 16px;
       margin-bottom: 24px;
       flex-wrap: wrap;
+      align-items: center;
     }
 
     .filters-section mat-form-field {
@@ -315,6 +325,16 @@ import { Product, Category } from '@core/models/product.model';
       color: #721c24;
     }
 
+    .status-active {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .status-inactive {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
     .no-products {
       text-align: center;
       padding: 40px;
@@ -326,6 +346,10 @@ import { Product, Category } from '@core/models/product.model';
       height: 48px;
       width: 48px;
       margin-bottom: 16px;
+    }
+
+    .bulk-actions {
+      margin-top: 20px;
     }
 
     .dialog-container {
@@ -374,44 +398,40 @@ export class ProductApprovalComponent implements OnInit {
   private dialog = inject(MatDialog);
   private fb = inject(FormBuilder);
 
+  @ViewChild('productEditDialog', { static: true }) productEditDialog!: TemplateRef<any>;
+
   products: Product[] = [];
   filteredProducts: Product[] = [];
   categories: Category[] = [];
-  suppliers: any[] = [];
+  selectedProducts: Product[] = [];
   loading = true;
   saving = false;
 
   // Filters
   statusFilter = '';
-  supplierFilter = '';
   searchTerm = '';
 
   // Table
-  displayedColumns = ['image', 'name', 'supplier', 'price', 'stock', 'status', 'actions'];
+  displayedColumns = ['image', 'name', 'price', 'stock', 'status', 'actions'];
 
   // Form
-  productForm: FormGroup;
+  productForm: FormGroup = this.fb.group({
+    name: ['', Validators.required],
+    description: [''],
+    categoryId: ['', Validators.required],
+    displayedPrice: ['', [Validators.required, Validators.min(0)]],
+    syncedStock: ['', [Validators.required, Validators.min(0)]],
+    active: [false]
+  });
+  
   selectedProduct: Product | null = null;
 
   ngOnInit(): void {
     this.loadProducts();
     this.loadCategories();
-    this.loadSuppliers();
-    this.initForm();
   }
 
-  private initForm(): void {
-    this.productForm = this.fb.group({
-      name: ['', Validators.required],
-      description: [''],
-      categoryId: ['', Validators.required],
-      displayedPrice: ['', [Validators.required, Validators.min(0)]],
-      syncedStock: ['', [Validators.required, Validators.min(0)]],
-      active: [false]
-    });
-  }
-
-  private loadProducts(): void {
+  loadProducts(): void {
     this.loading = true;
     this.productService.getAllProducts({ includeInactive: true }).subscribe({
       next: (products) => {
@@ -427,80 +447,75 @@ export class ProductApprovalComponent implements OnInit {
     });
   }
 
-  private loadCategories(): void {
-    this.categoryService.getAllCategories().subscribe({
-      next: (categories) => {
+  loadCategories(): void {
+    this.categoryService.getCategories().subscribe({
+      next: (categories: any[]) => {
         this.categories = categories;
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error('Error loading categories:', error);
       }
     });
   }
 
-  private loadSuppliers(): void {
-    // Load suppliers - implement based on your supplier service
-    this.suppliers = [];
-  }
-
   applyFilters(): void {
     this.filteredProducts = this.products.filter(product => {
-      // Status filter
-      if (this.statusFilter && product.status !== this.statusFilter) {
+      // Search filter
+      if (this.searchTerm && !product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) &&
+          !product.description?.toLowerCase().includes(this.searchTerm.toLowerCase())) {
         return false;
       }
 
-      // Supplier filter
-      if (this.supplierFilter && product.supplier?.id !== this.supplierFilter) {
+      // Status filter - simplified for now
+      if (this.statusFilter === 'PENDING' && this.isProductActive(product)) {
         return false;
       }
-
-      // Search term
-      if (this.searchTerm) {
-        const search = this.searchTerm.toLowerCase();
-        return product.name.toLowerCase().includes(search) ||
-               product.description?.toLowerCase().includes(search);
+      if (this.statusFilter === 'APPROVED' && !this.isProductActive(product)) {
+        return false;
       }
 
       return true;
     });
   }
 
-  viewProduct(product: Product): void {
-    // Implement product detail view
-    console.log('View product:', product);
+  isProductActive(product: Product): boolean {
+    return Boolean(product.active);
+  }
+
+  getProductStatus(product: Product): string {
+    return this.isProductActive(product) ? 'ACTIVE' : 'PENDING';
   }
 
   editProduct(product: Product): void {
     this.selectedProduct = product;
     this.productForm.patchValue({
       name: product.name,
-      description: product.description,
-      categoryId: product.category?.id,
+      description: product.description || '',
+      categoryId: product.categoryId || '',
       displayedPrice: product.displayedPrice,
-      syncedStock: product.syncedStock,
-      active: product.active
+      syncedStock: product.syncedStock || 0,
+      active: product.active || false
     });
 
     this.dialog.open(this.productEditDialog, {
       width: '600px',
-      data: product
+      disableClose: true
     });
   }
 
   saveProduct(): void {
-    if (this.productForm.invalid || !this.selectedProduct) {
-      return;
-    }
+    if (this.productForm.invalid || !this.selectedProduct) return;
 
     this.saving = true;
+    const formValue = this.productForm.value;
+    
     const updatedProduct = {
-      ...this.selectedProduct,
-      ...this.productForm.value
+      ...formValue,
+      id: this.selectedProduct.id
     };
 
     this.productService.updateProduct(this.selectedProduct.id, updatedProduct).subscribe({
-      next: () => {
+      next: (product) => {
         this.snackBar.open('Product updated successfully', 'Close', { duration: 3000 });
         this.loadProducts();
         this.dialog.closeAll();
@@ -515,7 +530,7 @@ export class ProductApprovalComponent implements OnInit {
   }
 
   approveProduct(product: Product): void {
-    this.productService.updateProductStatus(product.id, true).subscribe({
+    this.productService.approveProduct(product.id).subscribe({
       next: () => {
         this.snackBar.open('Product approved successfully', 'Close', { duration: 3000 });
         this.loadProducts();
@@ -528,7 +543,60 @@ export class ProductApprovalComponent implements OnInit {
   }
 
   rejectProduct(product: Product): void {
-    // Implement product rejection logic
-    console.log('Reject product:', product);
+    this.productService.rejectProduct(product.id).subscribe({
+      next: () => {
+        this.snackBar.open('Product rejected successfully', 'Close', { duration: 3000 });
+        this.loadProducts();
+      },
+      error: (error) => {
+        console.error('Error rejecting product:', error);
+        this.snackBar.open('Failed to reject product', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  deactivateProduct(product: Product): void {
+    this.productService.updateProductStatus(product.id, false).subscribe({
+      next: () => {
+        this.snackBar.open('Product deactivated successfully', 'Close', { duration: 3000 });
+        this.loadProducts();
+      },
+      error: (error) => {
+        console.error('Error deactivating product:', error);
+        this.snackBar.open('Failed to deactivate product', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  bulkApprove(): void {
+    const ids = this.selectedProducts.map(p => p.id);
+    this.productService.approveMultipleProducts(ids).subscribe({
+      next: () => {
+        this.snackBar.open(`${ids.length} products approved successfully`, 'Close', { duration: 3000 });
+        this.selectedProducts = [];
+        this.loadProducts();
+      },
+      error: (error) => {
+        console.error('Error approving products:', error);
+        this.snackBar.open('Failed to approve products', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  bulkReject(): void {
+    // For bulk reject, we'll need to call individual reject for each product
+    // since the backend doesn't have a bulk reject endpoint
+    const rejectPromises = this.selectedProducts.map(product => 
+      this.productService.rejectProduct(product.id).toPromise()
+    );
+
+    Promise.all(rejectPromises).then(() => {
+      this.snackBar.open(`${this.selectedProducts.length} products rejected successfully`, 'Close', { duration: 3000 });
+      this.selectedProducts = [];
+      this.loadProducts();
+    }).catch((error) => {
+      console.error('Error rejecting products:', error);
+      this.snackBar.open('Failed to reject some products', 'Close', { duration: 3000 });
+    });
   }
 }

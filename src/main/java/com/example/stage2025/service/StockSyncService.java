@@ -55,14 +55,31 @@ public class StockSyncService {
      */
     @Transactional
     public void syncStockForSupplier(Supplier supplier) {
-        log.info("Syncing stock for supplier: {}", supplier.getName());
+        log.info("🔄 Starting stock sync for supplier: '{}' (ID: {}, Type: {}, Active: {})", 
+                supplier.getName(), supplier.getId(), supplier.getClass().getSimpleName(), supplier.isActive());
         
         try {
-            // Get products for this supplier
-            List<Product> supplierProducts = productRepository.findBySupplier(supplier);
+            // Get products for this supplier using ID-based lookup (more reliable)
+            List<Product> supplierProducts = productRepository.findBySupplierId(supplier.getId());
+            
+            log.info("📊 Query result: Found {} products for supplier '{}' (ID: {})", 
+                    supplierProducts.size(), supplier.getName(), supplier.getId());
+            
+            // Detailed debugging for each product found
+            if (!supplierProducts.isEmpty()) {
+                log.debug("📋 Product details for supplier '{}':", supplier.getName());
+                for (Product p : supplierProducts) {
+                    log.debug("  - Product ID: {}, Name: '{}', ExternalID: '{}', Active: {}, SyncedStock: {}", 
+                             p.getId(), p.getName(), p.getExternalProductId(), p.getActive(), p.getSyncedStock());
+                }
+            }
             
             if (supplierProducts.isEmpty()) {
-                log.info("No products found for supplier: {}", supplier.getName());
+                log.warn("⚠️  NO PRODUCTS FOUND for supplier: '{}' (ID: {})", supplier.getName(), supplier.getId());
+                log.warn("📋 This could mean:");
+                log.warn("   1. No products have been imported for this supplier");
+                log.warn("   2. Products exist but supplier_id doesn't match");
+                log.warn("   3. Database relationship issue");
                 return;
             }
             

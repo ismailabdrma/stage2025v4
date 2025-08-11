@@ -9,6 +9,7 @@ import com.example.stage2025.entity.Supplier;
 import com.example.stage2025.enums.DataFormat;
 import com.example.stage2025.service.parser.ProductParser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -19,6 +20,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductFetcherFactory {
 
     private final WebClient web;
@@ -39,8 +41,16 @@ public class ProductFetcherFactory {
 
     /** Fetch and parse for API supplier */
     private List<SupplierProductDto> fetchApiSupplier(ApiSupplier s) throws Exception {
+        if (s.getApiUrl() == null || s.getApiUrl().isBlank()) {
+            throw new IllegalStateException("No API URL configured for supplier: " + s.getName());
+        }
+        if (s.getProductsEndpoint() == null || s.getProductsEndpoint().isBlank()) {
+            throw new IllegalStateException("No products endpoint configured for supplier: " + s.getName());
+        }
+        
+        String fullUrl = s.getApiUrl() + s.getProductsEndpoint();
         byte[] payload = web.get()
-                .uri(s.getApiUrl() + s.getProductsEndpoint())
+                .uri(fullUrl)
                 .header(HttpHeaders.AUTHORIZATION, authHeader(s))
                 .retrieve()
                 .bodyToMono(byte[].class)
@@ -50,7 +60,16 @@ public class ProductFetcherFactory {
 
     /** Fetch and parse for Excel supplier */
     private List<SupplierProductDto> fetchExcelSupplier(ExcelSupplier s) throws Exception {
-        if (s.getFilePath() == null) throw new IllegalStateException("No Excel filePath for supplier: " + s.getName());
+        if (s.getFilePath() == null || s.getFilePath().isBlank()) {
+            throw new IllegalStateException("No Excel filePath configured for supplier: " + s.getName());
+        }
+        
+        // Check if file exists
+        if (!Files.exists(Paths.get(s.getFilePath()))) {
+            throw new IllegalStateException("Excel file not found at path: " + s.getFilePath() + " for supplier: " + s.getName());
+        }
+        
+        log.info("Reading Excel file for supplier {}: {}", s.getName(), s.getFilePath());
         byte[] payload = Files.readAllBytes(Paths.get(s.getFilePath()));
         return parserFor(DataFormat.EXCEL).parse(payload);
     }

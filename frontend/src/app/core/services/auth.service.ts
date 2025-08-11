@@ -20,16 +20,17 @@ export class AuthService {
     return this.http.post<string>(`${this.apiUrl}/verify-email`, request)
   }
 
-  // Update login method to handle OTP response
-  login(request: LoginRequest): Observable<string> {
-    return this.http.post<string>(`${this.apiUrl}/login`, request).pipe(
-        map(response => {
-          // Check if backend indicates OTP is required
-          if (response === 'OTP_REQUIRED') {
-            return 'OTP_REQUIRED';
-          }
-          return response;
-        })
+  // Update login method to handle OTP/admin JSON responses correctly
+  login(request: LoginRequest): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/login`, request).pipe(
+      map((response: any) => {
+        // Backend may return ApiResponse with status: 'OTP_REQUIRED'
+        if (response && (response.status === 'OTP_REQUIRED' || response?.status?.toUpperCase?.() === 'OTP_REQUIRED')) {
+          return { status: 'OTP_REQUIRED' };
+        }
+        // Admin path returns JwtResponse { token, ... }
+        return response;
+      })
     );
   }
 

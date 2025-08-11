@@ -48,22 +48,30 @@ import type { User } from "./core/models/user.model"
           <img src="assets/logo.svg" alt="Brand" height="28" />
         </a>
 
-        <form class="search" (submit)="onSearch(searchInput.value)" role="search" aria-label="Recherche de produits">
-          <div class="search-box">
-            <mat-icon class="prefix">search</mat-icon>
-            <input #searchInput type="search" placeholder="Rechercher un produit…" aria-label="Rechercher" />
-            <button type="button" (click)="searchInput.value=''; onSearch('')" aria-label="Effacer la recherche">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-        </form>
+        <!-- Search and cart only visible for non-admin users -->
+        <ng-container *ngIf="!isAdmin">
+          <form class="search" (submit)="onSearch(searchInput.value)" role="search" aria-label="Recherche de produits">
+            <div class="search-box">
+              <mat-icon class="prefix">search</mat-icon>
+              <input #searchInput type="search" placeholder="Rechercher un produit…" aria-label="Rechercher" />
+              <button type="button" (click)="searchInput.value=''; onSearch('')" aria-label="Effacer la recherche">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </form>
 
-        <span class="spacer"></span>
+          <span class="spacer"></span>
 
-        <a class="cart-link" routerLink="/cart" aria-label="Ouvrir le panier">
-          <mat-icon>shopping_cart</mat-icon>
-          <span>Panier ({{ cartItemCount }})</span>
-        </a>
+          <a class="cart-link" routerLink="/cart" aria-label="Ouvrir le panier">
+            <mat-icon>shopping_cart</mat-icon>
+            <span>Panier ({{ cartItemCount }})</span>
+          </a>
+        </ng-container>
+
+        <!-- Admin gets spacer only -->
+        <ng-container *ngIf="isAdmin">
+          <span class="spacer"></span>
+        </ng-container>
 
         <ng-container *ngIf="isAuthenticated$ | async; else loginButton">
           <button mat-button [matMenuTriggerFor]="userMenu">

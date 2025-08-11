@@ -15,9 +15,18 @@ import java.util.*;
 public class WsdlFullMetadataUtils {
 
     public static List<SoapOperationMeta> getAllOperationMetadata(String wsdlUrl) throws Exception {
+        if (wsdlUrl == null || wsdlUrl.isBlank()) {
+            throw new IllegalArgumentException("WSDL URL cannot be null or empty");
+        }
+        
         // Step 1: Parse WSDL
         WSDLFactory factory = WSDLFactory.newInstance();
         WSDLReader reader = factory.newWSDLReader();
+        
+        // Add timeout and better error handling
+        reader.setFeature("javax.wsdl.verbose", false);
+        reader.setFeature("javax.wsdl.importDocuments", true);
+        
         Definition def = reader.readWSDL(wsdlUrl);
 
         // Step 2: Parse embedded XSD for element/fields
