@@ -21,3 +21,4 @@ public class SoapSupplier extends Supplier {
     
     private LocalDateTime lastMetadataRefresh;
 }
+ 

@@ -1,154 +1,295 @@
-// src/main/java/com/example/stage2025/service/SoapProductFetcher.java
 package com.example.stage2025.service;
 
-import com.example.stage2025.dto.SoapFieldDto;
-import com.example.stage2025.dto.SoapOperationMeta;
 import com.example.stage2025.dto.SupplierProductDto;
+import com.example.stage2025.dto.SoapOperationMeta;
+import com.example.stage2025.dto.SoapFieldDto;
 import com.example.stage2025.entity.SoapSupplier;
-import com.example.stage2025.entity.Supplier;
-import com.example.stage2025.entity.SoapSupplierOperationMeta; // adjust package if different
-import com.example.stage2025.service.ImageProcessingService;
 import com.example.stage2025.utils.SoapDynamicInvoker;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class SoapProductFetcher implements ProductFetcher {
+@Slf4j
+public class SoapProductFetcher {
 
-    private final ImageProcessingService imageProcessingService;
-
-    @Override
-    public List<SupplierProductDto> fetchProducts(Supplier supplier) throws Exception {
-        if (!(supplier instanceof SoapSupplier soap)) {
-            throw new IllegalArgumentException("Supplier is not SOAP based");
-        }
+    public List<SupplierProductDto> fetchProducts(SoapSupplier supplier) {
+        log.info("Fetching products from SOAP supplier: {}", supplier.getName());
         
-        if (soap.getWsdlUrl() == null || soap.getWsdlUrl().isBlank()) {
-            throw new IllegalStateException("No WSDL URL configured for SOAP supplier: " + soap.getName());
-        }
-        
-        if (soap.getOperations() == null || soap.getOperations().isEmpty()) {
-            throw new IllegalStateException("No SOAP operations configured for supplier: " + soap.getName() + 
-                                          ". Please refresh metadata first.");
-        }
-
-        System.out.println("SoapProductFetcher: Starting fetch for supplier: " + soap.getName());
-        System.out.println("SoapProductFetcher: Available operations: " + 
-                          soap.getOperations().stream().map(SoapSupplierOperationMeta::getOperationName).toList());
-
-        // 1) Pick listing operation from the saved entity list, then MAP to DTO
-        System.out.println("SoapProductFetcher: Looking for product listing operation...");
-        SoapSupplierOperationMeta opEntity = soap.getOperations().stream()
-                .filter(o -> {
-                    String opName = o.getOperationName();
-                    boolean matches = eq(opName, "getAllProducts") || eq(opName, "FETCH_PRODUCTS") || 
-                                     eq(opName, "getProducts") || eq(opName, "fetchProducts") ||
-                                     opName.toLowerCase().contains("products") || opName.toLowerCase().contains("list");
-                    System.out.println("SoapProductFetcher: Checking operation '" + opName + "' - matches: " + matches);
-                    return matches;
-                })
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("No suitable SOAP operation for fetching products. Available: " + 
-                            soap.getOperations().stream().map(SoapSupplierOperationMeta::getOperationName).toList()));
-
-        SoapOperationMeta opMeta = new SoapOperationMeta(
-                opEntity.getOperationName(),
-                opEntity.getSoapAction(),
-                opEntity.getInputElement(),
-                opEntity.getOutputElement(),
-                SoapFieldDto.fromJson(opEntity.getInputFieldsJson()),
-                SoapFieldDto.fromJson(opEntity.getOutputFieldsJson())
-        );
-
-        // 2) Provide complex type map for 'product' (same as DynamicSoapController)
-        Map<String, List<SoapFieldDto>> complexTypes = new HashMap<>();
-        complexTypes.put("product", List.of(
-                new SoapFieldDto("id", "xs:long"),
-                new SoapFieldDto("name", "xs:string"),
-                new SoapFieldDto("description", "xs:string"),
-                new SoapFieldDto("supplierPrice", "xs:double"),
-                new SoapFieldDto("displayedPrice", "xs:double"),
-                new SoapFieldDto("availableQuantity", "xs:int"),
-                new SoapFieldDto("pictureUrl", "xs:string"),
-                new SoapFieldDto("pictureData", "xs:base64Binary"),
-                new SoapFieldDto("pictureFormat", "xs:string"),
-                new SoapFieldDto("realTimeStock", "xs:int"),
-                new SoapFieldDto("lastStockUpdate", "xs:string")
-        ));
-
-        // 3) Resolve service endpoint from WSDL URL (drop ?wsdl or /supplier.wsdl)
-        String endpoint = resolveEndpoint(soap.getWsdlUrl());
-
-        // 4) Call dynamically (no inputs for getAllProducts)
-        Map<String, Object> res = SoapDynamicInvoker.call(
-                endpoint,
-                soap.getNamespace(),
-                opMeta,
-                Map.of(),
-                complexTypes
-        );
-
-        // 5) Map the generic response to DTOs
-        System.out.println("SoapProductFetcher: SOAP response received: " + res);
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> items = (List<Map<String, Object>>) res.getOrDefault("products", List.of());
-        System.out.println("SoapProductFetcher: Found " + items.size() + " products in response");
-        List<SupplierProductDto> out = new ArrayList<>();
-        for (Map<String, Object> p : items) {
-            String id    = s(p.get("id"));
-            String name  = s(p.get("name"));
-            String desc  = s(p.get("description"));
-            double price = d(p.get("displayedPrice"), d(p.get("supplierPrice"), 0.0));
-            int stock    = i(p.get("availableQuantity"), 0);
+        try {
+            List<SupplierProductDto> products = new ArrayList<>();
             
-            // Handle image data - prioritize base64 data over URL
-            List<String> imageUrls = new ArrayList<>();
-            String pictureData = s(p.get("pictureData"));
-            String pictureFormat = s(p.get("pictureFormat"));
-            String pictureUrl = s(p.get("pictureUrl"));
-            
-            if (pictureData != null && !pictureData.isBlank()) {
-                // Save base64 to file and return a local URL (more reliable than huge data: URLs)
-                String fileUrl = imageProcessingService.saveBase64Image(pictureData, pictureFormat, id != null ? id : name);
-                if (fileUrl != null) {
-                    imageUrls.add(fileUrl);
-                }
-            } else if (pictureUrl != null && !pictureUrl.isBlank()) {
-                // normalize relative image URL (base = endpoint)
-                String img = pictureUrl;
-                if (!img.startsWith("http")) {
-                    String base = endpoint.replaceAll("/+$", "");
-                    img = base + (img.startsWith("/") ? "" : "/") + img;
-                }
-                imageUrls.add(img);
+            // Check if supplier has WSDL URL configured
+            if (supplier.getWsdlUrl() == null || supplier.getWsdlUrl().isEmpty()) {
+                log.warn("No WSDL URL configured for SOAP supplier: {}", supplier.getName());
+                return products;
             }
-
-            out.add(new SupplierProductDto(
-                    id, name, desc, price, stock, imageUrls
+            
+            // Check if supplier has operations configured
+            if (supplier.getOperations() == null || supplier.getOperations().isEmpty()) {
+                log.warn("No SOAP operations configured for supplier: {}", supplier.getName());
+                return products;
+            }
+            
+            // Look for operations - prioritize batch operations first, then single operations
+            var productOperation = supplier.getOperations().stream()
+                    .filter(op -> {
+                        String name = op.getOperationName().toLowerCase();
+                        // First try to find batch operations
+                        return name.contains("getallproducts") || 
+                               name.contains("getproducts") || 
+                               name.contains("listproducts") ||
+                               name.contains("allproducts");
+                    })
+                    .findFirst();
+            
+            // If no batch operation found, look for single product operation
+            if (productOperation.isEmpty()) {
+                productOperation = supplier.getOperations().stream()
+                        .filter(op -> {
+                            String name = op.getOperationName().toLowerCase();
+                            return name.contains("getproductbyid") || 
+                                   name.contains("getproduct") ||
+                                   name.contains("product");
+                        })
+                        .findFirst();
+            }
+            
+            if (productOperation.isEmpty()) {
+                log.warn("No product-related operation found for supplier: {}", supplier.getName());
+                return products;
+            }
+            
+            var operation = productOperation.get();
+            log.info("Using SOAP operation '{}' to fetch products", operation.getOperationName());
+            
+            // Create operation metadata
+            SoapOperationMeta opMeta = new SoapOperationMeta(
+                    operation.getOperationName(),
+                    operation.getSoapAction(),
+                    operation.getInputElement(),
+                    operation.getOutputElement(),
+                    SoapFieldDto.fromJson(operation.getInputFieldsJson()),
+                    SoapFieldDto.fromJson(operation.getOutputFieldsJson())
+            );
+            
+            // Define product complex type (same as in DynamicSoapController)
+            Map<String, List<SoapFieldDto>> complexTypes = new HashMap<>();
+            complexTypes.put("product", List.of(
+                    new SoapFieldDto("id", "xs:long"),
+                    new SoapFieldDto("name", "xs:string"),
+                    new SoapFieldDto("description", "xs:string"),
+                    new SoapFieldDto("supplierPrice", "xs:double"),
+                    new SoapFieldDto("displayedPrice", "xs:double"),
+                    new SoapFieldDto("availableQuantity", "xs:int"),
+                    new SoapFieldDto("pictureUrl", "xs:string"),
+                    new SoapFieldDto("pictureData", "xs:base64Binary"),
+                    new SoapFieldDto("pictureFormat", "xs:string"),
+                    new SoapFieldDto("realTimeStock", "xs:int"),
+                    new SoapFieldDto("lastStockUpdate", "xs:string")
             ));
+            
+            // Prepare input values based on operation type
+            Map<String, Object> inputValues = new HashMap<>();
+            
+            // If it's a single product operation, we need to provide IDs
+            String operationName = operation.getOperationName().toLowerCase();
+            if (operationName.contains("getproductbyid") || operationName.contains("byid")) {
+                log.info("Operation '{}' requires product ID - will fetch multiple products by ID", operation.getOperationName());
+                
+                // For getProductById operations, we'll try a few common product IDs
+                // In a real scenario, you'd get these IDs from somewhere else
+                List<Integer> productIds = List.of(1, 2, 3, 4, 5); // Try products 1-5
+                
+                for (Integer productId : productIds) {
+                    try {
+                        inputValues.clear();
+                        inputValues.put("id", productId);
+                        
+                        Map<String, Object> singleResult = SoapDynamicInvoker.call(
+                                supplier.getWsdlUrl(),
+                                supplier.getNamespace(),
+                                opMeta,
+                                inputValues,
+                                complexTypes
+                        );
+                        
+                        log.debug("SOAP call for product ID {} response: {}", productId, singleResult);
+                        
+                        // Extract product from single result
+                        List<SupplierProductDto> singleProducts = extractProductsFromSoapResponse(singleResult);
+                        if (!singleProducts.isEmpty()) {
+                            products.addAll(singleProducts);
+                            log.debug("Added {} product(s) from ID {}", singleProducts.size(), productId);
+                        }
+                        
+                    } catch (Exception e) {
+                        log.debug("No product found for ID {}: {}", productId, e.getMessage());
+                        // Continue to next ID
+                    }
+                }
+                
+                log.info("Successfully fetched {} products from SOAP supplier using individual calls", products.size());
+                return products;
+            }
+            
+            try {
+                Map<String, Object> result = SoapDynamicInvoker.call(
+                        supplier.getWsdlUrl(),
+                        supplier.getNamespace(),
+                        opMeta,
+                        inputValues,
+                        complexTypes
+                );
+                
+                log.info("SOAP call successful. Response: {}", result);
+                
+                // Extract products from the response
+                products = extractProductsFromSoapResponse(result);
+                
+                log.info("Successfully fetched {} products from SOAP supplier: {}", products.size(), supplier.getName());
+                
+            } catch (Exception e) {
+                log.error("Failed to call SOAP operation for supplier {}: {}", supplier.getName(), e.getMessage(), e);
+                throw new RuntimeException("Failed to call SOAP service", e);
+            }
+            
+            return products;
+        } catch (Exception e) {
+            log.error("Failed to fetch products from SOAP supplier {}: {}", supplier.getName(), e.getMessage());
+            throw new RuntimeException("Failed to fetch products from SOAP supplier", e);
         }
-        System.out.println("SoapProductFetcher: Converted " + out.size() + " products to DTOs");
-        return out;
     }
-
-    private static boolean eq(String a, String b) { return a != null && a.equalsIgnoreCase(b); }
-
-    private static String resolveEndpoint(String wsdlUrl) {
-        if (wsdlUrl == null) return null;
-        String u = wsdlUrl.trim();
-        if (u.endsWith("?wsdl")) u = u.substring(0, u.length() - 5);
-        if (u.endsWith("/supplier.wsdl")) u = u.substring(0, u.length() - "/supplier.wsdl".length());
-        return u; // e.g., http://localhost:8082/ws
+    
+    @SuppressWarnings("unchecked")
+    private List<SupplierProductDto> extractProductsFromSoapResponse(Map<String, Object> result) {
+        List<SupplierProductDto> products = new ArrayList<>();
+        
+        try {
+            // Look for products in different possible response structures
+            Object productsData = null;
+            
+            // Try different keys where products might be located
+            for (String key : List.of("products", "return", "result", "response", "product")) {
+                if (result.containsKey(key)) {
+                    productsData = result.get(key);
+                    break;
+                }
+            }
+            
+            // If no specific key found, check if the whole result contains product data
+            if (productsData == null && !result.isEmpty()) {
+                // For single product responses, the product data might be at the root level
+                if (result.containsKey("id") || result.containsKey("name")) {
+                    productsData = result;
+                    log.debug("Using root response as product data");
+                }
+            }
+            
+            if (productsData == null) {
+                log.warn("No products found in SOAP response. Available keys: {}", result.keySet());
+                return products;
+            }
+            
+            List<Map<String, Object>> productList;
+            if (productsData instanceof List) {
+                productList = (List<Map<String, Object>>) productsData;
+            } else if (productsData instanceof Map) {
+                // Single product wrapped in a map
+                productList = List.of((Map<String, Object>) productsData);
+            } else {
+                log.warn("Unexpected products data format: {}", productsData.getClass());
+                return products;
+            }
+            
+            // Convert each product map to SupplierProductDto
+            for (Map<String, Object> productMap : productList) {
+                try {
+                    SupplierProductDto product = new SupplierProductDto();
+                    
+                    // Map fields from SOAP response to SupplierProductDto
+                    product.setExternalProductId(getStringValue(productMap, "id"));
+                    product.setName(getStringValue(productMap, "name"));
+                    product.setDescription(getStringValue(productMap, "description"));
+                    product.setPrice(getDoubleValue(productMap, "supplierPrice", "displayedPrice", "price"));
+                    product.setStock(getIntValue(productMap, "availableQuantity", "realTimeStock", "stock"));
+                    
+                    // Handle picture data - either URL or base64
+                    String pictureUrl = getStringValue(productMap, "pictureUrl");
+                    String pictureData = getStringValue(productMap, "pictureData");
+                    String pictureFormat = getStringValue(productMap, "pictureFormat");
+                    
+                    if (pictureData != null && !pictureData.isEmpty()) {
+                        // Store base64 image data as data URL
+                        String format = pictureFormat != null ? pictureFormat : "jpeg";
+                        String dataUrl = "data:image/" + format + ";base64," + pictureData;
+                        product.setImageUrls(List.of(dataUrl));
+                        log.debug("Product {} has base64 image data (format: {})", product.getName(), format);
+                    } else if (pictureUrl != null && !pictureUrl.isEmpty()) {
+                        product.setImageUrls(List.of(pictureUrl));
+                        log.debug("Product {} has image URL: {}", product.getName(), pictureUrl);
+                    }
+                    
+                    // Add the product if it has required fields
+                    if (product.getName() != null && !product.getName().isEmpty()) {
+                        products.add(product);
+                        log.debug("Mapped SOAP product: {} - {} - ${} - {} in stock", 
+                                product.getExternalProductId(), product.getName(), product.getPrice(), product.getStock());
+                    }
+                    
+                } catch (Exception e) {
+                    log.error("Failed to map product from SOAP response: {}", e.getMessage());
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to extract products from SOAP response: {}", e.getMessage(), e);
+        }
+        
+        return products;
     }
-
-    private static String s(Object o) { return o == null ? null : String.valueOf(o); }
-    private static double d(Object o, double def) {
-        try { return o == null ? def : Double.parseDouble(String.valueOf(o)); } catch (Exception e) { return def; }
+    
+    private String getStringValue(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Object value = map.get(key);
+            if (value != null) {
+                return value.toString();
+            }
+        }
+        return null;
     }
-    private static int i(Object o, int def) {
-        try { return o == null ? def : Integer.parseInt(String.valueOf(o)); } catch (Exception e) { return def; }
+    
+    private Double getDoubleValue(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Object value = map.get(key);
+            if (value != null) {
+                try {
+                    return Double.parseDouble(value.toString());
+                } catch (NumberFormatException e) {
+                    log.debug("Could not parse double value for key {}: {}", key, value);
+                }
+            }
+        }
+        return 0.0;
+    }
+    
+    private Integer getIntValue(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Object value = map.get(key);
+            if (value != null) {
+                try {
+                    return Integer.parseInt(value.toString());
+                } catch (NumberFormatException e) {
+                    log.debug("Could not parse integer value for key {}: {}", key, value);
+                }
+            }
+        }
+        return 0;
     }
 }

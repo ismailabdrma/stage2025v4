@@ -10,6 +10,7 @@ import com.example.stage2025.enums.PaymentType;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public interface SupplierPaymentService {
     
@@ -52,4 +53,7 @@ public interface SupplierPaymentService {
 
     SupplierPaymentDto getPaymentById(Long paymentId);
     SupplierPaymentDto createPayment(SupplierPaymentDto dto);
+    
+    // Dashboard data
+    Map<String, Object> getDashboard();
 }

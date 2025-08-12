@@ -51,4 +51,4 @@ public class DashboardStatsDto {
     private List<Map<String, Object>> topSellingProducts;
     private List<Map<String, Object>> categoryDistribution;
 }
-
+ 

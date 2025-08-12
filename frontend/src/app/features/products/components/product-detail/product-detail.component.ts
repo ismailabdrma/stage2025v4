@@ -57,7 +57,9 @@ export class ProductDetailComponent implements OnInit {
       next: (product) => {
         this.product = product
         this.selectedImage = (product.imageUrls && product.imageUrls.length) ? product.imageUrls[0] : ""
-        this.isInWishlist = this.wishlistService.isInWishlist(product.id)
+        this.wishlistService.isInWishlist(product.id).subscribe(inWishlist => {
+          this.isInWishlist = inWishlist;
+        });
         this.loading = false
       },
       error: (error) => {
@@ -127,11 +129,18 @@ export class ProductDetailComponent implements OnInit {
         duration: 3000,
       })
     } else {
-      this.wishlistService.addToWishlist(this.product)
-      this.isInWishlist = true
-      this.snackBar.open(`${this.product.name} added to favorites!`, "Close", {
-        duration: 3000,
-      })
+      const wishlistItem = {
+        productId: this.product.id,
+        productName: this.product.name,
+        productImage: this.product.imageUrls?.[0],
+        price: this.product.displayedPrice
+      };
+      this.wishlistService.addToWishlist(wishlistItem).subscribe(() => {
+        this.isInWishlist = true;
+        this.snackBar.open(`${this.product?.name} added to favorites!`, "Close", {
+          duration: 3000,
+        });
+      });
     }
   }
 }

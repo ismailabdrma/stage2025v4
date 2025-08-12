@@ -18,6 +18,8 @@ import { CartService } from "./core/services/cart.service"
 import { selectUser, selectIsAuthenticated } from "./core/store/auth/auth.selectors"
 import { AuthActions } from "./core/store/auth/auth.actions"
 import type { User } from "./core/models/user.model"
+import { MiniCartDrawerComponent } from "./shared/components/mini-cart-drawer/mini-cart-drawer.component"
+import { ToastService } from "./shared/components/toast-notification/toast-notification.component"
 
 @Component({
   selector: "app-root",
@@ -36,6 +38,7 @@ import type { User } from "./core/models/user.model"
     MatDividerModule,
     MatFormFieldModule,
     MatInputModule,
+    MiniCartDrawerComponent,
   ],
   template: `
     <div class="app-container">
@@ -62,10 +65,10 @@ import type { User } from "./core/models/user.model"
 
           <span class="spacer"></span>
 
-          <a class="cart-link" routerLink="/cart" aria-label="Ouvrir le panier">
-            <mat-icon>shopping_cart</mat-icon>
-            <span>Panier ({{ cartItemCount }})</span>
-          </a>
+          <button class="cart-button" (click)="toggleMiniCart()" aria-label="Ouvrir le panier">
+            <mat-icon [matBadge]="cartItemCount" [matBadgeHidden]="cartItemCount === 0" matBadgeColor="accent">shopping_cart</mat-icon>
+            <span>Panier</span>
+          </button>
         </ng-container>
 
         <!-- Admin gets spacer only -->
@@ -143,6 +146,12 @@ import type { User } from "./core/models/user.model"
           </footer>
         </mat-sidenav-content>
       </mat-sidenav-container>
+
+      <!-- Mini Cart Drawer -->
+      <app-mini-cart-drawer 
+        [isOpen]="isMiniCartOpen" 
+        (closeDrawer)="closeMiniCart()">
+      </app-mini-cart-drawer>
     </div>
   `,
   styles: [
@@ -159,8 +168,22 @@ import type { User } from "./core/models/user.model"
       .search-box .prefix { color: rgba(0,0,0,0.54); }
 
       .spacer { flex: 1 1 auto; }
-      .cart-link { display:flex; align-items:center; gap:8px; text-decoration:none; color:#1B1B1B; padding:6px 10px; border:1px solid var(--brand-primary); border-radius:12px; }
-      .cart-link:hover { background: var(--brand-primary); }
+      .cart-button { 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        background: transparent; 
+        border: 1px solid rgba(255,255,255,0.3); 
+        color: inherit; 
+        padding: 8px 12px; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        transition: all 0.2s ease;
+      }
+      .cart-button:hover { 
+        background: rgba(255,255,255,0.1); 
+        border-color: rgba(255,255,255,0.5); 
+      }
 
       .sidenav-container { flex: 1; }
       .sidenav { width: 250px; }
@@ -182,15 +205,20 @@ export class AppComponent implements OnInit {
   private authService = inject(AuthService)
   private cartService = inject(CartService)
   private router = inject(Router)
+  private toastService = inject(ToastService)
 
   user$: Observable<User | null> = this.store.select(selectUser)
   isAuthenticated$: Observable<boolean> = this.store.select(selectIsAuthenticated)
   cartItemCount = 0
   isAdmin = false
+  isMiniCartOpen = false
 
   ngOnInit(): void {
-    const token = localStorage.getItem("token")
-    if (token) {
+    // Initialize auth state first - this checks token validity without HTTP calls
+    const hasValidToken = this.authService.initializeAuthState()
+    
+    // Only dispatch checkAuthStatus if we have a valid token
+    if (hasValidToken) {
       this.store.dispatch(AuthActions.checkAuthStatus())
     }
 
@@ -198,8 +226,8 @@ export class AppComponent implements OnInit {
       this.isAdmin = user?.role === "ADMIN"
     })
 
-    this.cartService.getCart().subscribe((cart) => {
-      this.cartItemCount = cart?.items?.length || 0
+    this.cartService.getCartItemCount().subscribe((count) => {
+      this.cartItemCount = count
     })
   }
 
@@ -209,5 +237,13 @@ export class AppComponent implements OnInit {
 
   onSearch(term: string): void {
     this.router.navigate(["/products"], { queryParams: { search: term || null }, queryParamsHandling: "merge" })
+  }
+
+  toggleMiniCart(): void {
+    this.isMiniCartOpen = !this.isMiniCartOpen
+  }
+
+  closeMiniCart(): void {
+    this.isMiniCartOpen = false
   }
 }

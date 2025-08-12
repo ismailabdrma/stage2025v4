@@ -33,5 +33,4 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   
   @Query("SELECT COUNT(o) FROM Order o WHERE o.orderDate BETWEEN :start AND :end")
   long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
-  
 }

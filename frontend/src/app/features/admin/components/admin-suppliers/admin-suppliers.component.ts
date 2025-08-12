@@ -1,14 +1,17 @@
-import { Component, OnInit, inject } from "@angular/core";
+import { Component, OnInit, inject, ViewChild, ElementRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { MatCardModule } from "@angular/material/card";
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 import { MatTableModule } from "@angular/material/table";
+import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
 import { MatDialog, MatDialogModule } from "@angular/material/dialog";
 import { MatChipsModule } from "@angular/material/chips";
+import { MatTooltipModule } from "@angular/material/tooltip";
 import { SupplierService } from "@core/services/supplier.service";
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CreateSupplierDialogComponent } from "./create-supplier-dialog/supplier-dialog.component";
+import { Supplier } from "@core/models/supplier.model";
 
 @Component({
     selector: "app-admin-suppliers",
@@ -19,8 +22,10 @@ import { CreateSupplierDialogComponent } from "./create-supplier-dialog/supplier
         MatButtonModule,
         MatIconModule,
         MatTableModule,
+        MatProgressSpinnerModule,
         MatDialogModule,
         MatChipsModule,
+        MatTooltipModule,
         MatSnackBarModule,
     ],
     templateUrl: "./admin-suppliers.component.html",
@@ -31,8 +36,10 @@ export class AdminSuppliersComponent implements OnInit {
     private snackBar = inject(MatSnackBar);
     private dialog = inject(MatDialog);
 
-    suppliers: any[] = [];
-    displayedColumns: string[] = ["id", "name", "type", "active", "actions"];
+    @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+
+    suppliers: Supplier[] = [];
+    displayedColumns: string[] = ["name", "type", "config", "status", "actions"];
     loading = false;
 
     ngOnInit(): void {
@@ -56,7 +63,9 @@ export class AdminSuppliersComponent implements OnInit {
 
     openCreateSupplierDialog(): void {
         const dialogRef = this.dialog.open(CreateSupplierDialogComponent, {
-            width: "500px",
+            width: "800px",
+            maxWidth: "95vw",
+            maxHeight: "90vh",
             data: null,
         });
 
@@ -65,15 +74,68 @@ export class AdminSuppliersComponent implements OnInit {
         });
     }
 
-    openEditSupplierDialog(supplier: any): void {
+    openEditSupplierDialog(supplier: Supplier): void {
         const dialogRef = this.dialog.open(CreateSupplierDialogComponent, {
-            width: "500px",
+            width: "800px",
+            maxWidth: "95vw",
+            maxHeight: "90vh",
             data: supplier,
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) this.loadSuppliers();
         });
+    }
+
+    // Statistics methods
+    getActiveSuppliers(): number {
+        return this.suppliers.filter(s => s.active).length;
+    }
+
+    getSuppliersByType(type: string): number {
+        return this.suppliers.filter(s => s.type === type).length;
+    }
+
+    // UI helper methods
+    getTypeIcon(type: string): string {
+        switch (type) {
+            case 'API': return 'api';
+            case 'SOAP': return 'soap';
+            case 'EXCEL': return 'table_view';
+            case 'CSV': return 'insert_drive_file';
+            default: return 'business';
+        }
+    }
+
+    getTypeClass(type: string): string {
+        switch (type) {
+            case 'API': return 'api-type';
+            case 'SOAP': return 'soap-type';
+            case 'EXCEL': return 'excel-type';
+            case 'CSV': return 'csv-type';
+            default: return '';
+        }
+    }
+
+    truncateUrl(url: string): string {
+        if (!url) return '';
+        return url.length > 40 ? url.substring(0, 40) + '...' : url;
+    }
+
+    triggerFileUpload(supplier: Supplier): void {
+        // Create a temporary file input for this specific supplier
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = supplier.type === 'CSV' ? '.csv' : '.xlsx,.xls';
+        input.style.display = 'none';
+        
+        input.onchange = (event: any) => {
+            this.onExcelSelected(event, supplier.id);
+        };
+        
+        document.body.appendChild(input);
+        input.click();
+        document.body.removeChild(input);
     }
 
     toggleActive(supplier: any): void {

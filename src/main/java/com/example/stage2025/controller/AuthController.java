@@ -1,20 +1,21 @@
 package com.example.stage2025.controller;
 
-import com.example.stage2025.entity.Admin;
-import com.example.stage2025.entity.Client;
+import com.example.stage2025.dto.*;
 import com.example.stage2025.entity.User;
+import com.example.stage2025.entity.Client;
 import com.example.stage2025.enums.Role;
 import com.example.stage2025.repository.UserRepository;
-import com.example.stage2025.security.JwtUtils;
 import com.example.stage2025.service.OtpService;
-import com.example.stage2025.service.EmailService;
-import jakarta.validation.Valid;
+import com.example.stage2025.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.*;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.Optional;
 
@@ -23,92 +24,66 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AuthController {
 
+    private final AuthenticationManager authManager;
     private final UserRepository userRepo;
     private final PasswordEncoder encoder;
     private final JwtUtils jwtUtils;
-    private final AuthenticationManager authManager;
     private final OtpService otpService;
-    private final EmailService emailService;
 
-    // --- DTOs ---
-    public record SignupRequest(String username, String email, String password, Role role) {}
-    public record LoginRequest(String identifier, String password) {}
-    public record JwtResponse(String token, String username, String email, String role) {}
-    public record OtpVerifyRequest(String email, String otp) {}
-    public record ResendOtpRequest(String email, String type) {}
-    public record EmailRequest(String email) {}
-    public record ResetPasswordRequest(String email, String otp, String newPassword) {}
-    public record ApiResponse(String status, String message) {}
-
-    /** --- 1. Registration --- */
-    @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody SignupRequest req) {
-        if (userRepo.existsByUsernameOrEmail(req.username(), req.email())) {
-            return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Username or email already exists"));
+    /** --- 1. Registration (send OTP) --- */
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
+        if (userRepo.findByUsername(req.getUsername()).isPresent()) {
+            return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Username already exists"));
+        }
+        if (userRepo.findByEmail(req.getEmail()).isPresent()) {
+            return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Email already exists"));
         }
 
-        User user = (req.role() == Role.ADMIN) ? new Admin() : new Client();
-        user.setUsername(req.username());
-        user.setEmail(req.email());
-        user.setPassword(encoder.encode(req.password()));
-        user.setRole(req.role());
-        
-        // Admins skip email verification for security/operational reasons
-        if (req.role() == Role.ADMIN) {
-            user.setActive(true);
-            user.setEmailVerified(true);
-            userRepo.save(user);
-            
-            // Send welcome email to admin
-            emailService.sendWelcomeEmail(user);
-            
-            return ResponseEntity.ok(new ApiResponse("SUCCESS", "Admin account created successfully. You can now log in."));
-        } else {
-            user.setActive(false);
-            user.setEmailVerified(false);
-            userRepo.save(user);
-            
-            // Send OTP for regular users
-            otpService.sendOtp(user.getEmail(), user.getId(), "REGISTER");
-            
-            return ResponseEntity.ok(new ApiResponse("OTP_REQUIRED", "User registered. Please verify your email with the OTP sent."));
-        }
+        Client user = new Client();
+        user.setUsername(req.getUsername());
+        user.setEmail(req.getEmail());
+        user.setPassword(encoder.encode(req.getPassword()));
+        user.setRole(Role.CLIENT);
+        user.setActive(false); // Not active until OTP verification
+
+        userRepo.save(user);
+
+        // Send OTP to email
+        otpService.sendOtp(user.getEmail(), user.getId(), "REGISTRATION");
+
+        return ResponseEntity.ok(new ApiResponse("SUCCESS", "Registration successful! OTP sent to email."));
     }
 
-    /** --- 2. Verify Email OTP (activate account) --- */
-    @PostMapping("/verify-email")
-    public ResponseEntity<?> verifyEmail(@RequestBody OtpVerifyRequest req) {
-        Optional<User> userOpt = userRepo.findByEmail(req.email());
-        if (userOpt.isEmpty()) return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Invalid email"));
+    /** --- 2. Verify Registration OTP and activate account --- */
+    @PostMapping("/verify-registration")
+    public ResponseEntity<?> verifyRegistration(@RequestBody OtpVerifyRequest req) {
+        Optional<User> userOpt = userRepo.findByEmail(req.getEmail());
+        if (userOpt.isEmpty()) return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "User not found"));
 
         User user = userOpt.get();
-        if (otpService.verifyOtp(user.getEmail(), "REGISTER", req.otp())) {
+        if (otpService.verifyOtp(user.getEmail(), "REGISTRATION", req.getOtp())) {
             user.setActive(true);
-            user.setEmailVerified(true);
             userRepo.save(user);
-            
-            // Send welcome email after successful verification
-            emailService.sendWelcomeEmail(user);
-            
-            return ResponseEntity.ok(new ApiResponse("SUCCESS", "Email verified. You may now log in."));
+            return ResponseEntity.ok(new ApiResponse("SUCCESS", "Account activated successfully!"));
         } else {
             return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Invalid or expired OTP."));
         }
     }
 
-    /** --- 3. Login (Admins get direct JWT, Users get OTP) --- */
+    /** --- 3. Login (admins get direct token, clients need OTP) --- */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req) {
         try {
             UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(req.identifier(), req.password());
+                    new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword());
             authManager.authenticate(authToken);
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponse("ERROR", "Invalid username or password"));
         }
 
-        User user = userRepo.findByUsernameOrEmail(req.identifier(), req.identifier())
+        User user = userRepo.findByUsernameOrEmail(req.getUsername(), req.getUsername())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
         if (!user.isActive()) {
@@ -118,7 +93,7 @@ public class AuthController {
         // Admins skip OTP and get direct JWT token for better UX
         if (user.getRole() == Role.ADMIN) {
             String token = jwtUtils.generateToken(user);
-            return ResponseEntity.ok(new JwtResponse(token, user.getUsername(), user.getEmail(), user.getRole().name()));
+            return ResponseEntity.ok(new JwtResponse(token, user.getId(), user.getUsername(), user.getEmail(), user.getRole().name()));
         } else {
             // Regular users still need OTP verification
             otpService.sendOtp(user.getEmail(), user.getId(), "LOGIN");
@@ -129,13 +104,13 @@ public class AuthController {
     /** --- 4. Complete Login with OTP (return JWT) --- */
     @PostMapping("/login/verify-otp")
     public ResponseEntity<?> loginVerifyOtp(@RequestBody OtpVerifyRequest req) {
-        Optional<User> userOpt = userRepo.findByEmail(req.email());
+        Optional<User> userOpt = userRepo.findByEmail(req.getEmail());
         if (userOpt.isEmpty()) return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Invalid email"));
 
         User user = userOpt.get();
-        if (otpService.verifyOtp(user.getEmail(), "LOGIN", req.otp())) {
+        if (otpService.verifyOtp(user.getEmail(), "LOGIN", req.getOtp())) {
             String token = jwtUtils.generateToken(user);
-            return ResponseEntity.ok(new JwtResponse(token, user.getUsername(), user.getEmail(), user.getRole().name()));
+            return ResponseEntity.ok(new JwtResponse(token, user.getId(), user.getUsername(), user.getEmail(), user.getRole().name()));
         } else {
             return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Invalid or expired OTP."));
         }
@@ -144,18 +119,18 @@ public class AuthController {
     /** --- 5. Resend OTP (for login or registration verification) --- */
     @PostMapping("/resend-otp")
     public ResponseEntity<?> resendOtp(@RequestBody ResendOtpRequest req) {
-        Optional<User> userOpt = userRepo.findByEmail(req.email());
+        Optional<User> userOpt = userRepo.findByEmail(req.getEmail());
         if (userOpt.isEmpty()) return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "User not found"));
 
         User user = userOpt.get();
-        otpService.sendOtp(user.getEmail(), user.getId(), req.type());
+        otpService.sendOtp(user.getEmail(), user.getId(), req.getType());
         return ResponseEntity.ok(new ApiResponse("SUCCESS", "OTP resent to email."));
     }
 
     /** --- 6. Forgot Password: request reset (send OTP) --- */
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody EmailRequest req) {
-        Optional<User> userOpt = userRepo.findByEmail(req.email());
+        Optional<User> userOpt = userRepo.findByEmail(req.getEmail());
         if (userOpt.isEmpty()) return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "User not found"));
 
         User user = userOpt.get();
@@ -166,12 +141,12 @@ public class AuthController {
     /** --- 7. Reset Password with OTP --- */
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
-        Optional<User> userOpt = userRepo.findByEmail(req.email());
+        Optional<User> userOpt = userRepo.findByEmail(req.getEmail());
         if (userOpt.isEmpty()) return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "User not found"));
 
         User user = userOpt.get();
-        if (otpService.verifyOtp(user.getEmail(), "FORGOT", req.otp())) {
-            user.setPassword(encoder.encode(req.newPassword()));
+        if (otpService.verifyOtp(user.getEmail(), "FORGOT", req.getOtp())) {
+            user.setPassword(encoder.encode(req.getNewPassword()));
             userRepo.save(user);
             return ResponseEntity.ok(new ApiResponse("SUCCESS", "Password reset successful."));
         } else {

@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -190,5 +192,70 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
     @Override
     public void auditPaymentAction(Long paymentId, String action, String details, Long adminId) {
         // no-op in simple implementation
+    }
+
+    @Override
+    public Map<String, Object> getDashboard() {
+        Map<String, Object> dashboard = new HashMap<>();
+        
+        try {
+            // Get basic payment statistics
+            List<SupplierPayment> allPayments = paymentRepository.findAll();
+            List<SupplierPayment> pendingPayments = allPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .collect(Collectors.toList());
+            
+            List<SupplierPayment> recentPayments = allPayments.stream()
+                .filter(p -> p.getCreatedDate() != null && 
+                    p.getCreatedDate().isAfter(LocalDateTime.now().minusDays(7)))
+                .limit(10)
+                .collect(Collectors.toList());
+            
+            // Calculate totals
+            double totalPendingAmount = pendingPayments.stream()
+                .mapToDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
+                .sum();
+            
+            double totalCommissionEarned = allPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .mapToDouble(p -> p.getCommissionAmount() != null ? p.getCommissionAmount().doubleValue() : 0.0)
+                .sum();
+            
+            // Convert to DTOs
+            List<SupplierPaymentDto> pendingDtos = pendingPayments.stream()
+                .map(SupplierPaymentMapper::toDto)
+                .collect(Collectors.toList());
+            
+            List<SupplierPaymentDto> recentDtos = recentPayments.stream()
+                .map(SupplierPaymentMapper::toDto)
+                .collect(Collectors.toList());
+            
+            // Build dashboard response
+            dashboard.put("pendingPayments", pendingDtos);
+            dashboard.put("pendingCount", pendingPayments.size());
+            dashboard.put("totalPendingAmount", totalPendingAmount);
+            dashboard.put("totalCommissionEarned", totalCommissionEarned);
+            dashboard.put("overduePayments", Collections.emptyList()); // TODO: implement overdue logic
+            dashboard.put("recentPayments", recentDtos);
+            dashboard.put("paymentsByStatus", Map.of(
+                "PENDING", pendingPayments.size(),
+                "PAID", (int) allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.PAID).count(),
+                "FAILED", (int) allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count()
+            ));
+            dashboard.put("paymentTrends", Collections.emptyList()); // TODO: implement trends
+            
+        } catch (Exception e) {
+            // Return empty dashboard on error
+            dashboard.put("pendingPayments", Collections.emptyList());
+            dashboard.put("pendingCount", 0);
+            dashboard.put("totalPendingAmount", 0.0);
+            dashboard.put("totalCommissionEarned", 0.0);
+            dashboard.put("overduePayments", Collections.emptyList());
+            dashboard.put("recentPayments", Collections.emptyList());
+            dashboard.put("paymentsByStatus", Collections.emptyMap());
+            dashboard.put("paymentTrends", Collections.emptyList());
+        }
+        
+        return dashboard;
     }
 }

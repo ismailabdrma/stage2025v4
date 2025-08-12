@@ -52,25 +52,11 @@ export class SupplierService {
         return this.http.post<any>(`${this.api}/${id}/import-products`, {});
     }
 
-    refreshMetadata(id: number): Observable<any> {
-        return this.http.post<any>(`${this.api}/${id}/refresh-metadata`, {});
+    refreshMetadata(supplierId: number): Observable<any> {
+        return this.http.post<any>(`${this.api}/${supplierId}/refresh-metadata`, {});
     }
 
     refreshAllSoapMetadata(): Observable<any> {
         return this.http.post<any>(`${this.api}/refresh-all-soap-metadata`, {});
-    }
-
-    // Upload supplier file (Excel/CSV) during supplier creation
-    uploadSupplierFile(file: File): Observable<any> {
-        const formData = new FormData();
-        formData.append('file', file);
-        return this.http.post<any>(`${environment.apiUrl}/api/admin/upload/supplier-file`, formData);
-    }
-
-    // Delete uploaded supplier file
-    deleteSupplierFile(filePath: string): Observable<any> {
-        return this.http.delete<any>(`${environment.apiUrl}/api/admin/upload/supplier-file`, {
-            params: { filePath }
-        });
     }
 }

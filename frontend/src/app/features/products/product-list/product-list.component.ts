@@ -181,9 +181,9 @@ export class ProductListComponent implements OnInit {
     });
   }
 
-  onPageChange(event: PageEvent): void {
+  onPageChange(event: any): void {
+    this.currentPage = event.pageIndex + 1; // PageEvent is 0-based, convert to 1-based
     this.pageSize = event.pageSize;
-    this.currentPage = (event.pageIndex ?? 0) + 1; // MatPaginator is 0-based
     this.loadProducts();
   }
 }

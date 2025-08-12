@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { ProductCardComponent } from '@app/shared/components/product-card/product-card.component';
+import { ProductCardComponent, ProductCard } from '@app/shared/components/product-card/product-card.component';
 
 @Component({
   selector: 'app-home',
@@ -89,5 +89,21 @@ export class HomeComponent implements OnInit {
 
   navigateToProductDetail(productId: number): void {
     this.router.navigate(['/products', productId]);
+  }
+
+  // Convert Product to ProductCard for the product-card component
+  mapToProductCard(product: Product): ProductCard {
+    return {
+      id: product.id,
+      name: product.name,
+      price: product.displayedPrice,
+      originalPrice: product.supplierPrice && product.supplierPrice > product.displayedPrice ? product.supplierPrice : undefined,
+      imageUrl: product.imageUrls?.[0],
+      description: product.description,
+      inStock: (product.stockQuantity || 0) > 0,
+      stockQuantity: product.stockQuantity,
+      category: product.categoryName,
+      slug: product.id.toString()
+    };
   }
 }

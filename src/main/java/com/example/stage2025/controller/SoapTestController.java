@@ -1,3 +1,5 @@
+
+
 package com.example.stage2025.controller;
 
 import lombok.RequiredArgsConstructor;
@@ -100,3 +102,12 @@ public class SoapTestController {
         return ResponseEntity.ok(result);
     }
 }
+
+
+
+
+
+
+
+
+

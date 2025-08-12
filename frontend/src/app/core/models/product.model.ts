@@ -26,3 +26,11 @@ export interface Category {
   description: string
   active: boolean
 }
+
+
+export interface Category {
+  id: number
+  name: string
+  description: string
+  active: boolean
+}

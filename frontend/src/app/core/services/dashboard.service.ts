@@ -8,15 +8,18 @@ export interface DashboardStats {
   totalUsers: number;
   totalProducts: number;
   activeProducts: number;
+  inactiveProducts: number;
   pendingProducts: number;
   totalSuppliers: number;
   activeSuppliers: number;
+  inactiveSuppliers: number;
   totalCategories: number;
   
   // Order statistics
   totalOrders: number;
   pendingOrders: number;
   processingOrders: number;
+  completedOrders: number;
   shippedOrders: number;
   deliveredOrders: number;
   cancelledOrders: number;
@@ -31,6 +34,11 @@ export interface DashboardStats {
   userGrowthRate: number;
   orderGrowthRate: number;
   revenueGrowthRate: number;
+  
+  // System health
+  systemStatus: string;
+  lastUpdated?: number;
+  error?: string;
   
   // Recent activity
   recentOrders: RecentOrder[];
@@ -102,6 +110,23 @@ export interface SystemHealth {
   error?: string;
 }
 
+export interface SystemPerformance {
+  memoryUsage: number;
+  cpuUsage: number;
+  avgResponseTime: number;
+  requestsPerSecond: number;
+  errorRate: number;
+  uptime: string;
+}
+
+export interface SystemLog {
+  id: number;
+  timestamp: Date;
+  level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+  message: string;
+  source?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -116,5 +141,13 @@ export class DashboardService {
 
   getSystemHealth(): Observable<SystemHealth> {
     return this.http.get<SystemHealth>(`${this.api}/health`);
+  }
+
+  getSystemPerformance(): Observable<SystemPerformance> {
+    return this.http.get<SystemPerformance>(`${this.api}/performance`);
+  }
+
+  getSystemLogs(): Observable<SystemLog[]> {
+    return this.http.get<SystemLog[]>(`${this.api}/logs`);
   }
 }

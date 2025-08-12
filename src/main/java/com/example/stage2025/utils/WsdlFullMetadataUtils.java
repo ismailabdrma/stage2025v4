@@ -181,6 +181,4 @@ public class WsdlFullMetadataUtils {
         }
         return elements;
     }
-
-
 }

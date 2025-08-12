@@ -1,15 +1,15 @@
-// src/main/java/com/example/stage2025/controller/CartController.java
 package com.example.stage2025.controller;
 
 import com.example.stage2025.dto.CartDto;
 import com.example.stage2025.dto.CartItemDto;
 import com.example.stage2025.service.CartService;
-import com.example.stage2025.repository.UserRepository;
-import com.example.stage2025.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/cart")
@@ -17,17 +17,12 @@ import org.springframework.web.bind.annotation.*;
 public class CartController {
 
     private final CartService cartService;
-    private final UserRepository userRepository;
 
-    // Helper to get client ID from authentication
     private Long getClientId(Authentication auth) {
-        String principal = auth.getName(); // username or email
-        return userRepository.findByUsernameOrEmail(principal, principal)
-                .map(User::getId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found for principal: " + principal));
+        return Long.valueOf(auth.getName());
     }
 
-    /** 1. Get current user's cart */
+    /** 1. Get current cart */
     @GetMapping
     public ResponseEntity<CartDto> getCart(Authentication auth) {
         Long clientId = getClientId(auth);
@@ -43,8 +38,7 @@ public class CartController {
 
     /** 3. Update item quantity */
     @PutMapping("/item/{cartItemId}")
-    public ResponseEntity<CartDto> updateQuantity(Authentication auth, @PathVariable Long cartItemId, @RequestParam int quantity) {
-        // You may want to check if the item belongs to the user's cart.
+    public ResponseEntity<CartDto> updateItem(Authentication auth, @PathVariable Long cartItemId, @RequestParam int quantity) {
         return ResponseEntity.ok(cartService.updateItemQuantity(cartItemId, quantity));
     }
 
@@ -61,5 +55,92 @@ public class CartController {
         Long clientId = getClientId(auth);
         cartService.clearCart(clientId);
         return ResponseEntity.noContent().build();
+    }
+
+    /** 6. Add item to cart (new format with variant support) */
+    @PostMapping("/items")
+    public ResponseEntity<CartDto> addItemWithVariant(Authentication auth, @RequestBody CartItemDto itemDto) {
+        Long clientId = getClientId(auth);
+        return ResponseEntity.ok(cartService.addItemToCart(clientId, itemDto));
+    }
+
+    /** 7. Update item quantity (new format) */
+    @PutMapping("/items/{cartItemId}")
+    public ResponseEntity<CartDto> updateItemQuantity(Authentication auth, @PathVariable Long cartItemId, @RequestBody Map<String, Object> payload) {
+        int quantity = (Integer) payload.get("quantity");
+        return ResponseEntity.ok(cartService.updateItemQuantity(cartItemId, quantity));
+    }
+
+    /** 8. Remove item from cart (new format returning updated cart) */
+    @DeleteMapping("/items/{cartItemId}")
+    public ResponseEntity<CartDto> removeItemReturnCart(Authentication auth, @PathVariable Long cartItemId) {
+        Long clientId = getClientId(auth);
+        cartService.removeItemFromCart(cartItemId);
+        return ResponseEntity.ok(cartService.getCartByClientId(clientId));
+    }
+
+    /** 9. Merge guest cart with user cart after login */
+    @PostMapping("/merge")
+    public ResponseEntity<CartDto> mergeGuestCart(Authentication auth, @RequestBody Map<String, Object> payload) {
+        Long clientId = getClientId(auth);
+        
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> guestCartItems = (List<Map<String, Object>>) payload.get("guestCartItems");
+        
+        // Convert guest cart items to CartItemDto
+        for (Map<String, Object> guestItem : guestCartItems) {
+            CartItemDto itemDto = new CartItemDto();
+            itemDto.setProductId(((Number) guestItem.get("productId")).longValue());
+            itemDto.setQuantity(((Number) guestItem.get("quantity")).intValue());
+            itemDto.setUnitPrice(((Number) guestItem.get("price")).doubleValue());
+            
+            // Add to cart (will merge if item already exists)
+            cartService.addItemToCart(clientId, itemDto);
+        }
+        
+        return ResponseEntity.ok(cartService.getCartByClientId(clientId));
+    }
+
+    /** 10. Get cart item count for badge */
+    @GetMapping("/count")
+    public ResponseEntity<Map<String, Integer>> getCartItemCount(Authentication auth) {
+        Long clientId = getClientId(auth);
+        CartDto cart = cartService.getCartByClientId(clientId);
+        int itemCount = cart.getItems().stream()
+                .mapToInt(CartItemDto::getQuantity)
+                .sum();
+        return ResponseEntity.ok(Map.of("count", itemCount));
+    }
+
+    /** 11. Apply coupon code */
+    @PostMapping("/apply-coupon")
+    public ResponseEntity<CartDto> applyCoupon(Authentication auth, @RequestBody Map<String, String> payload) {
+        Long clientId = getClientId(auth);
+        String couponCode = payload.get("code");
+        // TODO: Implement coupon logic
+        return ResponseEntity.ok(cartService.getCartByClientId(clientId));
+    }
+
+    /** 12. Get shipping quote for cart */
+    @PostMapping("/shipping-quote")
+    public ResponseEntity<Map<String, Object>> getShippingQuote(Authentication auth, @RequestBody Map<String, Object> payload) {
+        Long clientId = getClientId(auth);
+        Long addressId = ((Number) payload.get("addressId")).longValue();
+        
+        // TODO: Implement shipping calculation
+        Map<String, Object> shippingOptions = Map.of(
+            "standard", Map.of(
+                "name", "Livraison Standard",
+                "price", 5.99,
+                "estimatedDays", "3-5 jours"
+            ),
+            "express", Map.of(
+                "name", "Livraison Express",
+                "price", 12.99,
+                "estimatedDays", "1-2 jours"
+            )
+        );
+        
+        return ResponseEntity.ok(Map.of("options", shippingOptions));
     }
 }

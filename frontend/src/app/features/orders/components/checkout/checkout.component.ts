@@ -16,7 +16,7 @@ import { AddressService } from "@core/services/address.service"
 import { MatDialog } from "@angular/material/dialog"
 import { AddressDialogComponent } from "@app/features/profile/components/address-dialog/address-dialog.component"
 import { OrderService } from "@core/services/order.service"
-import { PaymentService } from "@core/services/payment.service"
+// import { PaymentService } from "@core/services/payment.service"
 import type { Cart } from "@core/models/cart.model"
 
 @Component({
@@ -242,7 +242,7 @@ export class CheckoutComponent implements OnInit {
   private cartService = inject(CartService)
   private router = inject(Router)
   private orderService = inject(OrderService)
-  private paymentService = inject(PaymentService)
+  // private paymentService = inject(PaymentService)
   private addressService = inject(AddressService)
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);

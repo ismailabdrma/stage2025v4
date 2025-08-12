@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
@@ -270,40 +269,6 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         }
         
         return processedPayments;
-    }
-
-    // --- Schedulers ---
-    // Process due payments daily at 02:00
-    @Scheduled(cron = "0 0 2 * * *")
-    public void scheduledProcessDuePayments() {
-        try {
-            List<SupplierPaymentDto> processed = processScheduledPayments();
-            log.info("Scheduled: processed {} due payments", processed.size());
-        } catch (Exception e) {
-            log.error("Scheduled: processing due payments failed: {}", e.getMessage());
-        }
-    }
-
-    // Create weekly payments every Monday at 03:00
-    @Scheduled(cron = "0 0 3 * * MON")
-    public void scheduledCreateWeekly() {
-        try {
-            List<SupplierPaymentDto> created = createWeeklyPayments();
-            log.info("Scheduled: created {} weekly payments", created.size());
-        } catch (Exception e) {
-            log.error("Scheduled: create weekly payments failed: {}", e.getMessage());
-        }
-    }
-
-    // Create monthly payments on 1st at 04:00
-    @Scheduled(cron = "0 0 4 1 * *")
-    public void scheduledCreateMonthly() {
-        try {
-            List<SupplierPaymentDto> created = createMonthlyPayments();
-            log.info("Scheduled: created {} monthly payments", created.size());
-        } catch (Exception e) {
-            log.error("Scheduled: create monthly payments failed: {}", e.getMessage());
-        }
     }
 
     private SupplierPaymentDto processBatchPayment(List<SupplierPayment> payments) {
@@ -563,6 +528,72 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
     @Override public SupplierPaymentSummaryDto getSupplierPaymentSummary(Long supplierId) { return null; }
     @Override public List<SupplierPaymentSummaryDto> getAllSupplierSummaries() { return Collections.emptyList(); }
     @Override public List<SupplierPaymentDto> getPaymentHistory(Long paymentId) { return Collections.emptyList(); }
+
+    @Override
+    public Map<String, Object> getDashboard() {
+        Map<String, Object> dashboard = new HashMap<>();
+        
+        try {
+            // Get basic payment statistics
+            List<SupplierPayment> allPayments = supplierPaymentRepository.findAll();
+            List<SupplierPayment> pendingPayments = allPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .collect(Collectors.toList());
+            
+            List<SupplierPayment> recentPayments = allPayments.stream()
+                .filter(p -> p.getCreatedDate() != null && 
+                    p.getCreatedDate().isAfter(LocalDateTime.now().minusDays(7)))
+                .limit(10)
+                .collect(Collectors.toList());
+            
+            // Calculate totals
+            double totalPendingAmount = pendingPayments.stream()
+                .mapToDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
+                .sum();
+            
+            double totalCommissionEarned = allPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .mapToDouble(p -> p.getCommissionAmount() != null ? p.getCommissionAmount().doubleValue() : 0.0)
+                .sum();
+            
+            // Convert to DTOs
+            List<SupplierPaymentDto> pendingDtos = pendingPayments.stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+            
+            List<SupplierPaymentDto> recentDtos = recentPayments.stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+            
+            // Build dashboard response
+            dashboard.put("pendingPayments", pendingDtos);
+            dashboard.put("pendingCount", pendingPayments.size());
+            dashboard.put("totalPendingAmount", totalPendingAmount);
+            dashboard.put("totalCommissionEarned", totalCommissionEarned);
+            dashboard.put("overduePayments", Collections.emptyList()); // TODO: implement overdue logic
+            dashboard.put("recentPayments", recentDtos);
+            dashboard.put("paymentsByStatus", Map.of(
+                "PENDING", pendingPayments.size(),
+                "PAID", (int) allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.PAID).count(),
+                "FAILED", (int) allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count()
+            ));
+            dashboard.put("paymentTrends", Collections.emptyList()); // TODO: implement trends
+            
+        } catch (Exception e) {
+            log.error("Error building supplier payment dashboard: {}", e.getMessage());
+            // Return empty dashboard on error
+            dashboard.put("pendingPayments", Collections.emptyList());
+            dashboard.put("pendingCount", 0);
+            dashboard.put("totalPendingAmount", 0.0);
+            dashboard.put("totalCommissionEarned", 0.0);
+            dashboard.put("overduePayments", Collections.emptyList());
+            dashboard.put("recentPayments", Collections.emptyList());
+            dashboard.put("paymentsByStatus", Collections.emptyMap());
+            dashboard.put("paymentTrends", Collections.emptyList());
+        }
+        
+        return dashboard;
+    }
 
     private SupplierPaymentDto processIndividualPayment(SupplierPayment payment) {
         // Implementation for individual payment processing

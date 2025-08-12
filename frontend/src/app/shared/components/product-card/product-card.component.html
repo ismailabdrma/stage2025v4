@@ -1,9 +1,149 @@
-<a class="product-card" [routerLink]="['/products', product.id]">
-  <img [src]="(product.imageUrls && product.imageUrls.length ? product.imageUrls[0] : 'assets/placeholder.png')"
-       [alt]="product.name"
-       class="product-image">
-  <div class="product-info">
-    <h3>{{ product.name }}</h3>
-    <div class="price">{{ product.displayedPrice | currency }}</div>
+<div class="product-card" 
+     [class.layout-list]="layout === 'list'"
+     [class.layout-grid]="layout === 'grid'"
+     [routerLink]="productUrl"
+     (click)="onProductClick()">
+  
+  <!-- Product Image Container -->
+  <div class="product-image-container">
+    <div class="product-image">
+      <img [src]="product.imageUrl || '/assets/placeholder-product.jpg'" 
+           [alt]="product.name"
+           loading="lazy"
+           class="main-image">
+      
+      <!-- Badges -->
+      <div class="product-badges">
+        <span *ngIf="product.isNew" class="badge badge-new">Nouveau</span>
+        <span *ngIf="product.isBestseller" class="badge badge-bestseller">Best-seller</span>
+        <span *ngIf="hasDiscount" class="badge badge-discount">-{{ discountPercentage }}%</span>
+      </div>
+      
+      <!-- Stock Status -->
+      <div class="stock-indicator" [class]="'stock-' + stockStatus">
+        <mat-icon *ngIf="stockStatus === 'out-of-stock'">inventory</mat-icon>
+        <mat-icon *ngIf="stockStatus === 'low-stock'">warning</mat-icon>
+        <mat-icon *ngIf="stockStatus === 'in-stock'">check_circle</mat-icon>
+      </div>
+    </div>
+
+    <!-- Quick Actions Overlay -->
+    <div class="quick-actions-overlay" *ngIf="showQuickActions">
+      <div class="quick-actions">
+        
+        <!-- Wishlist Button -->
+        <button *ngIf="showWishlist"
+                mat-icon-button 
+                class="action-btn wishlist-btn"
+                [class.active]="isInWishlist"
+                (click)="onToggleWishlist($event)"
+                [matTooltip]="isInWishlist ? 'Retirer des favoris' : 'Ajouter aux favoris'">
+          <mat-icon>{{ isInWishlist ? 'favorite' : 'favorite_border' }}</mat-icon>
+        </button>
+
+        <!-- Quick View Button -->
+        <button mat-icon-button 
+                class="action-btn quick-view-btn"
+                (click)="onQuickView($event)"
+                matTooltip="Aperçu rapide">
+          <mat-icon>visibility</mat-icon>
+        </button>
+
+        <!-- Compare Button -->
+        <button *ngIf="showCompare"
+                mat-icon-button 
+                class="action-btn compare-btn"
+                matTooltip="Comparer">
+          <mat-icon>compare_arrows</mat-icon>
+        </button>
+      </div>
+    </div>
   </div>
-</a>
+
+  <!-- Product Content -->
+  <div class="product-content">
+    
+    <!-- Brand & Category -->
+    <div class="product-meta" *ngIf="product.brand || product.category">
+      <span *ngIf="product.brand" class="brand">{{ product.brand }}</span>
+      <span *ngIf="product.category" class="category">{{ product.category }}</span>
+    </div>
+
+    <!-- Product Name -->
+    <h3 class="product-name" [matTooltip]="product.name">
+      {{ product.name }}
+    </h3>
+
+    <!-- Product Description -->
+    <p *ngIf="product.description && layout === 'list'" class="product-description">
+      {{ product.description }}
+    </p>
+
+    <!-- Rating & Reviews -->
+    <div class="rating-section" *ngIf="product.rating">
+      <div class="stars">
+        <mat-icon *ngFor="let star of [1,2,3,4,5]" 
+                  class="star"
+                  [class.filled]="star <= product.rating!"
+                  [class.half]="star === Math.ceil(product.rating!) && product.rating! % 1 !== 0">
+          {{ star <= product.rating! ? 'star' : (star === Math.ceil(product.rating!) && product.rating! % 1 !== 0 ? 'star_half' : 'star_border') }}
+        </mat-icon>
+      </div>
+      <span class="rating-text">
+        <span class="rating-value">{{ product.rating | number:'1.1-1' }}</span>
+        <span *ngIf="product.reviewCount" class="review-count">({{ product.reviewCount }})</span>
+      </span>
+    </div>
+
+    <!-- Price Section -->
+    <div class="price-section">
+      <div class="price-container">
+        <span class="current-price" [class.discounted]="hasDiscount">
+          {{ product.price | currency:'EUR':'symbol':'1.2-2' }}
+        </span>
+        <span *ngIf="hasDiscount" class="original-price">
+          {{ product.originalPrice | currency:'EUR':'symbol':'1.2-2' }}
+        </span>
+      </div>
+      
+      <!-- Savings -->
+      <div *ngIf="hasDiscount" class="savings">
+        Économisez {{ (product.originalPrice! - product.price) | currency:'EUR':'symbol':'1.2-2' }}
+      </div>
+    </div>
+
+    <!-- Stock Status Text -->
+    <div class="stock-status">
+      <ng-container [ngSwitch]="stockStatus">
+        <span *ngSwitchCase="'in-stock'" class="status-text in-stock">
+          <mat-icon>check_circle</mat-icon>
+          En stock
+        </span>
+        <span *ngSwitchCase="'low-stock'" class="status-text low-stock">
+          <mat-icon>warning</mat-icon>
+          Plus que {{ product.stockQuantity }} en stock
+        </span>
+        <span *ngSwitchCase="'out-of-stock'" class="status-text out-of-stock">
+          <mat-icon>cancel</mat-icon>
+          Rupture de stock
+        </span>
+      </ng-container>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <button mat-raised-button 
+              color="primary"
+              class="add-to-cart-btn"
+              [disabled]="!product.inStock || isAddingToCart"
+              (click)="onAddToCart($event)">
+        <mat-icon *ngIf="isAddingToCart" class="loading-icon">autorenew</mat-icon>
+        <mat-icon *ngIf="!isAddingToCart">shopping_cart</mat-icon>
+        <span *ngIf="!isAddingToCart">
+          {{ product.inStock ? 'Ajouter au panier' : 'Indisponible' }}
+        </span>
+        <span *ngIf="isAddingToCart">Ajout...</span>
+      </button>
+    </div>
+  </div>
+</div>

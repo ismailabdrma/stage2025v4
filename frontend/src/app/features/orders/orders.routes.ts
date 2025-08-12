@@ -13,8 +13,8 @@ export const ordersRoutes: Routes = [
     path: ":id",
     loadComponent: () => import("./components/order-detail/order-detail.component").then((m) => m.OrderDetailComponent),
   },
-  {
-    path: ":orderId/payment",
-    loadComponent: () => import("./components/payment/payment.component").then((m) => m.PaymentComponent),
-  },
+  // {
+  //   path: ":orderId/payment",
+  //   loadComponent: () => import("./components/payment/payment.component").then((m) => m.PaymentComponent),
+  // },
 ]

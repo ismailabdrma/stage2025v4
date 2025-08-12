@@ -43,7 +43,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         return UserMapper.toDto(user);
     }
 
-    @Override
     @Transactional
     public UserDto updateUser(Long id, UserDto userDto) {
         User user = userRepository.findById(id)
@@ -61,7 +60,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         return UserMapper.toDto(saved);
     }
 
-    @Override
     @Transactional
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
@@ -71,7 +69,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         log.info("User {} deleted by admin", id);
     }
 
-    @Override
     @Transactional
     public UserDto suspendUser(Long id, String reason) {
         User user = userRepository.findById(id)
@@ -111,21 +108,22 @@ public class UserManagementServiceImpl implements UserManagementService {
         log.info("User {} activated by admin", id);
         return UserMapper.toDto(saved);
     }
-
     @Override
+    public void deactivateUser(Long id) {
+
+    }
+
     @Transactional
     public UserDto banUser(Long id, String reason) {
         // For now, same as suspend - you could add a banned status
         return suspendUser(id, reason);
     }
 
-    @Override
     @Transactional
     public UserDto unbanUser(Long id) {
         return activateUser(id);
     }
 
-    @Override
     @Transactional
     public List<UserDto> bulkSuspendUsers(List<Long> userIds, String reason) {
         List<User> users = userRepository.findAllById(userIds);
@@ -152,7 +150,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional
     public List<UserDto> bulkActivateUsers(List<Long> userIds) {
         List<User> users = userRepository.findAllById(userIds);
@@ -179,7 +176,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional
     public void bulkDeleteUsers(List<Long> userIds) {
         List<User> users = userRepository.findAllById(userIds);
@@ -188,7 +184,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         log.info("Bulk deleted {} users by admin", userIds.size());
     }
 
-    @Override
     @Transactional
     public UserDto changeUserRole(Long id, Role newRole) {
         User user = userRepository.findById(id)
@@ -209,7 +204,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         return UserMapper.toDto(saved);
     }
 
-    @Override
     @Transactional(readOnly = true)
     public List<UserDto> getUsersByRole(Role role) {
         return userRepository.findAll().stream()
@@ -218,7 +212,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional(readOnly = true)
     public Map<String, Long> getUserStatistics() {
         List<User> allUsers = userRepository.findAll();
@@ -237,7 +230,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         return stats;
     }
 
-    @Override
     @Transactional(readOnly = true)
     public List<UserDto> getActiveUsers() {
         return userRepository.findAll().stream()
@@ -246,7 +238,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional(readOnly = true)
     public List<UserDto> getSuspendedUsers() {
         return userRepository.findAll().stream()
@@ -255,7 +246,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional(readOnly = true)
     public List<UserDto> getRecentlyRegisteredUsers(int days) {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(days);
@@ -265,7 +255,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional
     public void resetUserPassword(Long id) {
         User user = userRepository.findById(id)
@@ -287,7 +276,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         log.info("Password reset for user {} by admin", id);
     }
 
-    @Override
     @Transactional
     public void forcePasswordChange(Long id) {
         User user = userRepository.findById(id)
@@ -306,7 +294,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         log.info("Force password change for user {} by admin", id);
     }
 
-    @Override
     @Transactional(readOnly = true)
     public List<UserDto> searchUsers(String searchTerm) {
         String term = searchTerm.toLowerCase();
@@ -321,7 +308,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional(readOnly = true)
     public List<UserDto> filterUsers(Map<String, Object> filters) {
         return userRepository.findAll().stream()
@@ -348,5 +334,8 @@ public class UserManagementServiceImpl implements UserManagementService {
         return "TempPass" + System.currentTimeMillis();
     }
 }
+
+
+
 
 

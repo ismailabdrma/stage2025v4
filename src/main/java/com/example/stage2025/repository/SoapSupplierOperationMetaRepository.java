@@ -11,3 +11,4 @@ public interface SoapSupplierOperationMetaRepository extends JpaRepository<SoapS
     List<SoapSupplierOperationMeta> findBySupplier(SoapSupplier supplier);
     void deleteBySupplier(SoapSupplier supplier);
 }
+

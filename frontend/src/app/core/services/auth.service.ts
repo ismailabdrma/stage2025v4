@@ -1,9 +1,9 @@
 import { Injectable, inject } from "@angular/core"
 import { HttpClient } from "@angular/common/http"
 import type { Observable } from "rxjs"
+import { BehaviorSubject, map } from "rxjs"
 import { environment } from "@environments/environment"
 import type { LoginRequest, SignupRequest, OtpVerifyRequest, JwtResponse, User } from "../models/user.model"
-import {map} from "rxjs/operators";
 
 @Injectable({
   providedIn: "root",
@@ -11,6 +11,10 @@ import {map} from "rxjs/operators";
 export class AuthService {
   private http = inject(HttpClient)
   private apiUrl = `${environment.apiUrl}/api/auth`
+  
+  // Add observable for authentication state
+  private isAuthenticatedSubject = new BehaviorSubject<boolean>(this.hasValidToken())
+  public isAuthenticated$ = this.isAuthenticatedSubject.asObservable()
 
   signup(request: SignupRequest): Observable<string> {
     return this.http.post<string>(`${this.apiUrl}/signup`, request)
@@ -21,8 +25,13 @@ export class AuthService {
   }
 
   // Update login method to handle OTP/admin JSON responses correctly
-  login(request: LoginRequest): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/login`, request).pipe(
+  login(request: any): Observable<any> {
+    // Map frontend 'identifier' to backend 'username'
+    const loginRequest = {
+      username: request.identifier || request.username,
+      password: request.password
+    };
+    return this.http.post<any>(`${this.apiUrl}/login`, loginRequest).pipe(
       map((response: any) => {
         // Backend may return ApiResponse with status: 'OTP_REQUIRED'
         if (response && (response.status === 'OTP_REQUIRED' || response?.status?.toUpperCase?.() === 'OTP_REQUIRED')) {
@@ -68,6 +77,8 @@ export class AuthService {
 
   logout(): void {
     localStorage.removeItem("token")
+    sessionStorage.clear() // Clear any session data
+    this.isAuthenticatedSubject.next(false)
   }
 
   getToken(): string | null {
@@ -76,18 +87,39 @@ export class AuthService {
 
   setToken(token: string): void {
     localStorage.setItem("token", token)
+    this.isAuthenticatedSubject.next(true)
   }
 
   isAuthenticated(): boolean {
+    return this.hasValidToken()
+  }
+
+  private hasValidToken(): boolean {
     const token = this.getToken()
     if (!token) return false
 
     try {
       const payload = JSON.parse(atob(token.split(".")[1]))
-      return payload.exp > Date.now() / 1000
+      const isValid = payload.exp > Date.now() / 1000
+      
+      if (!isValid) {
+        // Token is expired, clean up
+        this.logout()
+      }
+      
+      return isValid
     } catch {
+      // Token is malformed, clean up
+      this.logout()
       return false
     }
+  }
+
+  // Method to initialize auth state without making HTTP calls
+  initializeAuthState(): boolean {
+    const isValid = this.hasValidToken()
+    this.isAuthenticatedSubject.next(isValid)
+    return isValid
   }
 
   // Admin User Management Methods

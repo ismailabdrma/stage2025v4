@@ -71,5 +71,4 @@ public class ProductMapper {
             return "/api/images/proxy?url=placeholder.jpg";
         }
     }
-
 }

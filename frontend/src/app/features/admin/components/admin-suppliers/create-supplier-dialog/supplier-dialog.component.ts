@@ -7,11 +7,12 @@ import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
 import { MatButtonModule } from "@angular/material/button";
 import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
+import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatSnackBar } from "@angular/material/snack-bar";
+import { MatIconModule } from "@angular/material/icon";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import { MatTabsModule } from "@angular/material/tabs";
 import { MatDividerModule } from "@angular/material/divider";
-import { MatIconModule } from "@angular/material/icon";
 import { SupplierService } from "@core/services/supplier.service";
 import { HttpClient, HttpClientModule } from "@angular/common/http";
 
@@ -27,335 +28,304 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
         MatSelectModule,
         MatButtonModule,
         MatProgressSpinnerModule,
+        MatProgressBarModule,
+        MatIconModule,
         MatCheckboxModule,
         MatTabsModule,
         MatDividerModule,
-        MatIconModule,
         HttpClientModule,
     ],
     template: `
-        <h2 mat-dialog-title>
-            <mat-icon>business</mat-icon>
-            {{ data ? 'Edit Supplier' : 'Add New Supplier' }}
-        </h2>
-        
-        <mat-dialog-content class="dialog-content">
-            <form [formGroup]="supplierForm">
-                
-                <mat-tab-group>
+        <div class="supplier-dialog">
+            <h2 mat-dialog-title>
+                <mat-icon>{{ data ? 'edit' : 'add_business' }}</mat-icon>
+                {{ data ? 'Edit Supplier' : 'Add New Supplier' }}
+            </h2>
+            
+            <mat-dialog-content class="dialog-content">
+                <mat-tab-group [selectedIndex]="selectedTabIndex" (selectedTabChange)="onTabChange($event)">
                     <!-- Basic Information Tab -->
-                    <mat-tab label="Basic Info">
+                    <mat-tab label="Basic Information">
                         <div class="tab-content">
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
-                                    <mat-label>Supplier Name</mat-label>
-                    <input matInput formControlName="name" required>
-                                    <mat-error *ngIf="supplierForm.get('name')?.hasError('required')">
-                                        Supplier name is required
-                                    </mat-error>
-                                    <mat-error *ngIf="supplierForm.get('name')?.hasError('minlength')">
-                                        Name must be at least 2 characters
-                                    </mat-error>
+                            <form [formGroup]="supplierForm" class="supplier-form">
+                                <!-- Name and Email Row -->
+                                <div class="form-row">
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Supplier Name</mat-label>
+                                        <input matInput formControlName="name" required placeholder="Enter supplier name">
+                                        <mat-icon matSuffix>business</mat-icon>
+                                        <mat-error *ngIf="supplierForm.get('name')?.hasError('required')">
+                                            Supplier name is required
+                                        </mat-error>
+                                    </mat-form-field>
+                                    
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Contact Email</mat-label>
+                                        <input matInput formControlName="email" type="email" placeholder="supplier@company.com">
+                                        <mat-icon matSuffix>email</mat-icon>
+                                        <mat-error *ngIf="supplierForm.get('email')?.hasError('email')">
+                                            Please enter a valid email address
+                                        </mat-error>
                 </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="half-width">
+                                </div>
+                                
+                                <!-- Supplier Type -->
+                                <mat-form-field appearance="outline" class="full-width">
                                     <mat-label>Supplier Type</mat-label>
                     <mat-select formControlName="type" required (selectionChange)="onTypeChange()">
-                                        <mat-option value="API">REST API</mat-option>
-                                        <mat-option value="SOAP">SOAP Service</mat-option>
-                                        <mat-option value="EXCEL">Excel File</mat-option>
-                                        <mat-option value="CSV">CSV File</mat-option>
+                                        <mat-option value="API">
+                                            <mat-icon>api</mat-icon>
+                                            REST API Integration
+                                        </mat-option>
+                                        <mat-option value="SOAP">
+                                            <mat-icon>soap</mat-icon>
+                                            SOAP Web Service
+                                        </mat-option>
+                                        <mat-option value="EXCEL">
+                                            <mat-icon>table_view</mat-icon>
+                                            Excel File Upload
+                                        </mat-option>
+                                        <mat-option value="CSV">
+                                            <mat-icon>insert_drive_file</mat-icon>
+                                            CSV File Upload
+                                        </mat-option>
                                     </mat-select>
                                     <mat-error *ngIf="supplierForm.get('type')?.hasError('required')">
-                                        Supplier type is required
+                                        Please select a supplier type
                                     </mat-error>
                                 </mat-form-field>
-                                
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Contact Email</mat-label>
-                                    <input matInput formControlName="contactEmail" type="email">
-                                    <mat-error *ngIf="supplierForm.get('contactEmail')?.hasError('email')">
-                                        Invalid email format
-                                    </mat-error>
-                                </mat-form-field>
-                            </div>
 
-                            <div class="form-row">
-                                <mat-checkbox formControlName="active" class="full-width">
-                                    <strong>Active Supplier</strong>
-                                    <div class="checkbox-hint">Enable to allow product imports and operations</div>
-                                </mat-checkbox>
-                            </div>
+                                <!-- Type Description -->
+                                <div class="type-description" *ngIf="supplierForm.get('type')?.value">
+                                    <mat-icon [color]="'primary'">info</mat-icon>
+                                    <span>{{ getTypeDescription() }}</span>
+                                </div>
+                            </form>
                         </div>
                     </mat-tab>
 
-                    <!-- API Configuration Tab -->
-                    <mat-tab label="API Config" [disabled]="supplierForm.get('type')?.value !== 'API'">
-                        <div class="tab-content" *ngIf="supplierForm.get('type')?.value === 'API'">
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
-                                    <mat-label>API Base URL</mat-label>
-                                    <input matInput formControlName="apiUrl" placeholder="https://api.supplier.com">
-                                    <mat-error *ngIf="supplierForm.get('apiUrl')?.hasError('required')">
-                                        API URL is required for API suppliers
-                                    </mat-error>
-                                    <mat-error *ngIf="supplierForm.get('apiUrl')?.hasError('pattern')">
-                                        Must be a valid HTTP/HTTPS URL
-                                    </mat-error>
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Authentication Method</mat-label>
-                                    <mat-select formControlName="authMethod">
-                                        <mat-option value="BEARER">Bearer Token</mat-option>
-                                        <mat-option value="BASIC">Basic Auth</mat-option>
-                                        <mat-option value="NONE">No Authentication</mat-option>
-                                    </mat-select>
-                                </mat-form-field>
+                    <!-- Configuration Tab -->
+                    <mat-tab label="Configuration" [disabled]="!supplierForm.get('type')?.value">
+                        <div class="tab-content">
+                            <form [formGroup]="supplierForm" class="supplier-form">
                                 
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Data Format</mat-label>
-                                    <mat-select formControlName="dataFormat">
-                                        <mat-option value="JSON">JSON</mat-option>
-                                        <mat-option value="XML">XML</mat-option>
+                                <!-- API Configuration -->
+                                <ng-container *ngIf="supplierForm.get('type')?.value === 'API'">
+                                    <h3 class="section-title">
+                                        <mat-icon>api</mat-icon>
+                                        API Configuration
+                                    </h3>
+                                    
+                                    <mat-form-field appearance="outline" class="full-width">
+                                        <mat-label>API Endpoint URL</mat-label>
+                                        <input matInput formControlName="url" required 
+                                               placeholder="https://api.supplier.com/products">
+                                        <mat-icon matSuffix>link</mat-icon>
+                                        <mat-hint>Full URL to the supplier's API endpoint</mat-hint>
+                                        <mat-error *ngIf="supplierForm.get('url')?.hasError('required')">
+                                            API endpoint URL is required
+                                        </mat-error>
+                                    </mat-form-field>
+                                    
+                                    <div class="form-row">
+                                        <mat-form-field appearance="outline" class="half-width">
+                                            <mat-label>API Key (optional)</mat-label>
+                                            <input matInput formControlName="apiKey" placeholder="Your API key">
+                                            <mat-icon matSuffix>vpn_key</mat-icon>
+                                        </mat-form-field>
+                                        
+                                        <mat-form-field appearance="outline" class="half-width">
+                                            <mat-label>Authentication Method</mat-label>
+                                            <mat-select formControlName="authMethod">
+                                                <mat-option value="">None</mat-option>
+                                                <mat-option value="API_KEY">API Key</mat-option>
+                                                <mat-option value="BEARER_TOKEN">Bearer Token</mat-option>
+                                                <mat-option value="BASIC_AUTH">Basic Auth</mat-option>
                     </mat-select>
                 </mat-form-field>
-                            </div>
+                                    </div>
+                                </ng-container>
 
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
-                                    <mat-label>API Key / Token</mat-label>
-                                    <input matInput formControlName="apiKey" type="password">
-                                    <mat-error *ngIf="supplierForm.get('apiKey')?.hasError('required')">
-                                        API Key is required for API suppliers
-                                    </mat-error>
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Products Endpoint</mat-label>
-                                    <input matInput formControlName="productsEndpoint" placeholder="/products">
-                                </mat-form-field>
-                                
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Single Product Endpoint</mat-label>
-                                    <input matInput formControlName="singleEndpoint" placeholder="/product/{id}">
-                </mat-form-field>
-                            </div>
-                        </div>
-                    </mat-tab>
-
-                    <!-- SOAP Configuration Tab -->
-                    <mat-tab label="SOAP Config" [disabled]="supplierForm.get('type')?.value !== 'SOAP'">
-                        <div class="tab-content" *ngIf="supplierForm.get('type')?.value === 'SOAP'">
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
+                                <!-- SOAP Configuration -->
+                <ng-container *ngIf="supplierForm.get('type')?.value === 'SOAP'">
+                                    <h3 class="section-title">
+                                        <mat-icon>soap</mat-icon>
+                                        SOAP Web Service Configuration
+                                    </h3>
+                                    
+                                    <mat-form-field appearance="outline" class="full-width">
                         <mat-label>WSDL URL</mat-label>
-                                    <input matInput formControlName="wsdlUrl" (blur)="loadSoapOperations()" 
-                                           placeholder="http://supplier.com/ws?wsdl">
-                                    <mat-hint>Enter WSDL URL to automatically load available operations</mat-hint>
-                                    <mat-error *ngIf="supplierForm.get('wsdlUrl')?.hasError('required')">
-                                        WSDL URL is required for SOAP suppliers
-                                    </mat-error>
-                                    <mat-error *ngIf="supplierForm.get('wsdlUrl')?.hasError('pattern')">
-                                        Must be a valid HTTP/HTTPS URL
-                                    </mat-error>
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
-                                    <mat-label>Namespace</mat-label>
-                                    <input matInput formControlName="namespace" placeholder="http://supplier.com/ws">
-                                    <mat-error *ngIf="supplierForm.get('namespace')?.hasError('required')">
-                                        Namespace is required for SOAP suppliers
-                                    </mat-error>
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Username (Optional)</mat-label>
-                                    <input matInput formControlName="username">
-                                </mat-form-field>
-                                
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Password (Optional)</mat-label>
-                                    <input matInput formControlName="password" type="password">
+                                        <input matInput formControlName="wsdlUrl" (blur)="loadSoapOperations()" required
+                                               placeholder="https://supplier.com/service.wsdl">
+                                        <mat-icon matSuffix>description</mat-icon>
+                                        <mat-hint>Enter WSDL URL to automatically load available operations</mat-hint>
+                                        <mat-error *ngIf="supplierForm.get('wsdlUrl')?.hasError('required')">
+                                            WSDL URL is required
+                                        </mat-error>
                     </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>SOAP Operation</mat-label>
-                                    <mat-select formControlName="operation" [disabled]="soapOperations.length === 0 || loadingOps">
+                                    
+                                    <mat-form-field appearance="outline" class="full-width">
+                                        <mat-label>Service Namespace</mat-label>
+                                        <input matInput formControlName="namespace" required 
+                                               placeholder="http://supplier.com/ws">
+                                        <mat-icon matSuffix>schema</mat-icon>
+                                        <mat-error *ngIf="supplierForm.get('namespace')?.hasError('required')">
+                                            Service namespace is required
+                                        </mat-error>
+                    </mat-form-field>
+                                    
+                                    <div class="form-row">
+                                        <mat-form-field appearance="outline" class="half-width">
+                        <mat-label>Username (optional)</mat-label>
+                                            <input matInput formControlName="username" placeholder="Username">
+                                            <mat-icon matSuffix>person</mat-icon>
+                    </mat-form-field>
+                                        
+                                        <mat-form-field appearance="outline" class="half-width">
+                        <mat-label>Password (optional)</mat-label>
+                                            <input matInput type="password" formControlName="password" placeholder="Password">
+                                            <mat-icon matSuffix>lock</mat-icon>
+                    </mat-form-field>
+                                    </div>
+                                    
+                                    <mat-form-field appearance="outline" class="full-width">
+                                        <mat-label>SOAP Operation (Optional)</mat-label>
+                                        <mat-select formControlName="operation" [disabled]="soapOperations.length === 0">
+                                            <mat-option value="">Auto-detect operations after creation</mat-option>
                             <mat-option *ngFor="let op of soapOperations" [value]="op">
                                 {{ op }}
                             </mat-option>
                         </mat-select>
-                                    <mat-progress-spinner *ngIf="loadingOps" diameter="20" mode="indeterminate"></mat-progress-spinner>
-                                    <mat-hint *ngIf="soapOperations.length === 0 && !loadingOps">
-                                        Enter WSDL URL above to load operations
-                                    </mat-hint>
-                                </mat-form-field>
-                            </div>
+                        <mat-progress-spinner *ngIf="loadingOps" diameter="24" mode="indeterminate"></mat-progress-spinner>
+                                        <mat-hint>
+                                            Operations will be automatically detected from WSDL after supplier creation
+                                        </mat-hint>
+                    </mat-form-field>
+                </ng-container>
+
+                                <!-- Excel/CSV Configuration -->
+                                <ng-container *ngIf="supplierForm.get('type')?.value === 'EXCEL' || supplierForm.get('type')?.value === 'CSV'">
+                                    <h3 class="section-title">
+                                        <mat-icon>{{ supplierForm.get('type')?.value === 'EXCEL' ? 'table_view' : 'insert_drive_file' }}</mat-icon>
+                                        {{ supplierForm.get('type')?.value === 'EXCEL' ? 'Excel' : 'CSV' }} File Configuration
+                                    </h3>
+                                    
+                                    <div class="file-upload-section">
+                                        <p class="upload-description">
+                                            <mat-icon>info</mat-icon>
+                                            You can upload {{ supplierForm.get('type')?.value === 'EXCEL' ? 'Excel (.xlsx, .xls)' : 'CSV (.csv)' }} files 
+                                            containing product data after creating the supplier.
+                                        </p>
+                                        
+                                        <mat-form-field appearance="outline" class="full-width">
+                                            <mat-label>File URL (optional)</mat-label>
+                                            <input matInput formControlName="url" 
+                                                   placeholder="https://supplier.com/products.{{ supplierForm.get('type')?.value === 'EXCEL' ? 'xlsx' : 'csv' }}">
+                                            <mat-icon matSuffix>link</mat-icon>
+                                            <mat-hint>Optional: Direct URL to download the file automatically</mat-hint>
+                                        </mat-form-field>
+                                    </div>
+                                </ng-container>
+            </form>
                         </div>
                     </mat-tab>
 
-                    <!-- File Configuration Tab -->
-                    <mat-tab label="File Config" [disabled]="!['EXCEL', 'CSV'].includes(supplierForm.get('type')?.value)">
-                        <div class="tab-content" *ngIf="['EXCEL', 'CSV'].includes(supplierForm.get('type')?.value)">
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
-                                    <mat-label>File Name</mat-label>
-                                    <input matInput formControlName="fileName" placeholder="products.xlsx">
-                                    <mat-error *ngIf="supplierForm.get('fileName')?.hasError('required')">
-                                        File name is required
-                                    </mat-error>
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="full-width">
-                                    <mat-label>File Path / URL</mat-label>
-                                    <input matInput formControlName="filePath" 
-                                           placeholder="/uploads/supplier-files/ or https://supplier.com/products.xlsx">
-                                    <mat-error *ngIf="supplierForm.get('filePath')?.hasError('required')">
-                                        File path is required
-                                    </mat-error>
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="file-upload-section">
-                                    <h4>Upload Template File</h4>
-                                    <p class="upload-hint">
-                                        Upload an Excel file with product data. 
-                                        <a href="/assets/excel-template.xlsx" download>Download template</a>
+                    <!-- File Upload Tab (for Excel/CSV) -->
+                    <mat-tab label="File Upload" 
+                             [disabled]="!supplierForm.get('type')?.value || (supplierForm.get('type')?.value !== 'EXCEL' && supplierForm.get('type')?.value !== 'CSV')"
+                             *ngIf="supplierForm.get('type')?.value === 'EXCEL' || supplierForm.get('type')?.value === 'CSV'">
+                        <div class="tab-content">
+                            <div class="file-upload-container">
+                                <h3 class="section-title">
+                                    <mat-icon>cloud_upload</mat-icon>
+                                    Upload {{ supplierForm.get('type')?.value }} File
+                                </h3>
+                                
+                                <div class="upload-area" 
+                                     [class.dragover]="isDragOver"
+                                     (dragover)="onDragOver($event)" 
+                                     (dragleave)="onDragLeave($event)"
+                                     (drop)="onDrop($event)">
+                                    <mat-icon class="upload-icon">cloud_upload</mat-icon>
+                                    <p class="upload-text">
+                                        Drag and drop your {{ supplierForm.get('type')?.value }} file here, or 
+                                        <button type="button" mat-button color="primary" (click)="fileInput.click()">
+                                            browse files
+                                        </button>
                                     </p>
-                                    <input type="file" 
-                                           #fileInput 
-                                           accept=".xlsx,.xls,.csv" 
-                                           (change)="onFileSelected($event)"
+                                    <p class="upload-hint">
+                                        Supported formats: {{ supplierForm.get('type')?.value === 'EXCEL' ? '.xlsx, .xls' : '.csv' }}
+                                        (Max size: 10MB)
+                                    </p>
+                                    
+                                    <input #fileInput type="file" 
+                                           [accept]="supplierForm.get('type')?.value === 'EXCEL' ? '.xlsx,.xls' : '.csv'"
+                                           (change)="onFileSelected($event)" 
                                            style="display: none;">
-                                    <button mat-stroked-button 
-                                            type="button"
-                                            (click)="fileInput.click()"
-                                            [disabled]="uploadingFile">
-                                        <mat-icon>upload_file</mat-icon>
-                                        <span *ngIf="!uploadingFile">Choose File</span>
-                                        <span *ngIf="uploadingFile">Uploading...</span>
+                                </div>
+                                
+                                <div *ngIf="selectedFile" class="selected-file">
+                                    <mat-icon>{{ supplierForm.get('type')?.value === 'EXCEL' ? 'table_view' : 'insert_drive_file' }}</mat-icon>
+                                    <span class="file-name">{{ selectedFile.name }}</span>
+                                    <span class="file-size">({{ formatFileSize(selectedFile.size) }})</span>
+                                    <button mat-icon-button (click)="removeFile()" matTooltip="Remove file">
+                                        <mat-icon>close</mat-icon>
                                     </button>
-                                    <span *ngIf="selectedFile" class="file-info">
-                                        {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
-                                    </span>
+                                </div>
+                                
+                                <div *ngIf="uploadProgress > 0" class="upload-progress">
+                                    <mat-progress-bar [value]="uploadProgress" mode="determinate"></mat-progress-bar>
+                                    <span>{{ uploadProgress }}% uploaded</span>
                                 </div>
                             </div>
                         </div>
                     </mat-tab>
-
-                    <!-- Payment Configuration Tab -->
-                    <mat-tab label="Payment Settings">
-                        <div class="tab-content">
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Payout Frequency</mat-label>
-                                    <mat-select formControlName="payoutFrequency">
-                                        <mat-option value="DAILY">Daily</mat-option>
-                                        <mat-option value="WEEKLY">Weekly</mat-option>
-                                        <mat-option value="MONTHLY">Monthly</mat-option>
-                                        <mat-option value="CUSTOM">Custom Schedule</mat-option>
-                                    </mat-select>
-                                </mat-form-field>
-                                
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Payment Hour (24h format)</mat-label>
-                                    <input matInput formControlName="customPaymentHour" type="number" min="0" max="23">
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-checkbox formControlName="hasOwnPaymentSystem" class="full-width">
-                                    <strong>Supplier Has Own Payment System</strong>
-                                    <div class="checkbox-hint">Enable if supplier handles payments directly</div>
-                                </mat-checkbox>
-                            </div>
-
-                            <div class="form-row" *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value">
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Payment API Endpoint</mat-label>
-                                    <input matInput formControlName="paymentApiEndpoint" 
-                                           placeholder="https://supplier.com/api/payments">
-                                </mat-form-field>
-                                
-                                <mat-form-field appearance="outline" class="half-width">
-                                    <mat-label>Commission API Endpoint</mat-label>
-                                    <input matInput formControlName="commissionApiEndpoint" 
-                                           placeholder="https://supplier.com/api/commissions">
-                                </mat-form-field>
-                            </div>
-
-                            <div class="form-row">
-                                <mat-form-field appearance="outline" class="third-width">
-                                    <mat-label>Min Payment Amount (€)</mat-label>
-                                    <input matInput formControlName="minimumPaymentAmount" type="number" min="1">
-                                </mat-form-field>
-                                
-                                <mat-form-field appearance="outline" class="third-width">
-                                    <mat-label>Max Payment Delay (days)</mat-label>
-                                    <input matInput formControlName="maximumPaymentDelay" type="number" min="1" max="365">
-                                </mat-form-field>
-                                
-                                <mat-form-field appearance="outline" class="third-width" 
-                                              *ngIf="supplierForm.get('payoutFrequency')?.value === 'CUSTOM'">
-                                    <mat-label>Custom Payment Days</mat-label>
-                                    <input matInput formControlName="customPaymentDays" 
-                                           placeholder="1,15 (for 1st and 15th)">
-                    </mat-form-field>
-                            </div>
-                        </div>
-                    </mat-tab>
                 </mat-tab-group>
-
-            </form>
         </mat-dialog-content>
-        
-        <mat-dialog-actions align="end" class="dialog-actions">
-            <button mat-button (click)="onCancel()" [disabled]="loadingOps">
-                Cancel
-            </button>
+            
+            <mat-divider></mat-divider>
+            
+            <mat-dialog-actions align="end" class="dialog-actions">
+                <button mat-button (click)="onCancel()" [disabled]="saving">
+                    <mat-icon>cancel</mat-icon>
+                    Cancel
+                </button>
+                
             <button mat-raised-button color="primary"
                     (click)="onSave()"
-                    [disabled]="supplierForm.invalid || loadingOps">
-                <mat-progress-spinner *ngIf="loadingOps" diameter="20" mode="indeterminate"></mat-progress-spinner>
-                <span *ngIf="!loadingOps">
-                    <mat-icon>{{ data ? 'edit' : 'add' }}</mat-icon>
+                        [disabled]="supplierForm.invalid || loadingOps || saving">
+                    <mat-spinner *ngIf="saving" diameter="20"></mat-spinner>
+                    <mat-icon *ngIf="!saving">{{ data ? 'save' : 'add' }}</mat-icon>
                     {{ data ? 'Update Supplier' : 'Create Supplier' }}
-                </span>
             </button>
         </mat-dialog-actions>
+        </div>
     `,
     styles: [`
+        .supplier-dialog {
+            min-width: 600px;
+            max-width: 800px;
+        }
+
         .dialog-content {
+            padding: 0;
             max-height: 70vh;
             overflow-y: auto;
-            padding: 0;
         }
 
         .tab-content {
             padding: 24px;
-            min-height: 400px;
+        }
+
+        .supplier-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         .form-row {
             display: flex;
             gap: 16px;
-            margin-bottom: 16px;
             align-items: flex-start;
         }
 
@@ -364,92 +334,153 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
         }
 
         .half-width {
-            width: calc(50% - 8px);
+            flex: 1;
         }
 
-        .third-width {
-            width: calc(33.333% - 11px);
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 500;
+            margin: 24px 0 16px 0;
+            color: #1976d2;
         }
 
-        .checkbox-hint {
-            font-size: 12px;
-            color: rgba(0,0,0,0.6);
-            margin-top: 4px;
+        .type-description {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            color: #1565c0;
+            font-size: 14px;
+        }
+
+        .file-upload-section {
+            margin-top: 16px;
+        }
+
+        .upload-description {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .file-upload-container {
+            margin-top: 16px;
+        }
+
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background-color: #fafafa;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #1976d2;
+            background-color: #e3f2fd;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            height: 48px;
+            width: 48px;
+            color: #bbb;
+            margin-bottom: 16px;
+        }
+
+        .upload-text {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #999;
+        }
+
+        .selected-file {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background-color: #e8f5e8;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #2e7d32;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .upload-progress {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .dialog-actions {
             padding: 16px 24px;
-            border-top: 1px solid rgba(0,0,0,0.12);
+            gap: 12px;
         }
 
         mat-dialog-title {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 0;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 500;
             padding: 24px 24px 0 24px;
+        }
+
+        mat-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         mat-progress-spinner {
             display: inline-block;
             vertical-align: middle;
-            margin-right: 8px;
-        }
-
-        mat-tab-group {
-            border: none;
-        }
-
-        .mat-mdc-tab-group .mat-mdc-tab-body-wrapper {
-            flex-grow: 1;
-        }
-
-        .file-upload-section {
-            border: 2px dashed #ddd;
-            border-radius: 8px;
-            padding: 24px;
-            text-align: center;
-            width: 100%;
-        }
-
-        .file-upload-section h4 {
-            margin: 0 0 8px 0;
-            color: #333;
-        }
-
-        .upload-hint {
-            margin: 8px 0 16px 0;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .file-info {
             margin-left: 12px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .upload-hint a {
-            color: #1976d2;
-            text-decoration: none;
-        }
-
-        .upload-hint a:hover {
-            text-decoration: underline;
         }
 
         @media (max-width: 768px) {
+            .supplier-dialog {
+                min-width: 100vw;
+                max-width: 100vw;
+                height: 100vh;
+            }
+
             .form-row {
                 flex-direction: column;
-                gap: 0;
             }
-            
-            .half-width, .third-width {
-                width: 100%;
+
+            .tab-content {
+                padding: 16px;
             }
-            
-            .dialog-content {
-                max-height: 60vh;
+
+            .upload-area {
+                padding: 20px 10px;
             }
         }
     `]
@@ -457,9 +488,14 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
 export class CreateSupplierDialogComponent {
     supplierForm: FormGroup;
     loadingOps = false;
+    saving = false;
     soapOperations: string[] = [];
+    selectedTabIndex = 0;
+    
+    // File upload properties
     selectedFile: File | null = null;
-    uploadingFile = false;
+    isDragOver = false;
+    uploadProgress = 0;
 
     private fb = inject(FormBuilder);
     private dialogRef = inject(MatDialogRef<CreateSupplierDialogComponent>);
@@ -469,212 +505,147 @@ export class CreateSupplierDialogComponent {
 
     constructor(@Inject(MAT_DIALOG_DATA) public data: any) {
         this.supplierForm = this.fb.group({
-            // Basic Information
-            name: [data?.name || '', [Validators.required, Validators.minLength(2)]],
+            name: [data?.name || '', Validators.required],
+            email: [data?.email || '', [Validators.email]],
             type: [data?.type || 'API', Validators.required],
-            contactEmail: [data?.contactEmail || '', [Validators.email]],
-            active: [data?.active !== false, Validators.required],
-            
-            // API Supplier Fields
-            apiUrl: [data?.apiUrl || ''],
-            authMethod: [data?.authMethod || 'BEARER'],
+            url: [data?.url || ''],
             apiKey: [data?.apiKey || ''],
-            dataFormat: [data?.dataFormat || 'JSON'],
-            productsEndpoint: [data?.productsEndpoint || '/products'],
-            singleEndpoint: [data?.singleEndpoint || ''],
-            
-            // SOAP Supplier Fields
+            authMethod: [data?.authMethod || ''],
             wsdlUrl: [data?.wsdlUrl || ''],
             namespace: [data?.namespace || ''],
             username: [data?.username || ''],
             password: [data?.password || ''],
-            operation: [data?.operation || ''],
-            
-            // Excel Supplier Fields
-            fileName: [data?.fileName || ''],
-            filePath: [data?.filePath || ''],
-            
-            // Payment Configuration
-            payoutFrequency: [data?.payoutFrequency || 'WEEKLY'],
-            hasOwnPaymentSystem: [data?.hasOwnPaymentSystem || false],
-            paymentApiEndpoint: [data?.paymentApiEndpoint || ''],
-            commissionApiEndpoint: [data?.commissionApiEndpoint || ''],
-            customPaymentSchedule: [data?.customPaymentSchedule || ''],
-            customPaymentDays: [data?.customPaymentDays || ''],
-            customPaymentHour: [data?.customPaymentHour || 18, [Validators.min(0), Validators.max(23)]],
-            minimumPaymentAmount: [data?.minimumPaymentAmount || 50, [Validators.min(1)]],
-            maximumPaymentDelay: [data?.maximumPaymentDelay || 30, [Validators.min(1), Validators.max(365)]]
+            operation: [data?.operation || '']
         });
         
-        // Update validators based on type
+        // Update validators based on initial type
+        this.updateValidators();
+    }
+
+    onTypeChange(): void {
+        // Clear type-specific fields
+        this.supplierForm.patchValue({ 
+            url: '', 
+            apiKey: '', 
+            authMethod: '',
+            wsdlUrl: '', 
+            namespace: '',
+            username: '',
+            password: '',
+            operation: '' 
+        });
+            this.soapOperations = [];
+        this.selectedFile = null;
         this.updateValidators();
     }
 
     updateValidators(): void {
         const type = this.supplierForm.get('type')?.value;
-        
+        const urlControl = this.supplierForm.get('url');
+        const wsdlUrlControl = this.supplierForm.get('wsdlUrl');
+        const namespaceControl = this.supplierForm.get('namespace');
+        const operationControl = this.supplierForm.get('operation');
+
         // Clear all validators first
-        Object.keys(this.supplierForm.controls).forEach(key => {
-            if (['name', 'type', 'active'].includes(key)) return; // Keep basic validators
-            this.supplierForm.get(key)?.clearValidators();
-        });
-        
-        // Add validators based on type
-        switch(type) {
-            case 'API':
-                this.supplierForm.get('apiUrl')?.setValidators([Validators.required, Validators.pattern(/^https?:\/\/.+/)]);
-                this.supplierForm.get('apiKey')?.setValidators([Validators.required]);
-                break;
-            case 'SOAP':
-                this.supplierForm.get('wsdlUrl')?.setValidators([Validators.required, Validators.pattern(/^https?:\/\/.+/)]);
-                this.supplierForm.get('namespace')?.setValidators([Validators.required]);
-                break;
-            case 'EXCEL':
-                this.supplierForm.get('fileName')?.setValidators([Validators.required]);
-                this.supplierForm.get('filePath')?.setValidators([Validators.required]);
-                break;
+        urlControl?.clearValidators();
+        wsdlUrlControl?.clearValidators();
+        namespaceControl?.clearValidators();
+        operationControl?.clearValidators();
+
+        // Set validators based on type
+        if (type === 'API') {
+            urlControl?.setValidators([Validators.required]);
+        } else if (type === 'SOAP') {
+            wsdlUrlControl?.setValidators([Validators.required]);
+            namespaceControl?.setValidators([Validators.required]);
+            // Operation is optional - will be auto-fetched
         }
-        
-        // Update form validity
-        Object.keys(this.supplierForm.controls).forEach(key => {
-            this.supplierForm.get(key)?.updateValueAndValidity();
-        });
+
+        // Update validity
+        urlControl?.updateValueAndValidity();
+        wsdlUrlControl?.updateValueAndValidity();
+        namespaceControl?.updateValueAndValidity();
+        operationControl?.updateValueAndValidity();
     }
 
-    onTypeChange(): void {
-        this.updateValidators();
-        
-        // Clear type-specific fields
+    getTypeDescription(): string {
         const type = this.supplierForm.get('type')?.value;
-        if (type !== 'SOAP') {
-            this.supplierForm.patchValue({ wsdlUrl: '', operation: '', namespace: '', username: '', password: '' });
-            this.soapOperations = [];
-        }
-        if (type !== 'API') {
-            this.supplierForm.patchValue({ apiUrl: '', apiKey: '', authMethod: 'BEARER', dataFormat: 'JSON', productsEndpoint: '/products', singleEndpoint: '' });
-        }
-        if (type !== 'EXCEL') {
-            this.supplierForm.patchValue({ fileName: '', filePath: '' });
-        }
-    }
-
-    loadSoapOperations(): void {
-        const wsdlUrl = this.supplierForm.get('wsdlUrl')?.value;
-        if (!wsdlUrl) return;
-        this.loadingOps = true;
-        // Fetch the WSDL and parse for operation names
-        this.http.get(wsdlUrl, { responseType: 'text' }).subscribe({
-            next: (wsdl: string) => {
-                // Extract <wsdl:operation name="...">
-                const matches = Array.from(wsdl.matchAll(/<wsdl:operation[^>]*name="([^"]+)"/g));
-                this.soapOperations = matches.map((m: RegExpMatchArray) => m[1]);
-                this.loadingOps = false;
-            },
-            error: (error: any) => {
-                console.error('Failed to load SOAP operations:', error);
-                this.soapOperations = [];
-                this.loadingOps = false;
-            }
-        });
-    }
-
-        onSave(): void {
-        if (this.supplierForm.invalid) return;
-        const supplier = this.supplierForm.value;
-        
-        if (this.data) {
-            // Update existing supplier
-            this.supplierService.updateSupplier(this.data.id, supplier).subscribe({
-                next: () => {
-                    this.snackBar.open('Supplier updated successfully!', 'Close', {
-                        duration: 3000,
-                    });
-                    this.dialogRef.close(true);
-                },
-                error: (error: any) => {
-                    console.error('Error updating supplier:', error);
-                    this.snackBar.open('Failed to update supplier.', 'Close', {
-                        duration: 3000,
-                    });
-                }
-            });
-        } else {
-            // Create new supplier - send complete form data
-            const createRequest$ = supplier.type === 'SOAP' 
-                ? this.supplierService.createSupplierAutoSoap(supplier)
-                : this.supplierService.createSupplier(supplier);
-            
-            createRequest$.subscribe({
-                next: (created: any) => {
-                    // Auto-refresh metadata for SOAP suppliers
-                    if (supplier.type === 'SOAP' && created?.id) {
-                        this.supplierService.refreshMetadata(created.id).subscribe({
-                            next: () => {
-                                this.snackBar.open('Supplier created and metadata loaded!', 'Close', { duration: 3000 });
-                                this.dialogRef.close(true);
-                            },
-                            error: () => {
-                                this.snackBar.open('Supplier created but metadata refresh failed.', 'Close', { duration: 3000 });
-                                this.dialogRef.close(true);
-                            }
-                        });
-                    } else {
-                        this.snackBar.open('Supplier created successfully!', 'Close', { duration: 3000 });
-                        this.dialogRef.close(true);
-                    }
-                },
-                error: (error: any) => {
-                    console.error('Error creating supplier:', error);
-                    const errorMsg = error?.error?.message || 'Failed to create supplier.';
-                    this.snackBar.open(errorMsg, 'Close', { duration: 5000 });
-                }
-            });
+        switch (type) {
+            case 'API':
+                return 'Connect to supplier via REST API endpoints for real-time product synchronization.';
+            case 'SOAP':
+                return 'Integrate with supplier SOAP web services for structured data exchange.';
+            case 'EXCEL':
+                return 'Upload Excel files containing product data for batch import.';
+            case 'CSV':
+                return 'Upload CSV files with product information for bulk processing.';
+            default:
+                return '';
         }
     }
 
-    onCancel(): void {
-        this.dialogRef.close(false);
+    onTabChange(event: any): void {
+        this.selectedTabIndex = event.index;
     }
 
-    onFileSelected(event: Event): void {
-        const input = event.target as HTMLInputElement;
-        const file = input.files?.[0];
-        
+    // File upload methods
+    onDragOver(event: DragEvent): void {
+        event.preventDefault();
+        this.isDragOver = true;
+    }
+
+    onDragLeave(event: DragEvent): void {
+        event.preventDefault();
+        this.isDragOver = false;
+    }
+
+    onDrop(event: DragEvent): void {
+        event.preventDefault();
+        this.isDragOver = false;
+        const files = event.dataTransfer?.files;
+        if (files && files.length > 0) {
+            this.handleFileSelection(files[0]);
+        }
+    }
+
+    onFileSelected(event: any): void {
+        const file = event.target.files[0];
         if (file) {
-            this.selectedFile = file;
-            this.uploadingFile = true;
-            
-            // Upload file to server
-            this.supplierService.uploadSupplierFile(file).subscribe({
-                next: (response) => {
-                    this.uploadingFile = false;
-                    if (response.success) {
-                        // Update form with server response
-                        this.supplierForm.patchValue({
-                            fileName: response.fileName,
-                            filePath: response.filePath
-                        });
-                        this.snackBar.open('File uploaded successfully!', 'Close', {
-                            duration: 3000
-                        });
-                    } else {
-                        this.snackBar.open(response.message || 'File upload failed', 'Close', {
-                            duration: 3000
-                        });
-                        this.selectedFile = null;
-                    }
-                },
-                error: (error) => {
-                    this.uploadingFile = false;
-                    this.selectedFile = null;
-                    console.error('File upload error:', error);
-                    const errorMsg = error?.error?.message || 'File upload failed';
-                    this.snackBar.open(errorMsg, 'Close', {
-                        duration: 3000
-                    });
-                }
-            });
+            this.handleFileSelection(file);
         }
+    }
+
+    handleFileSelection(file: File): void {
+        const type = this.supplierForm.get('type')?.value;
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        
+        // Validate file size
+        if (file.size > maxSize) {
+            this.snackBar.open('File size must be less than 10MB', 'Close', { duration: 3000 });
+            return;
+        }
+
+        // Validate file type
+        const validExtensions = type === 'EXCEL' 
+            ? ['.xlsx', '.xls'] 
+            : ['.csv'];
+        
+        const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+        if (!validExtensions.includes(fileExtension)) {
+            this.snackBar.open(
+                `Invalid file type. Please select a ${validExtensions.join(' or ')} file.`, 
+                'Close', 
+                { duration: 3000 }
+            );
+            return;
+        }
+
+        this.selectedFile = file;
+    }
+
+    removeFile(): void {
+        this.selectedFile = null;
+        this.uploadProgress = 0;
     }
 
     formatFileSize(bytes: number): string {
@@ -683,5 +654,123 @@ export class CreateSupplierDialogComponent {
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    loadSoapOperations(): void {
+        const wsdlUrl = this.supplierForm.get('wsdlUrl')?.value;
+        if (!wsdlUrl) return;
+        this.loadingOps = true;
+        // Fetch the WSDL and parse for operation names
+        this.http.get(wsdlUrl, { responseType: 'text' }).subscribe({
+            next: (wsdl) => {
+                // Extract <wsdl:operation name="...">
+                const matches = Array.from(wsdl.matchAll(/<wsdl:operation[^>]*name="([^"]+)"/g));
+                this.soapOperations = matches.map(m => m[1]);
+                this.loadingOps = false;
+            },
+            error: () => {
+                this.soapOperations = [];
+                this.loadingOps = false;
+            }
+        });
+    }
+
+    onSave(): void {
+        if (this.supplierForm.invalid) return;
+        
+        this.saving = true;
+        const supplier = this.supplierForm.value;
+        
+        // Clean up data based on type
+        const cleanedSupplier = this.cleanSupplierData(supplier);
+        
+        if (this.data) {
+            // Update existing supplier
+            this.supplierService.updateSupplier(this.data.id, cleanedSupplier).subscribe({
+                next: (updatedSupplier) => {
+                    this.snackBar.open('Supplier updated successfully!', 'Close', { duration: 3000 });
+                    this.handleFileUpload(updatedSupplier.id);
+                },
+                error: (error) => {
+ console.error('Error updating supplier:', error);
+                    this.snackBar.open('Failed to update supplier.', 'Close', { duration: 3000 });
+                    this.saving = false;
+                }
+            });
+        } else {
+            // Create new supplier
+            const req$ = supplier.type === 'SOAP'
+                ? this.supplierService.createSupplierAutoSoap(cleanedSupplier)
+                : this.supplierService.createSupplier(cleanedSupplier);
+                
+            req$.subscribe({
+                next: (newSupplier) => {
+                    this.snackBar.open('Supplier created successfully!', 'Close', { duration: 3000 });
+                    this.handleFileUpload(newSupplier.id);
+                },
+                error: (error) => {
+ console.error('Error creating supplier:', error);
+ this.snackBar.open('Failed to create supplier.', 'Close', { duration: 3000 });
+                    this.saving = false;
+                }
+            });
+        }
+    }
+
+    private cleanSupplierData(supplier: any): any {
+        const cleaned: any = {
+            name: supplier.name,
+            email: supplier.email || undefined,
+            type: supplier.type
+        };
+
+        switch (supplier.type) {
+            case 'API':
+                cleaned.url = supplier.url;
+                if (supplier.apiKey) cleaned.apiKey = supplier.apiKey;
+                if (supplier.authMethod) cleaned.authMethod = supplier.authMethod;
+                break;
+            case 'SOAP':
+                cleaned.wsdlUrl = supplier.wsdlUrl;
+                cleaned.namespace = supplier.namespace;
+                if (supplier.operation) cleaned.operation = supplier.operation; // Optional
+                if (supplier.username) cleaned.username = supplier.username;
+                if (supplier.password) cleaned.password = supplier.password;
+                break;
+            case 'EXCEL':
+            case 'CSV':
+                if (supplier.url) cleaned.url = supplier.url;
+                break;
+        }
+
+        return cleaned;
+    }
+
+    private handleFileUpload(supplierId: number): void {
+        if (this.selectedFile && (this.supplierForm.get('type')?.value === 'EXCEL' || this.supplierForm.get('type')?.value === 'CSV')) {
+            this.uploadProgress = 0;
+            
+            this.supplierService.uploadExcel(this.selectedFile, supplierId).subscribe({
+                next: (response) => {
+                    this.uploadProgress = 100;
+                    this.snackBar.open('File uploaded and processed successfully!', 'Close', { duration: 3000 });
+                    this.dialogRef.close(true);
+                    this.saving = false;
+                },
+                error: (error) => {
+                    console.error('Error uploading file:', error);
+                    this.snackBar.open('Supplier created but file upload failed.', 'Close', { duration: 3000 });
+                    this.dialogRef.close(true);
+                    this.saving = false;
+                }
+            });
+        } else {
+            this.dialogRef.close(true);
+            this.saving = false;
+        }
+    }
+
+    onCancel(): void {
+        this.dialogRef.close(false);
     }
 }

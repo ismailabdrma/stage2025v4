@@ -25,15 +25,16 @@ public class AdminMonitoringController {
      */
     @GetMapping("/health")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Health> getSystemHealth() {
+    public ResponseEntity<Map<String, Object>> getSystemHealth() {
         try {
-            Health health = monitoringService.health();
+            Map<String, Object> health = monitoringService.health();
             return ResponseEntity.ok(health);
         } catch (Exception e) {
             log.error("Failed to get system health: {}", e.getMessage());
-            return ResponseEntity.ok(Health.down()
-                .withDetail("error", e.getMessage())
-                .build());
+            Map<String, Object> errorHealth = new HashMap<>();
+            errorHealth.put("status", "down");
+            errorHealth.put("error", e.getMessage());
+            return ResponseEntity.ok(errorHealth);
         }
     }
 
@@ -57,9 +58,9 @@ public class AdminMonitoringController {
      */
     @GetMapping("/performance")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Double>> getPerformanceReport() {
+    public ResponseEntity<Map<String, Object>> getPerformanceReport() {
         try {
-            Map<String, Double> report = monitoringService.getPerformanceReport();
+            Map<String, Object> report = monitoringService.getPerformanceReport();
             return ResponseEntity.ok(report);
         } catch (Exception e) {
             log.error("Failed to get performance report: {}", e.getMessage());
@@ -72,9 +73,9 @@ public class AdminMonitoringController {
      */
     @GetMapping("/operations")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Long>> getOperationTimings() {
+    public ResponseEntity<Map<String, Object>> getOperationTimings() {
         try {
-            Map<String, Long> timings = monitoringService.getOperationTimings();
+            Map<String, Object> timings = monitoringService.getOperationTimings();
             return ResponseEntity.ok(timings);
         } catch (Exception e) {
             log.error("Failed to get operation timings: {}", e.getMessage());
@@ -87,9 +88,9 @@ public class AdminMonitoringController {
      */
     @GetMapping("/operations/counts")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Long>> getOperationCounts() {
+    public ResponseEntity<Map<String, Object>> getOperationCounts() {
         try {
-            Map<String, Long> counts = monitoringService.getOperationCounts();
+            Map<String, Object> counts = monitoringService.getOperationCounts();
             return ResponseEntity.ok(counts);
         } catch (Exception e) {
             log.error("Failed to get operation counts: {}", e.getMessage());
@@ -184,8 +185,8 @@ public class AdminMonitoringController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> triggerHealthCheck() {
         try {
-            Health health = monitoringService.health();
-            String status = health.getStatus().getCode();
+            Map<String, Object> health = monitoringService.health();
+            String status = (String) health.get("status");
             return ResponseEntity.ok("Health check completed. Status: " + status);
         } catch (Exception e) {
             log.error("Failed to trigger health check: {}", e.getMessage());

@@ -34,3 +34,4 @@ public class Client extends User {
         super.setRole(role);
     }
 }
+

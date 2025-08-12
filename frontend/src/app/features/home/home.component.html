@@ -31,7 +31,7 @@
     <h2>Produits en vedette</h2>
     <div class="product-list">
       <ng-container *ngFor="let product of featuredProducts">
-        <app-product-card [product]="product"></app-product-card>
+        <app-product-card [product]="mapToProductCard(product)"></app-product-card>
       </ng-container>
     </div>
   </div>

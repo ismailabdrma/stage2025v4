@@ -146,5 +146,3 @@ export class UserManagementService {
     return this.http.post<UserManagement[]>(`${this.api}/filter`, filters);
   }
 }
-
-

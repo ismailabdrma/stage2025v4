@@ -20,8 +20,11 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                 switch (error.status) {
                     case 401:
                         errorMessage = "Unauthorized access"
-                        // Do not auto-logout on GET 401s (e.g., initial data loads)
-                        if (req.method !== 'GET') {
+                        // Only auto-logout on specific critical endpoints, not on every 401
+                        const criticalEndpoints = ['/api/users/me', '/api/auth/'];
+                        const isCriticalEndpoint = criticalEndpoints.some(endpoint => req.url.includes(endpoint));
+                        
+                        if (isCriticalEndpoint && req.method !== 'GET') {
                             localStorage.removeItem("token")
                             router.navigate(["/auth/login"])
                         }

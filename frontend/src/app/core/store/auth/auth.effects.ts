@@ -114,6 +114,31 @@ export class AuthEffects {
         { dispatch: false }
     );
 
+    // --- CHECK AUTH STATUS ---
+    checkAuthStatus$ = createEffect(() =>
+        this.actions$.pipe(
+            ofType(AuthActions.checkAuthStatus),
+            exhaustMap(() => {
+                const token = this.authService.getToken();
+                if (!token || !this.authService.isAuthenticated()) {
+                    // Token is invalid or expired, clear auth state
+                    this.authService.logout();
+                    return [AuthActions.authError({ error: "Session expired" })];
+                }
+                
+                // Token exists and is valid, get current user
+                return this.authService.getCurrentUser().pipe(
+                    map((user) => AuthActions.loadUserSuccess({ user })),
+                    catchError((error) => {
+                        // If getCurrentUser fails, the token might be invalid
+                        this.authService.logout();
+                        return of(AuthActions.authError({ error: "Invalid session" }));
+                    })
+                );
+            })
+        )
+    );
+
     // --- VERIFY EMAIL (signup) ---
     verifyEmail$ = createEffect(() =>
         this.actions$.pipe(
