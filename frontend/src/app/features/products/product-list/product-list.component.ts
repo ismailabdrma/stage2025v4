@@ -113,8 +113,8 @@ export class ProductListComponent implements OnInit {
       originalPrice: p.supplierPrice && p.supplierPrice > p.displayedPrice ? p.supplierPrice : undefined,
       imageUrl: (p.imageUrl ?? (p.imageUrls && p.imageUrls.length ? p.imageUrls[0] : undefined)),
       description: p.description,
-      inStock: (p.syncedStock ?? p.stockQuantity ?? 0) > 0,
-      stockQuantity: p.syncedStock ?? p.stockQuantity ?? 0,
+      inStock: (p.syncedStock ?? 0) > 0,
+      stockQuantity: p.syncedStock ?? 0,
       category: p.categoryName,
       brand: p.brand,
       slug: p.id?.toString()

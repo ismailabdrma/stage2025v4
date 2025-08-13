@@ -187,12 +187,10 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                     
                                     <mat-form-field appearance="outline" class="full-width">
                                         <mat-label>Service Namespace</mat-label>
-                                        <input matInput formControlName="namespace" required 
+                                        <input matInput formControlName="namespace"
                                                placeholder="http://supplier.com/ws">
                                         <mat-icon matSuffix>schema</mat-icon>
-                                        <mat-error *ngIf="supplierForm.get('namespace')?.hasError('required')">
-                                            Service namespace is required
-                                        </mat-error>
+                                        <mat-hint>Optional: only if your SOAP service requires it</mat-hint>
                     </mat-form-field>
                                     
                                     <div class="form-row">
@@ -210,18 +208,21 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                     </div>
                                     
                                     <mat-form-field appearance="outline" class="full-width">
-                                        <mat-label>SOAP Operation (Optional)</mat-label>
-                                        <mat-select formControlName="operation" [disabled]="soapOperations.length === 0">
-                                            <mat-option value="">Auto-detect operations after creation</mat-option>
-                            <mat-option *ngFor="let op of soapOperations" [value]="op">
-                                {{ op }}
-                            </mat-option>
-                        </mat-select>
-                        <mat-progress-spinner *ngIf="loadingOps" diameter="24" mode="indeterminate"></mat-progress-spinner>
-                                        <mat-hint>
-                                            Operations will be automatically detected from WSDL after supplier creation
-                                        </mat-hint>
-                    </mat-form-field>
+                                        <mat-label>SOAP Payment Operation (optional)</mat-label>
+                                        <mat-select formControlName="paymentOperationName" [disabled]="soapOperations.length === 0">
+                                            <mat-option value="">Auto-detect after creation</mat-option>
+                                            <mat-option *ngFor="let op of soapOperations" [value]="op">{{ op }}</mat-option>
+                                        </mat-select>
+                                        <mat-progress-spinner *ngIf="loadingOps" diameter="24" mode="indeterminate"></mat-progress-spinner>
+                                    </mat-form-field>
+
+                                    <mat-form-field appearance="outline" class="full-width">
+                                        <mat-label>SOAP Refund Operation (optional)</mat-label>
+                                        <mat-select formControlName="refundOperationName" [disabled]="soapOperations.length === 0">
+                                            <mat-option value="">None</mat-option>
+                                            <mat-option *ngFor="let op of soapOperations" [value]="op">{{ op }}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
                 </ng-container>
 
                                 <!-- Excel/CSV Configuration -->
@@ -373,7 +374,7 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                 
             <button mat-raised-button color="primary"
                     (click)="onSave()"
-                        [disabled]="supplierForm.invalid || loadingOps || saving">
+                        [disabled]="saving">
                     <mat-spinner *ngIf="saving" diameter="20"></mat-spinner>
                     <mat-icon *ngIf="!saving">{{ data ? 'save' : 'add' }}</mat-icon>
                     {{ data ? 'Update Supplier' : 'Create Supplier' }}
@@ -595,11 +596,13 @@ export class CreateSupplierDialogComponent {
             productsEndpoint: [data?.productsEndpoint || '/products'],
             singleEndpoint: [data?.singleEndpoint || '/product/{id}'],
             dataFormat: [data?.dataFormat || 'JSON'],
-            wsdlUrl: [data?.wsdlUrl || ''],
+            wsdlUrl: [data?.wsdlUrl || '', Validators.required],
             namespace: [data?.namespace || ''],
             username: [data?.username || ''],
             password: [data?.password || ''],
             operation: [data?.operation || ''],
+            paymentOperationName: [data?.paymentOperationName || ''],
+            refundOperationName: [data?.refundOperationName || ''],
             // Payment configuration
             hasOwnPaymentSystem: [data?.hasOwnPaymentSystem || false],
             paymentApiEndpoint: [data?.paymentApiEndpoint || ''],
@@ -655,8 +658,7 @@ export class CreateSupplierDialogComponent {
             urlControl?.setValidators([Validators.required]);
         } else if (type === 'SOAP') {
             wsdlUrlControl?.setValidators([Validators.required]);
-            namespaceControl?.setValidators([Validators.required]);
-            // Operation is optional - will be auto-fetched
+            // Namespace is optional; operation optional and auto-fetched
         }
 
         // Update validity
@@ -758,12 +760,11 @@ export class CreateSupplierDialogComponent {
         const wsdlUrl = this.supplierForm.get('wsdlUrl')?.value;
         if (!wsdlUrl) return;
         this.loadingOps = true;
-        // Fetch the WSDL and parse for operation names
-        this.http.get(wsdlUrl, { responseType: 'text' }).subscribe({
-            next: (wsdl) => {
-                // Extract <wsdl:operation name="...">
-                const matches = Array.from(wsdl.matchAll(/<wsdl:operation[^>]*name="([^"]+)"/g));
-                this.soapOperations = matches.map(m => m[1]);
+        // Use backend proxy to avoid CORS and do robust parsing
+        this.supplierService.getWsdlOperations(wsdlUrl).subscribe({
+            next: (ops) => {
+                // Filter out error sentinel
+                this.soapOperations = (ops || []).filter(op => !String(op).startsWith('ERROR:'));
                 this.loadingOps = false;
             },
             error: () => {
@@ -774,10 +775,16 @@ export class CreateSupplierDialogComponent {
     }
 
     onSave(): void {
-        if (this.supplierForm.invalid) return;
+        // Allow submission even if some optional fields are missing; backend validates essentials
+        if (this.supplierForm.invalid) {
+            this.supplierForm.markAllAsTouched();
+        }
         
         this.saving = true;
         const supplier = this.supplierForm.value;
+        if (!supplier.name || !String(supplier.name).trim()) {
+            supplier.name = `SOAP Supplier ${new Date().toISOString().slice(0,19).replace('T',' ')}`;
+        }
         
         // Clean up data based on type
         const cleanedSupplier = this.cleanSupplierData(supplier);
@@ -808,7 +815,8 @@ export class CreateSupplierDialogComponent {
                 },
                 error: (error) => {
  console.error('Error creating supplier:', error);
- this.snackBar.open('Failed to create supplier.', 'Close', { duration: 3000 });
+ const message = error?.error?.message || error?.message || 'Failed to create supplier.';
+ this.snackBar.open(message, 'Close', { duration: 4000 });
                     this.saving = false;
                 }
             });
@@ -837,6 +845,8 @@ export class CreateSupplierDialogComponent {
                 if (supplier.operation) cleaned.operation = supplier.operation; // Optional
                 if (supplier.username) cleaned.username = supplier.username;
                 if (supplier.password) cleaned.password = supplier.password;
+                if (supplier.paymentOperationName) cleaned.paymentOperationName = supplier.paymentOperationName;
+                if (supplier.refundOperationName) cleaned.refundOperationName = supplier.refundOperationName;
                 break;
             case 'EXCEL':
             case 'CSV':

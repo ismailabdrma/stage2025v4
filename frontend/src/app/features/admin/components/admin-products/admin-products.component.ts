@@ -52,11 +52,13 @@ export class AdminProductsComponent implements OnInit {
     this.loading = true
     this.productService.getAllProducts({ includeInactive: true }).subscribe({
       next: (products) => {
-        this.products = products
+        console.log('[AdminProducts] loaded products:', products?.length, products)
+        this.products = products || []
         this.loading = false
       },
       error: (error) => {
-        this.snackBar.open("Error loading products.", "Close", { duration: 3000 })
+        console.error('[AdminProducts] load error:', error)
+        this.snackBar.open(`Error loading products: ${error?.message || error?.status}`, "Close", { duration: 3500 })
         this.products = []
         this.loading = false
       },
@@ -128,7 +130,7 @@ export class AdminProductsComponent implements OnInit {
   // Resolve image URLs that come from backend proxy or uploads
   resolveImageUrl(url?: string): string {
     if (!url) return 'assets/placeholder.png'
-    if (url.startsWith('/api/') || url.startsWith('/uploads/')) {
+    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/images/')) {
       return `${environment.apiUrl}${url}`
     }
     return url

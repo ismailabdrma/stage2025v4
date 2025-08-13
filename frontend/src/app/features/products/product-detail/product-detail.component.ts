@@ -43,15 +43,7 @@ export class ProductDetailComponent implements OnInit {
     this.productService.getProductById(id).subscribe(
       (data) => {
         this.product = data;
-        this.imageUrls = data.imageUrls || [];
-        this.buyNowProduct = {
-          id: data.id,
-          name: data.name,
-          image: (data.imageUrl ?? (data.imageUrls && data.imageUrls.length ? data.imageUrls[0] : undefined)),
-          basePrice: data.displayedPrice,
-          category: data.categoryName,
-          brand: data.brand
-        }
+        this.imageUrls = data.imageUrls || []; // Assuming imageUrls property exists in product data
         this.loadingProduct = false;
         this.loadSuggestedProducts(id); // Load suggested products after main product
       },
@@ -80,7 +72,7 @@ export class ProductDetailComponent implements OnInit {
 
   get isProductAvailable(): boolean {
     if (!this.product) return false
-    const qty = this.product.syncedStock ?? this.product.stockQuantity ?? 0
+    const qty = this.product.syncedStock ?? 0
     return qty > 0
   }
 

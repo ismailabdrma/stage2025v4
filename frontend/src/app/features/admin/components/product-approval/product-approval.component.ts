@@ -17,6 +17,7 @@ import { MatSortModule } from '@angular/material/sort';
 import { ProductService } from '@core/services/product.service';
 import { CategoryService } from '@core/services/category.service';
 import { Product, Category } from '@core/models/product.model';
+import { environment } from '@environments/environment';
 
 @Component({
   selector: 'app-product-approval',
@@ -81,11 +82,11 @@ import { Product, Category } from '@core/models/product.model';
           <div *ngIf="!loading && filteredProducts.length > 0" class="table-container">
             <table mat-table [dataSource]="filteredProducts" matSort class="products-table">
               <!-- Image Column -->
-              <ng-container matColumnDef="image">
+               <ng-container matColumnDef="image">
                 <th mat-header-cell *matHeaderCellDef>Image</th>
                 <td mat-cell *matCellDef="let product">
                   <img *ngIf="product.imageUrls && product.imageUrls.length > 0" 
-                       [src]="product.imageUrls[0]" 
+                       [src]="resolveImageUrl(product.imageUrls[0])" 
                        [alt]="product.name"
                        class="product-image">
                   <div *ngIf="!product.imageUrls || product.imageUrls.length === 0" class="no-image">
@@ -200,12 +201,12 @@ import { Product, Category } from '@core/models/product.model';
 
               <mat-form-field appearance="outline" class="half-width">
                 <mat-label>Category</mat-label>
-                <mat-select formControlName="categoryId" required>
-                  <mat-option *ngFor="let category of categories" [value]="category.id">
+                <mat-select formControlName="categoryName" required>
+                  <mat-option *ngFor="let category of categories" [value]="category.name">
                     {{ category.name }}
                   </mat-option>
                 </mat-select>
-                <mat-error *ngIf="productForm.get('categoryId')?.hasError('required')">
+                <mat-error *ngIf="productForm.get('categoryName')?.hasError('required')">
                   Category is required
                 </mat-error>
               </mat-form-field>
@@ -418,7 +419,7 @@ export class ProductApprovalComponent implements OnInit {
   productForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
     description: [''],
-    categoryId: ['', Validators.required],
+    categoryName: ['', Validators.required],
     displayedPrice: ['', [Validators.required, Validators.min(0)]],
     syncedStock: ['', [Validators.required, Validators.min(0)]],
     active: [false]
@@ -433,16 +434,47 @@ export class ProductApprovalComponent implements OnInit {
 
   loadProducts(): void {
     this.loading = true;
-    this.productService.getAllProducts({ includeInactive: true }).subscribe({
+    console.log('Loading products for admin panel...');
+
+    // First try to get all products using the simple endpoint
+    this.productService.getAllProducts().subscribe({
       next: (products) => {
-        this.products = products;
+        console.log('Loaded all products:', products.length, products);
+        this.products = products || [];
         this.applyFilters();
         this.loading = false;
+
+        if (this.products.length === 0) {
+          console.warn('No products found - trying pending products');
+          this.loadPendingProductsFallback();
+        }
       },
       error: (error) => {
-        console.error('Error loading products:', error);
-        this.snackBar.open('Failed to load products', 'Close', { duration: 3000 });
+        console.error('Error loading all products:', error);
+        // Try pending products as fallback
+        this.loadPendingProductsFallback();
+      }
+    });
+  }
+
+  private loadPendingProductsFallback(): void {
+    this.productService.getPendingProducts().subscribe({
+      next: (pendingProducts) => {
+        console.log('Loaded pending products as fallback:', pendingProducts.length);
+        this.products = pendingProducts || [];
+        this.applyFilters();
         this.loading = false;
+
+        if (this.products.length === 0) {
+          this.snackBar.open('No products found in the system', 'Close', { duration: 3000 });
+        }
+      },
+      error: (fallbackError) => {
+        console.error('Fallback also failed:', fallbackError);
+        this.snackBar.open(`Failed to load products: ${fallbackError.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+        this.loading = false;
+        this.products = [];
+        this.filteredProducts = [];
       }
     });
   }
@@ -486,12 +518,31 @@ export class ProductApprovalComponent implements OnInit {
     return this.isProductActive(product) ? 'ACTIVE' : 'PENDING';
   }
 
+  resolveImageUrl(url?: string): string | undefined {
+    if (!url) return undefined;
+
+    // Handle data URLs (base64 images)
+    if (url.startsWith('data:image')) return url;
+
+    // Handle absolute URLs
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+
+    // Handle API paths that already include the base path
+    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/images/')) {
+      return `${environment.apiUrl}${url}`;
+    }
+
+    // Handle relative paths - normalize to uploads/images
+    const clean = url.replace(/^\/?(images\/)?/, '');
+    return `${environment.apiUrl}/uploads/images/${clean}`;
+  }
+
   editProduct(product: Product): void {
     this.selectedProduct = product;
     this.productForm.patchValue({
       name: product.name,
       description: product.description || '',
-      categoryId: product.categoryId || '',
+      categoryName: (product as any).categoryName || '',
       displayedPrice: product.displayedPrice,
       syncedStock: product.syncedStock || 0,
       active: product.active || false
@@ -504,17 +555,36 @@ export class ProductApprovalComponent implements OnInit {
   }
 
   saveProduct(): void {
-    if (this.productForm.invalid || !this.selectedProduct) return;
+    if (this.productForm.invalid || !this.selectedProduct) {
+      // Mark all fields as touched to show validation errors
+      this.productForm.markAllAsTouched();
+      this.snackBar.open('Please fix validation errors before saving', 'Close', { duration: 3000 });
+      return;
+    }
 
     this.saving = true;
     const formValue = this.productForm.value;
-    
-    const updatedProduct = {
-      ...formValue,
-      id: this.selectedProduct.id
+
+    // Validate required fields explicitly
+    if (!formValue.name || !formValue.categoryName || formValue.displayedPrice == null) {
+      this.snackBar.open('Name, Category, and Price are required fields', 'Close', { duration: 3000 });
+      this.saving = false;
+      return;
+    }
+
+    // Ensure we only send fields the backend expects and do not send id in body
+    const payload = {
+      name: formValue.name.trim(),
+      description: formValue.description?.trim() || '',
+      categoryName: formValue.categoryName,
+      displayedPrice: Number(formValue.displayedPrice),
+      syncedStock: Number(formValue.syncedStock) || 0,
+      active: Boolean(formValue.active)
     };
 
-    this.productService.updateProduct(this.selectedProduct.id, updatedProduct).subscribe({
+    console.log('Saving product with payload:', payload);
+
+    this.productService.updateProduct(this.selectedProduct.id, payload).subscribe({
       next: (product) => {
         this.snackBar.open('Product updated successfully', 'Close', { duration: 3000 });
         this.loadProducts();
@@ -523,7 +593,8 @@ export class ProductApprovalComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error updating product:', error);
-        this.snackBar.open('Failed to update product', 'Close', { duration: 3000 });
+        const msg = error?.error?.message || error?.message || 'Failed to update product';
+        this.snackBar.open(msg, 'Close', { duration: 4000 });
         this.saving = false;
       }
     });

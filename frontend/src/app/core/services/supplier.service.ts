@@ -32,6 +32,12 @@ export class SupplierService {
     return this.http.post(`${environment.apiUrl}/api/admin/product-import/excel`, form)
   }
 
+    // Proxy WSDL operations fetch through backend to avoid CORS
+    getWsdlOperations(wsdlUrl: string): Observable<string[]> {
+        const url = `${environment.apiUrl}/api/wsdl/operations?url=${encodeURIComponent(wsdlUrl)}`
+        return this.http.get<string[]>(url)
+    }
+
     updateSupplier(id: number, supplier: any): Observable<Supplier> {
         return this.http.put<Supplier>(`${this.api}/${id}`, supplier);
     }

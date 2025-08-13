@@ -74,6 +74,14 @@ public class EnterpriseCartService implements CartService {
                 // Re-validate stock with new total quantity
                 validateProductAvailability(product, newQuantity);
                 
+                // Reserve the additional quantity
+                int deltaReserve = newQuantity - item.getQuantity();
+                if (deltaReserve > 0) {
+                    int currentReserved = product.getReservedStock() != null ? product.getReservedStock() : 0;
+                    product.setReservedStock(currentReserved + deltaReserve);
+                    productRepository.save(product);
+                }
+
                 item.setQuantity(newQuantity);
                 item.setLastUpdated(LocalDateTime.now());
                 cartItemRepository.save(item);
@@ -81,6 +89,11 @@ public class EnterpriseCartService implements CartService {
                 log.info("Updated cart item quantity to {} for product {}", newQuantity, product.getName());
             } else {
                 // Add new item
+                // Reserve quantity for new item
+                int currentReserved = product.getReservedStock() != null ? product.getReservedStock() : 0;
+                product.setReservedStock(currentReserved + quantity);
+                productRepository.save(product);
+
                 CartItem newItem = CartItem.builder()
                     .cart(cart)
                     .product(product)
@@ -132,6 +145,11 @@ public class EnterpriseCartService implements CartService {
             
             if (quantity <= 0) {
                 // Remove item if quantity is 0 or negative
+                // Release reserved stock
+                int currentReserved = item.getProduct().getReservedStock() != null ? item.getProduct().getReservedStock() : 0;
+                item.getProduct().setReservedStock(Math.max(0, currentReserved - item.getQuantity()));
+                productRepository.save(item.getProduct());
+
                 cart.getItems().remove(item);
                 cartItemRepository.delete(item);
                 log.info("Removed product {} from cart", item.getProductName());
@@ -139,6 +157,14 @@ public class EnterpriseCartService implements CartService {
                 // Validate new quantity against stock
                 validateProductAvailability(item.getProduct(), quantity);
                 
+                // Adjust reservation to match new quantity
+                int currentReserved = item.getProduct().getReservedStock() != null ? item.getProduct().getReservedStock() : 0;
+                int delta = quantity - item.getQuantity();
+                if (delta != 0) {
+                    item.getProduct().setReservedStock(Math.max(0, currentReserved + delta));
+                    productRepository.save(item.getProduct());
+                }
+
                 item.setQuantity(quantity);
                 item.setLastUpdated(LocalDateTime.now());
                 cartItemRepository.save(item);
@@ -309,6 +335,10 @@ public class EnterpriseCartService implements CartService {
             Cart cart = item.getCart();
             cart.getItems().remove(item);
             cartItemRepository.delete(item);
+            // Release reserved stock
+            int currentReserved = item.getProduct().getReservedStock() != null ? item.getProduct().getReservedStock() : 0;
+            item.getProduct().setReservedStock(Math.max(0, currentReserved - item.getQuantity()));
+            productRepository.save(item.getProduct());
 
             updateCartTotals(cart);
             cart.setLastUpdated(LocalDateTime.now());

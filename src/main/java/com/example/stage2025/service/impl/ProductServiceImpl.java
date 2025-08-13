@@ -32,6 +32,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductDto> getAllProducts() {
+        // Use repository override with @EntityGraph to fetch category, supplier, and imageUrls
         return productRepository.findAll()
                 .stream()
                 .map(ProductMapper::toDto)
@@ -75,25 +76,74 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec ID " + id));
 
-        product.setName(dto.getName());
-        product.setDescription(dto.getDescription());
-        product.setDisplayedPrice(dto.getDisplayedPrice());
-        product.setExternalProductId(dto.getExternalProductId());
-        product.setImageUrls(dto.getImageUrls());
+        // Store original ID to ensure it doesn't change
+        Long originalId = product.getId();
 
-        Category category = categoryRepository.findByName(dto.getCategoryName())
-                .orElseThrow(() -> new ResourceNotFoundException("Catégorie non trouvée : " + dto.getCategoryName()));
-        Supplier supplier = supplierRepository.findByName(dto.getSupplierName())
-                .orElseThrow(() -> new ResourceNotFoundException("Fournisseur non trouvé : " + dto.getSupplierName()));
+        // Update fields with validation
+        if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
+            product.setName(dto.getName().trim());
+        }
+        if (dto.getDescription() != null) {
+            product.setDescription(dto.getDescription().trim());
+        }
+        if (dto.getDisplayedPrice() != null && dto.getDisplayedPrice() >= 0) {
+            product.setDisplayedPrice(dto.getDisplayedPrice());
+        }
+        if (dto.getExternalProductId() != null) {
+            product.setExternalProductId(dto.getExternalProductId());
+        }
+        if (dto.getImageUrls() != null) {
+            product.setImageUrls(dto.getImageUrls());
+        }
+        if (dto.getSyncedStock() != null && dto.getSyncedStock() >= 0) {
+            product.setSyncedStock(dto.getSyncedStock());
+        }
+        if (dto.getActive() != null) {
+            product.setActive(dto.getActive());
+        }
 
-        product.setCategory(category);
-        product.setSupplier(supplier);
+        // Category: accept name preferred; fallback to keep existing if none provided
+        if (dto.getCategoryName() != null && !dto.getCategoryName().isBlank()) {
+            Category category = categoryRepository.findByName(dto.getCategoryName())
+                    .orElseThrow(() -> new ResourceNotFoundException("Catégorie non trouvée : " + dto.getCategoryName()));
+            product.setCategory(category);
+        }
+        // Supplier: same approach
+        if (dto.getSupplierName() != null && !dto.getSupplierName().isBlank()) {
+            Supplier supplier = supplierRepository.findByName(dto.getSupplierName())
+                    .orElseThrow(() -> new ResourceNotFoundException("Fournisseur non trouvé : " + dto.getSupplierName()));
+            product.setSupplier(supplier);
+        }
+
+        // Optional: accept categoryId if provided through a different UI field
+        try {
+            java.lang.reflect.Field f = dto.getClass().getDeclaredField("categoryId");
+            f.setAccessible(true);
+            Object val = f.get(dto);
+            if (val instanceof Long) {
+                Long categoryId = (Long) val;
+                if (categoryId != null) {
+                    Category cat = categoryRepository.findById(categoryId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Catégorie non trouvée (ID): " + categoryId));
+                    product.setCategory(cat);
+                }
+            }
+        } catch (NoSuchFieldException ignored) {
+        } catch (Exception e) {
+            // ignore reflection errors silently to keep method resilient
+        }
+
+        // Ensure ID remains the same before saving
+        product.setId(originalId);
 
         Product saved = productRepository.save(product);
-        // Reload with eager graph to avoid LazyInitializationException in mapper
-        Product reloaded = productRepository.findById(saved.getId())
-                .orElse(saved);
-        return ProductMapper.toDto(reloaded);
+
+        // Verify ID hasn't changed
+        if (!saved.getId().equals(originalId)) {
+            log.warn("Product ID changed during update: {} -> {}", originalId, saved.getId());
+        }
+
+        return ProductMapper.toDto(saved);
     }
 
     @Override

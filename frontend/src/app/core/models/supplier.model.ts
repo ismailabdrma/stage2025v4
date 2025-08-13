@@ -13,6 +13,9 @@ export interface Supplier {
     username?: string
     password?: string
     operation?: string
+    operationsMeta?: Array<{ operationName: string, soapAction: string, inputElement: string, outputElement: string }>
+    paymentOperationName?: string
+    refundOperationName?: string
     url?: string
     active: boolean
     createdAt?: string

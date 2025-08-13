@@ -8,6 +8,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
+import { environment } from '@environments/environment';
 
 import { ProductService } from '@core/services/product.service';
 import { Product } from '@core/models/product.model';
@@ -351,11 +352,19 @@ export class PendingProductsComponent implements OnInit {
   }
 
   getProductImage(product: Product): string {
-    if (product.imageUrls && product.imageUrls.length > 0) {
-      const url = product.imageUrls[0]
-      return url.startsWith('/api/') ? `${(window as any).env?.apiUrl || ''}${url}` : url
+    const url = (product.imageUrls && product.imageUrls.length > 0) ? product.imageUrls[0] : ''
+    if (!url) return 'assets/placeholder.png'
+    if (url.startsWith('data:image')) return url
+    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/images/')) {
+      return `${environment.apiUrl}${url}`
     }
-    return 'assets/placeholder.png';
+    try {
+      new URL(url)
+      return url
+    } catch {
+      const clean = url.replace(/^\/?(images\/?)/, '')
+      return `${environment.apiUrl}/uploads/images/${clean}`
+    }
   }
 }
 

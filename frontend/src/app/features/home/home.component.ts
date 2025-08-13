@@ -100,8 +100,8 @@ export class HomeComponent implements OnInit {
       originalPrice: product.supplierPrice && product.supplierPrice > product.displayedPrice ? product.supplierPrice : undefined,
       imageUrl: product.imageUrls?.[0],
       description: product.description,
-      inStock: (product.stockQuantity || 0) > 0,
-      stockQuantity: product.stockQuantity,
+      inStock: (product.syncedStock ?? 0) > 0,
+      stockQuantity: product.syncedStock ?? 0,
       category: product.categoryName,
       slug: product.id.toString()
     };

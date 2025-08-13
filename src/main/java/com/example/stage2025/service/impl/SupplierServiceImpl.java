@@ -102,6 +102,8 @@ public class SupplierServiceImpl implements SupplierService {
             soapSupplier.setNamespace(dto.getNamespace());
             soapSupplier.setUsername(dto.getUsername());
             soapSupplier.setPassword(dto.getPassword());
+            soapSupplier.setPaymentOperationName(dto.getPaymentOperationName());
+            soapSupplier.setRefundOperationName(dto.getRefundOperationName());
             soapSupplier.setOperations(new ArrayList<>()); // Will populate later
             supplier = soapSupplier;
 
@@ -198,6 +200,8 @@ public class SupplierServiceImpl implements SupplierService {
             soap.setNamespace(dto.getNamespace());
             soap.setUsername(dto.getUsername());
             soap.setPassword(dto.getPassword());
+            soap.setPaymentOperationName(dto.getPaymentOperationName());
+            soap.setRefundOperationName(dto.getRefundOperationName());
 
             // (Optional) Update operations meta as well
             if (dto.getOperationsMeta() != null) {
@@ -285,6 +289,19 @@ public class SupplierServiceImpl implements SupplierService {
         soapSupplier.setNamespace(dto.getNamespace());
         soapSupplier.setUsername(dto.getUsername());
         soapSupplier.setPassword(dto.getPassword());
+        // Optional payment-related selections
+        soapSupplier.setPaymentOperationName(dto.getPaymentOperationName());
+        soapSupplier.setRefundOperationName(dto.getRefundOperationName());
+        // Common payment configuration
+        soapSupplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+        soapSupplier.setPaymentApiEndpoint(dto.getPaymentApiEndpoint());
+        soapSupplier.setCommissionApiEndpoint(dto.getCommissionApiEndpoint());
+        soapSupplier.setPayoutFrequency(dto.getPayoutFrequency());
+        soapSupplier.setCustomPaymentSchedule(dto.getCustomPaymentSchedule());
+        soapSupplier.setCustomPaymentDays(dto.getCustomPaymentDays());
+        soapSupplier.setCustomPaymentHour(dto.getCustomPaymentHour());
+        soapSupplier.setMinimumPaymentAmount(dto.getMinimumPaymentAmount());
+        soapSupplier.setMaximumPaymentDelay(dto.getMaximumPaymentDelay());
         soapSupplier.setOperations(new ArrayList<>());
 
         // Save the supplier first
@@ -397,8 +414,9 @@ public class SupplierServiceImpl implements SupplierService {
                     product.setName(supplierProduct.getName());
                     product.setDescription(supplierProduct.getDescription());
                     product.setSupplierPrice(supplierProduct.getPrice());
-                    product.setDisplayedPrice(supplierProduct.getPrice() * 1.2); // 20% markup
-                    product.setStockQuantity(supplierProduct.getStock());
+                    // Keep admin-defined displayed price; default to supplier price if new
+                    product.setDisplayedPrice(supplierProduct.getPrice());
+                    product.setSyncedStock(supplierProduct.getStock());
                     product.setExternalProductId(supplierProduct.getExternalProductId());
                     product.setSupplier(supplier);
                     product.setCategory(defaultCategory);

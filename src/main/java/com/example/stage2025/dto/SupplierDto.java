@@ -28,6 +28,9 @@ public class SupplierDto {
     private String password;
     private Map<String, String> operationMappings; // For mapping special SOAP/API ops
     private List<SoapOperationMeta> operationsMeta; // Dynamic SOAP ops
+    // SOAP-specific selected operations for payments
+    private String paymentOperationName;
+    private String refundOperationName;
     private LocalDateTime created;
     private LocalDateTime lastImport;
     private PayoutFrequency payoutFrequency;

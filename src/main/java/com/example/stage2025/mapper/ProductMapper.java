@@ -16,6 +16,7 @@ public class ProductMapper {
         dto.setName(p.getName());
         dto.setDescription(p.getDescription());
         dto.setDisplayedPrice(p.getDisplayedPrice());
+        dto.setSupplierPrice(p.getSupplierPrice());
 
         // real-time cache fields
         dto.setSyncedStock(p.getSyncedStock());
@@ -42,6 +43,13 @@ public class ProductMapper {
             dto.setSupplierName(p.getSupplierRef());
         }
 
+        // Active flag
+        try {
+            dto.setActive(p.getActive());
+        } catch (Exception ignored) {
+            dto.setActive(null);
+        }
+
         dto.setExternalProductId(p.getExternalProductId()); // <-- ADD THIS LINE
 
         return dto;
@@ -63,8 +71,18 @@ public class ProductMapper {
         if (originalUrl.startsWith("data:")) {
             return originalUrl;
         }
-        
-        // Encode the original URL as a parameter for our proxy
+
+        // If it's a local/static path that our backend serves directly, keep as-is
+        if (originalUrl.startsWith("/uploads/") || originalUrl.startsWith("/images/")) {
+            return originalUrl;
+        }
+
+        // If it's a bare filename, assume it's in uploads/images
+        if (!originalUrl.startsWith("http://") && !originalUrl.startsWith("https://") && !originalUrl.startsWith("/")) {
+            return "/uploads/images/" + originalUrl;
+        }
+
+        // Otherwise, it's a remote URL → wrap with proxy
         try {
             return "/api/images/proxy?url=" + java.net.URLEncoder.encode(originalUrl, "UTF-8");
         } catch (Exception e) {

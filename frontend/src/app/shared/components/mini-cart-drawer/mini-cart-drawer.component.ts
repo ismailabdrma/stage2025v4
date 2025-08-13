@@ -91,7 +91,7 @@ import { Observable } from 'rxjs'
               <button mat-raised-button 
                       color="primary"
                       class="checkout-btn"
-                      routerLink="/checkout"
+                      routerLink="/orders/checkout"
                       (click)="close()">
                 Commander
               </button>

@@ -31,12 +31,19 @@ public class SupplierController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SupplierDto> createSupplier(@RequestBody SupplierDto dto) {
+        // Minimal validation to prevent UI being blocked unnecessarily
+        if (dto.getType() == null || dto.getType().isBlank()) {
+            return ResponseEntity.badRequest().body(null);
+        }
         return ResponseEntity.ok(supplierService.createSupplier(dto));
     }
 
     @PostMapping("/auto-soap")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SupplierDto> createSupplierAutoSoap(@RequestBody SupplierDto dto) {
+        if (dto.getWsdlUrl() == null || dto.getWsdlUrl().isBlank()) {
+            return ResponseEntity.badRequest().body(null);
+        }
         return ResponseEntity.ok(supplierService.createSupplierAutoSoap(dto));
     }
 

@@ -172,9 +172,10 @@ export class ProductCardComponent implements OnInit {
   }
 
   get stockStatus(): 'in-stock' | 'low-stock' | 'out-of-stock' {
-    if (!this.product.inStock) return 'out-of-stock';
-    if (this.product.stockQuantity && this.product.stockQuantity <= 5) return 'low-stock';
-    return 'in-stock';
+    const qty = this.product.stockQuantity ?? 0
+    if (!this.product.inStock || qty <= 0) return 'out-of-stock'
+    if (qty <= 5) return 'low-stock'
+    return 'in-stock'
   }
 
   get productUrl(): string {

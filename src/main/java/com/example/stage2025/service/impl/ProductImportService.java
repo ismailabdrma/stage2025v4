@@ -53,8 +53,12 @@ public class ProductImportService {
                     // Map fields
                     product.setName(supplierProduct.getName());
                     product.setDescription(supplierProduct.getDescription());
+                    // Supplier price: the original price from supplier feed
                     product.setSupplierPrice(supplierProduct.getPrice());
-                    product.setDisplayedPrice(supplierProduct.getPrice() * 1.2);
+                    // Displayed price: KEEP existing if already set by admin. If new product, default to supplier price.
+                    if (product.getDisplayedPrice() == null) {
+                        product.setDisplayedPrice(supplierProduct.getPrice());
+                    }
                     product.setSyncedStock(supplierProduct.getStock());
                     product.setActive(Optional.ofNullable(product.getActive()).orElse(false));
 
@@ -107,7 +111,9 @@ public class ProductImportService {
                 product.setName(supplierProduct.getName());
                 product.setDescription(supplierProduct.getDescription());
                 product.setSupplierPrice(supplierProduct.getPrice());
-                product.setDisplayedPrice(supplierProduct.getPrice() * 1.2);
+                if (product.getDisplayedPrice() == null) {
+                    product.setDisplayedPrice(supplierProduct.getPrice());
+                }
                 product.setSyncedStock(supplierProduct.getStock());
                 product.setActive(Optional.ofNullable(product.getActive()).orElse(false));
 

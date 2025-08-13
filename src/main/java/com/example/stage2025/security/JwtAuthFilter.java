@@ -23,16 +23,42 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtUtils jwtUtils;
     private final UserDetailsServiceImpl userDetailsService;
 
-    // OPTIONAL: Skip filter for public endpoints
-    // Uncomment to enable
+    // Skip auth filter only for truly public, read-only endpoints
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getServletPath();
-        // Public endpoints: auth, products, categories, suppliers (read), and home assets
-        return path.startsWith("/api/auth")
-                || path.startsWith("/api/products")
-                || path.startsWith("/api/categories")
-                || ("GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/api/suppliers"));
+        String method = request.getMethod();
+
+        // Always public
+        if (path.startsWith("/api/auth")) {
+            return true;
+        }
+
+        // Allow unauthenticated GET access to public product/category listings
+        boolean isPublicRead = "GET".equalsIgnoreCase(method)
+                && (path.equals("/api/products")
+                    || path.matches("/api/products/\\d+")
+                    || path.startsWith("/api/products/featured")
+                    || path.startsWith("/api/products/") && path.endsWith("/suggested")
+                    || path.startsWith("/api/categories"));
+
+        // Note: admin-only product endpoints like /pending, /approve, /reject, /activate, etc. must NOT be skipped
+        if (isPublicRead) {
+            // Exclude admin-only reads under products
+            if (path.contains("/pending") || path.contains("/approve") || path.contains("/reject")
+                    || path.contains("/activate") || path.contains("/deactivate") || path.contains("/suspend")
+                    || path.contains("/approve-multiple") || path.contains("/bulk-update")) {
+                return false;
+            }
+            return true;
+        }
+
+        // Suppliers GET can be public
+        if ("GET".equalsIgnoreCase(method) && path.startsWith("/api/suppliers")) {
+            return true;
+        }
+
+        return false;
     }
 
     @Override

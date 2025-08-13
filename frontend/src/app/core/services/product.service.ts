@@ -29,9 +29,7 @@ export class ProductService {
         }
       });
     }
-    return this.http.get<Product[]>(`${this.apiUrl}/products`, {
-      params: httpParams,
-    });
+    return this.http.get<Product[]>(`${this.apiUrl}/products`, { params: httpParams });
   }
 
   getProductById(id: number): Observable<Product> {

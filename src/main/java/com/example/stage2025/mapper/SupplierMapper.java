@@ -44,6 +44,8 @@ public class SupplierMapper {
             dto.setNamespace(soap.getNamespace());
             dto.setUsername(soap.getUsername());
             dto.setPassword(soap.getPassword());
+            dto.setPaymentOperationName(soap.getPaymentOperationName());
+            dto.setRefundOperationName(soap.getRefundOperationName());
             // Map dynamic SOAP ops
             if (soap.getOperations() != null) {
                 dto.setOperationsMeta(

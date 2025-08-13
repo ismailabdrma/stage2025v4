@@ -20,5 +20,9 @@ public class SoapSupplier extends Supplier {
     private List<SoapSupplierOperationMeta> operations = new ArrayList<>();
     
     private LocalDateTime lastMetadataRefresh;
+
+    // Optional: names of operations used for payments when supplier handles own payments
+    private String paymentOperationName;
+    private String refundOperationName;
 }
  

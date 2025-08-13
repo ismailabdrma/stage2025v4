@@ -19,6 +19,7 @@ public class ProductDto {
     private String name;
     private String description;
     private Double displayedPrice;
+    private Double supplierPrice;
 
     // 🔥 real-time data pulled from supplier
     private Integer syncedStock;
@@ -28,6 +29,7 @@ public class ProductDto {
     private List<String> imageUrls;
     private String categoryName;
     private String supplierName;
+    private Boolean active;
 
     /** external product id at supplier (needed for sync, fetch, etc.) */
     private String externalProductId;     // <-- ADD THIS LINE
