@@ -17,4 +17,15 @@ export interface Supplier {
     active: boolean
     createdAt?: string
     updatedAt?: string
+
+    // Payment configuration
+    hasOwnPaymentSystem?: boolean
+    paymentApiEndpoint?: string
+    commissionApiEndpoint?: string
+    payoutFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM'
+    customPaymentSchedule?: string
+    customPaymentDays?: string
+    customPaymentHour?: number
+    minimumPaymentAmount?: number
+    maximumPaymentDelay?: number
 }

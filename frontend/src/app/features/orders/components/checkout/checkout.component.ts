@@ -16,7 +16,8 @@ import { AddressService } from "@core/services/address.service"
 import { MatDialog } from "@angular/material/dialog"
 import { AddressDialogComponent } from "@app/features/profile/components/address-dialog/address-dialog.component"
 import { OrderService } from "@core/services/order.service"
-// import { PaymentService } from "@core/services/payment.service"
+import { PaymentService } from "@core/services/payment.service"
+import { environment } from "@environments/environment"
 import type { Cart } from "@core/models/cart.model"
 
 @Component({
@@ -152,7 +153,7 @@ import type { Cart } from "@core/models/cart.model"
                   <div class="item-name">{{ item.productName }}</div>
                   <div class="item-details">
                     <span class="quantity">× {{ item.quantity }}</span>
-                    <span class="price">{{ (item.unitPrice * item.quantity) | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</span>
+                    <span class="price">{{ getItemTotal(item) | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</span>
                   </div>
                 </div>
               </div>
@@ -242,7 +243,7 @@ export class CheckoutComponent implements OnInit {
   private cartService = inject(CartService)
   private router = inject(Router)
   private orderService = inject(OrderService)
-  // private paymentService = inject(PaymentService)
+  private paymentService = inject(PaymentService)
   private addressService = inject(AddressService)
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -255,6 +256,8 @@ export class CheckoutComponent implements OnInit {
   placingOrder = false;
   addresses: any[] = [];
   selectedAddressId: number | null = null;
+  stripe?: any;
+  cardElement?: any;
 
   constructor() {
     this.shippingForm = this.fb.group({
@@ -278,7 +281,27 @@ export class CheckoutComponent implements OnInit {
   ngOnInit(): void {
     this.loadCart();
     this.loadAddresses();
+    // Initialize Stripe.js
+    this.loadStripe()
   }
+  private async loadStripe() {
+    if (!(window as any).Stripe) {
+      await this.injectStripeJs()
+    }
+    this.stripe = (window as any).Stripe(environment.stripePublicKey)
+  }
+
+  private injectStripeJs(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = 'https://js.stripe.com/v3/'
+      script.async = true
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error('Failed to load Stripe.js'))
+      document.body.appendChild(script)
+    })
+  }
+
 
   loadAddresses(): void {
     this.addressService.getAddresses().subscribe({
@@ -302,7 +325,14 @@ export class CheckoutComponent implements OnInit {
 
   getCartTotal(): number {
     if (!this.cart || !this.cart.items) return 0
-    return this.cart.items.reduce((total, item) => total + item.unitPrice * item.quantity, 0)
+    const sum = this.cart.items.reduce((total, item) => total + (item.unitPrice ?? item.price ?? 0) * item.quantity, 0)
+    return sum > 0 ? sum : (this.cart.total ?? 0)
+  }
+
+  getItemTotal(item: any): number {
+    const unit = item?.unitPrice ?? item?.price ?? 0
+    const qty = item?.quantity ?? 0
+    return unit * qty
   }
 
   onAddressSelect(): void {
@@ -328,23 +358,59 @@ export class CheckoutComponent implements OnInit {
     });
   }
 
-  placeOrder(): void {
-    if (this.shippingForm.valid && this.paymentForm.valid && this.cart && this.cart.items.length > 0) {
-      const orderRequest = {
-        shippingAddress: this.shippingForm.value,
-        items: this.cart.items.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity
-        }))
-      };
+  async placeOrder(): Promise<void> {
+    if (!(this.shippingForm.valid && this.cart && this.cart.items.length > 0)) return
+    if (!this.stripe) {
+      this.snackBar.open('Stripe non initialisé', 'Close', { duration: 3000 })
+      return
+    }
+    this.placingOrder = true
 
-      this.orderService.createOrder(orderRequest).subscribe({
-        next: (order) => {
-          // Navigate to payment page for this order
-          this.router.navigate(['/orders', order.id, 'payment']);
-        },
-        error: (error: any) => console.error("Order creation failed:", error) // Handle order creation error
-      });
+    try {
+      // 1) Ask backend to create order and PaymentIntent
+      const addressId = this.selectedAddressId || 0
+      const shippingFee = 0
+      const res = await this.paymentService.createOrderAndPayment(addressId, shippingFee).toPromise()
+      const orderId = res?.orderId
+      const clientSecret = res?.clientSecret
+
+      if (!orderId || !clientSecret) {
+        this.snackBar.open('Échec de la création du paiement', 'Close', { duration: 3000 })
+        this.placingOrder = false
+        return
+      }
+
+      // 2) Confirm payment with Stripe (assuming automatic payment methods)
+      const result = await this.stripe.confirmPayment({
+        elements: undefined,
+        clientSecret,
+        confirmParams: {}
+      })
+
+      if (result.error) {
+        this.snackBar.open(result.error.message || 'Paiement échoué', 'Close', { duration: 4000 })
+        this.placingOrder = false
+        return
+      }
+
+      const paymentIntentId = result.paymentIntent?.id
+      if (!paymentIntentId) {
+        this.snackBar.open('Paiement non confirmé', 'Close', { duration: 3000 })
+        this.placingOrder = false
+        return
+      }
+
+      // 3) Notify backend to mark order paid and send emails
+      await this.paymentService.confirmOrderPayment(orderId, paymentIntentId).toPromise()
+
+      // 4) Go to receipt page
+      this.router.navigate(['/orders', orderId])
+
+    } catch (e) {
+      console.error(e)
+      this.snackBar.open('Erreur lors du paiement', 'Close', { duration: 3000 })
+    } finally {
+      this.placingOrder = false
     }
   }
 }

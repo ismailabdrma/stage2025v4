@@ -117,13 +117,13 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                     </h3>
                                     
                                     <mat-form-field appearance="outline" class="full-width">
-                                        <mat-label>API Endpoint URL</mat-label>
-                                        <input matInput formControlName="url" required 
-                                               placeholder="https://api.supplier.com/products">
+                                        <mat-label>Base API URL</mat-label>
+                                        <input matInput formControlName="apiUrl" required 
+                                               placeholder="https://api.supplier.com">
                                         <mat-icon matSuffix>link</mat-icon>
-                                        <mat-hint>Full URL to the supplier's API endpoint</mat-hint>
-                                        <mat-error *ngIf="supplierForm.get('url')?.hasError('required')">
-                                            API endpoint URL is required
+                                        <mat-hint>Base URL of the supplier API</mat-hint>
+                                        <mat-error *ngIf="supplierForm.get('apiUrl')?.hasError('required')">
+                                            Base API URL is required
                                         </mat-error>
                                     </mat-form-field>
                                     
@@ -144,6 +144,27 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                     </mat-select>
                 </mat-form-field>
                                     </div>
+
+                                    <div class="form-row">
+                                        <mat-form-field appearance="outline" class="half-width">
+                                            <mat-label>Products Endpoint</mat-label>
+                                            <input matInput formControlName="productsEndpoint" placeholder="/products">
+                                            <mat-hint>Endpoint to list products</mat-hint>
+                                        </mat-form-field>
+                                        <mat-form-field appearance="outline" class="half-width">
+                                            <mat-label>Single Product Endpoint</mat-label>
+                                            <input matInput formControlName="singleEndpoint" placeholder="/product/{id}">
+                                            <mat-hint>Endpoint to fetch a single product</mat-hint>
+                                        </mat-form-field>
+                                    </div>
+
+                                    <mat-form-field appearance="outline" class="full-width">
+                                        <mat-label>Data Format</mat-label>
+                                        <mat-select formControlName="dataFormat">
+                                            <mat-option value="JSON">JSON</mat-option>
+                                            <mat-option value="XML">XML</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
                                 </ng-container>
 
                                 <!-- SOAP Configuration -->
@@ -227,6 +248,65 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                     </div>
                                 </ng-container>
             </form>
+                        </div>
+                    </mat-tab>
+
+                    <!-- Payment Configuration Tab -->
+                    <mat-tab label="Payment" >
+                        <div class="tab-content">
+                            <form [formGroup]="supplierForm" class="supplier-form">
+                                <div class="form-row">
+                                    <mat-checkbox formControlName="hasOwnPaymentSystem">Supplier handles customer payment directly</mat-checkbox>
+                                </div>
+                                <div class="form-row" *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value">
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Supplier Payment API Endpoint</mat-label>
+                                        <input matInput formControlName="paymentApiEndpoint" placeholder="https://supplier.com/payments">
+                                        <mat-icon matSuffix>link</mat-icon>
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Commission API Endpoint</mat-label>
+                                        <input matInput formControlName="commissionApiEndpoint" placeholder="https://supplier.com/commission">
+                                        <mat-icon matSuffix>link</mat-icon>
+                                    </mat-form-field>
+                                </div>
+                                <div class="form-row" *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Payout Frequency</mat-label>
+                                        <mat-select formControlName="payoutFrequency">
+                                            <mat-option value="DAILY">Daily</mat-option>
+                                            <mat-option value="WEEKLY">Weekly</mat-option>
+                                            <mat-option value="MONTHLY">Monthly</mat-option>
+                                            <mat-option value="CUSTOM">Custom</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Custom Schedule</mat-label>
+                                        <input matInput formControlName="customPaymentSchedule" placeholder="EVERY_15_DAYS">
+                                        <mat-hint>Used when frequency is CUSTOM</mat-hint>
+                                    </mat-form-field>
+                                </div>
+                                <div class="form-row" *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Custom Payment Days</mat-label>
+                                        <input matInput formControlName="customPaymentDays" placeholder="1,15">
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Payment Hour (0-23)</mat-label>
+                                        <input matInput type="number" formControlName="customPaymentHour" min="0" max="23">
+                                    </mat-form-field>
+                                </div>
+                                <div class="form-row" *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Minimum Payment Amount</mat-label>
+                                        <input matInput type="number" formControlName="minimumPaymentAmount" min="0">
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="half-width">
+                                        <mat-label>Maximum Payment Delay (days)</mat-label>
+                                        <input matInput type="number" formControlName="maximumPaymentDelay" min="0">
+                                    </mat-form-field>
+                                </div>
+                            </form>
                         </div>
                     </mat-tab>
 
@@ -509,13 +589,27 @@ export class CreateSupplierDialogComponent {
             email: [data?.email || '', [Validators.email]],
             type: [data?.type || 'API', Validators.required],
             url: [data?.url || ''],
+            apiUrl: [data?.apiUrl || ''],
             apiKey: [data?.apiKey || ''],
             authMethod: [data?.authMethod || ''],
+            productsEndpoint: [data?.productsEndpoint || '/products'],
+            singleEndpoint: [data?.singleEndpoint || '/product/{id}'],
+            dataFormat: [data?.dataFormat || 'JSON'],
             wsdlUrl: [data?.wsdlUrl || ''],
             namespace: [data?.namespace || ''],
             username: [data?.username || ''],
             password: [data?.password || ''],
-            operation: [data?.operation || '']
+            operation: [data?.operation || ''],
+            // Payment configuration
+            hasOwnPaymentSystem: [data?.hasOwnPaymentSystem || false],
+            paymentApiEndpoint: [data?.paymentApiEndpoint || ''],
+            commissionApiEndpoint: [data?.commissionApiEndpoint || ''],
+            payoutFrequency: [data?.payoutFrequency || 'WEEKLY'],
+            customPaymentSchedule: [data?.customPaymentSchedule || ''],
+            customPaymentDays: [data?.customPaymentDays || ''],
+            customPaymentHour: [data?.customPaymentHour ?? 18],
+            minimumPaymentAmount: [data?.minimumPaymentAmount ?? 50],
+            maximumPaymentDelay: [data?.maximumPaymentDelay ?? 30],
         });
         
         // Update validators based on initial type
@@ -526,8 +620,12 @@ export class CreateSupplierDialogComponent {
         // Clear type-specific fields
         this.supplierForm.patchValue({ 
             url: '', 
+            apiUrl: '',
             apiKey: '', 
             authMethod: '',
+            productsEndpoint: '/products',
+            singleEndpoint: '/product/{id}',
+            dataFormat: 'JSON',
             wsdlUrl: '', 
             namespace: '',
             username: '',
@@ -726,7 +824,10 @@ export class CreateSupplierDialogComponent {
 
         switch (supplier.type) {
             case 'API':
-                cleaned.url = supplier.url;
+                cleaned.apiUrl = supplier.apiUrl || supplier.url;
+                cleaned.productsEndpoint = supplier.productsEndpoint;
+                cleaned.singleEndpoint = supplier.singleEndpoint;
+                cleaned.dataFormat = supplier.dataFormat;
                 if (supplier.apiKey) cleaned.apiKey = supplier.apiKey;
                 if (supplier.authMethod) cleaned.authMethod = supplier.authMethod;
                 break;
@@ -742,6 +843,17 @@ export class CreateSupplierDialogComponent {
                 if (supplier.url) cleaned.url = supplier.url;
                 break;
         }
+
+        // Append payment configuration (applies to all types)
+        cleaned.hasOwnPaymentSystem = !!supplier.hasOwnPaymentSystem;
+        if (supplier.paymentApiEndpoint) cleaned.paymentApiEndpoint = supplier.paymentApiEndpoint;
+        if (supplier.commissionApiEndpoint) cleaned.commissionApiEndpoint = supplier.commissionApiEndpoint;
+        if (supplier.payoutFrequency) cleaned.payoutFrequency = supplier.payoutFrequency;
+        if (supplier.customPaymentSchedule) cleaned.customPaymentSchedule = supplier.customPaymentSchedule;
+        if (supplier.customPaymentDays) cleaned.customPaymentDays = supplier.customPaymentDays;
+        if (supplier.customPaymentHour !== undefined) cleaned.customPaymentHour = supplier.customPaymentHour;
+        if (supplier.minimumPaymentAmount !== undefined) cleaned.minimumPaymentAmount = supplier.minimumPaymentAmount;
+        if (supplier.maximumPaymentDelay !== undefined) cleaned.maximumPaymentDelay = supplier.maximumPaymentDelay;
 
         return cleaned;
     }

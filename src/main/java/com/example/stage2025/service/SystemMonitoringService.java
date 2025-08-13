@@ -52,21 +52,27 @@ public class SystemMonitoringService {
 
     public Map<String, Object> getSystemMetrics() {
         Map<String, Object> metrics = new HashMap<>();
-        metrics.put("timestamp", System.currentTimeMillis());
-        metrics.put("cpu_usage", "45%");
-        metrics.put("memory_usage", "60%");
-        metrics.put("disk_usage", "30%");
-        metrics.put("network_io", "Normal");
+        // Align with SystemMonitoringComponent interface
+        metrics.put("memoryUsed", 512 * 1024 * 1024); // bytes
+        metrics.put("memoryTotal", 1024 * 1024 * 1024); // bytes
+        metrics.put("memoryMax", 2048 * 1024 * 1024); // bytes
+        metrics.put("processorCount", Runtime.getRuntime().availableProcessors());
+        metrics.put("systemLoad", 2.3);
+        metrics.put("timestamp", String.valueOf(System.currentTimeMillis()));
         return metrics;
     }
 
     public Map<String, Object> getPerformanceReport() {
         Map<String, Object> report = new HashMap<>();
-        report.put("timestamp", System.currentTimeMillis());
-        report.put("response_time", "250ms");
-        report.put("throughput", "1000 req/min");
-        report.put("error_rate", "0.5%");
-        report.put("uptime", "99.9%");
+        // Align with SystemMonitoringComponent expected fields
+        report.put("order_creation_avg_time", 850);
+        report.put("order_creation_count", 120);
+        report.put("payment_processing_avg_time", 1250);
+        report.put("payment_processing_count", 75);
+        report.put("total_orders", 2300);
+        report.put("total_payments", 1800);
+        report.put("active_users", 320);
+        report.put("error_rate", 0.7);
         return report;
     }
 

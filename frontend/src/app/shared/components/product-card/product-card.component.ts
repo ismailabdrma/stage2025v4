@@ -10,6 +10,7 @@ import { CartService } from '../../../core/services/cart.service';
 import { WishlistService } from '../../../core/services/wishlist.service';
 import { AnalyticsService } from '../../../core/services/analytics.service';
 import { ToastService } from '../toast-notification/toast-notification.component';
+import { environment } from '@environments/environment';
 
 export interface ProductCard {
   id: number;
@@ -178,5 +179,21 @@ export class ProductCardComponent implements OnInit {
 
   get productUrl(): string {
     return this.product.slug ? `/products/${this.product.slug}` : `/products/${this.product.id}`;
+  }
+
+  resolveImageUrl(url?: string): string | undefined {
+    if (!url) return undefined
+    if (url.startsWith('data:image')) return url
+    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/images/')) {
+      return `${environment.apiUrl}${url}`
+    }
+    try {
+      new URL(url)
+      return url
+    } catch {
+      // bare filename or relative path → default to /uploads/images
+      const clean = url.replace(/^\/?(images\/?)/, '')
+      return `${environment.apiUrl}/uploads/images/${clean}`
+    }
   }
 }

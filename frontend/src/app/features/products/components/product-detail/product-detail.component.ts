@@ -14,6 +14,8 @@ import { CartService } from "@core/services/cart.service"
 import { AuthService } from "@core/services/auth.service"
 import { WishlistService } from "@core/services/wishlist.service"
 import type { Product } from "@core/models/product.model"
+import { environment } from "@environments/environment"
+import { BuyNowButtonComponent } from "@shared/components/buy-now-button/buy-now-button.component"
 
 @Component({
   selector: "app-product-detail",
@@ -28,6 +30,7 @@ import type { Product } from "@core/models/product.model"
     MatFormFieldModule,
     MatInputModule,
     MatProgressSpinnerModule,
+    BuyNowButtonComponent,
   ],
   templateUrl: "./product-detail.component.html",
   styleUrl: "./product-detail.component.scss",
@@ -44,6 +47,7 @@ export class ProductDetailComponent implements OnInit {
   quantity = 1
   selectedImage = ""
   isInWishlist = false
+  buyNowProduct: any
 
   ngOnInit(): void {
     const id = this.route.snapshot.params["id"]
@@ -56,7 +60,16 @@ export class ProductDetailComponent implements OnInit {
     this.productService.getProductById(id).subscribe({
       next: (product) => {
         this.product = product
-        this.selectedImage = (product.imageUrls && product.imageUrls.length) ? product.imageUrls[0] : ""
+        const firstImage = (product.imageUrls && product.imageUrls.length) ? product.imageUrls[0] : ""
+        this.selectedImage = this.resolveImageUrl(firstImage) || ""
+        this.buyNowProduct = {
+          id: product.id,
+          name: product.name,
+          image: firstImage,
+          basePrice: product.displayedPrice,
+          category: product.categoryName,
+          brand: (product as any).brand
+        }
         this.wishlistService.isInWishlist(product.id).subscribe(inWishlist => {
           this.isInWishlist = inWishlist;
         });
@@ -70,51 +83,27 @@ export class ProductDetailComponent implements OnInit {
   }
 
   selectImage(image: string): void {
-    this.selectedImage = image
+    this.selectedImage = this.resolveImageUrl(image) || '/assets/placeholder-product.jpg'
   }
 
   addToCart(): void {
     if (!this.product) return
 
-    // Check if user is authenticated first
-    const authService = inject(AuthService)
-    if (!authService.isAuthenticated()) {
-      const snackBarRef = this.snackBar.open("Please login to add items to cart", "Login", {
-        duration: 5000
-      })
-      snackBarRef.onAction().subscribe(() => {
-        inject(Router).navigate(['/auth/login'])
-      })
-      return
-    }
-
+    // Use unified cart service that supports guest or auth carts
     this.cartService
-      .addItemToCart({
+      .addItem({
         productId: this.product.id,
-        productName: this.product.name,
         quantity: this.quantity,
-        unitPrice: this.product.displayedPrice,
+        price: this.product.displayedPrice,
+        productName: this.product.name,
+        productImage: (this.product.imageUrls && this.product.imageUrls.length ? this.product.imageUrls[0] : undefined),
       })
       .subscribe({
         next: () => {
-          this.snackBar.open(`${this.product!.name} added to cart!`, "Close", {
-            duration: 3000,
-          })
+          this.snackBar.open(`${this.product!.name} added to cart!`, "Close", { duration: 3000 })
         },
-        error: (error) => {
-          console.error("Error adding to cart:", error)
-          if (error.status === 401) {
-            const snackBarRef = this.snackBar.open("Please login to add items to cart", "Login", {
-              duration: 5000,
-            })
-            snackBarRef.onAction().subscribe(() => {
-              inject(Router).navigate(['/auth/login'])
-            })
-          } else {
-            this.snackBar.open("Error adding product to cart", "Close", {
-              duration: 3000,
-            })
-          }
+        error: () => {
+          this.snackBar.open("Error adding product to cart", "Close", { duration: 3000 })
         },
       })
   }
@@ -141,6 +130,21 @@ export class ProductDetailComponent implements OnInit {
           duration: 3000,
         });
       });
+    }
+  }
+
+  resolveImageUrl(url?: string): string | undefined {
+    if (!url) return undefined
+    if (url.startsWith('data:image')) return url
+    if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/images/')) {
+      return `${environment.apiUrl}${url}`
+    }
+    try {
+      new URL(url)
+      return url
+    } catch {
+      const clean = url.replace(/^\/?(images\/?)/, '')
+      return `${environment.apiUrl}/uploads/images/${clean}`
     }
   }
 }

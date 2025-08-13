@@ -48,7 +48,6 @@ com\example\stage2025\controller\AnalyticsController.class
 com\example\stage2025\service\impl\EnterpriseOrderService.class
 com\example\stage2025\dto\PaymentIntentResponse.class
 com\example\stage2025\entity\ExcelSupplier.class
-com\example\stage2025\controller\SupplierPaymentController.class
 com\example\stage2025\mapper\PaymentMapper.class
 com\example\stage2025\dto\SupplierPaymentSummaryDto.class
 com\example\stage2025\service\parser\XmlProductParser.class

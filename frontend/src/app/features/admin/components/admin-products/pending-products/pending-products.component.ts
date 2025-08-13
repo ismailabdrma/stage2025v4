@@ -352,7 +352,8 @@ export class PendingProductsComponent implements OnInit {
 
   getProductImage(product: Product): string {
     if (product.imageUrls && product.imageUrls.length > 0) {
-      return product.imageUrls[0];
+      const url = product.imageUrls[0]
+      return url.startsWith('/api/') ? `${(window as any).env?.apiUrl || ''}${url}` : url
     }
     return 'assets/placeholder.png';
   }

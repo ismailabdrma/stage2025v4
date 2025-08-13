@@ -1,8 +1,8 @@
 export interface CartItem {
   id: number
   quantity: number
-  unitPrice: number
-  price: number
+  unitPrice?: number
+  price?: number
   productName: string
   productId: number
   productImage?: string

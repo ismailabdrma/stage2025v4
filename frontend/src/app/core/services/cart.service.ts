@@ -72,11 +72,16 @@ export class CartService {
     );
   }
 
-  private getUserCart(): Observable<Cart> {
+  private getUserCart(): Observable<Cart | null> {
     return this.http.get<Cart>(this.apiUrl).pipe(
       tap(cart => this.cartSubject.next(cart)),
       catchError(error => {
         console.error('Failed to load user cart:', error);
+        // Fallback to guest cart if available
+        const guestFallback = this.convertGuestCartToCart(this.guestCartSubject.value)
+        if (guestFallback) {
+          return of(guestFallback)
+        }
         return of({ 
           id: 0, 
           createdDate: new Date().toISOString(), 
@@ -84,9 +89,9 @@ export class CartService {
           items: [], 
           itemCount: 0,
           total: 0 
-        } as Cart);
+        } as Cart)
       })
-    );
+    )
   }
 
   private loadGuestCart() {
@@ -130,7 +135,8 @@ export class CartService {
         variant: item.variant,
         variantId: item.variantId
       })),
-      itemCount: guestCart.itemCount
+      itemCount: guestCart.itemCount,
+      total: guestCart.total
     } as Cart;
   }
 
@@ -150,10 +156,32 @@ export class CartService {
     );
   }
 
-  private addItemToUserCart(item: Partial<CartItem>): Observable<Cart> {
-    return this.http.post<Cart>(`${this.apiUrl}/items`, item).pipe(
-      tap(cart => this.cartSubject.next(cart))
-    );
+  private addItemToUserCart(item: Partial<CartItem>): Observable<Cart | null> {
+    // Map generic addItem payload to backend CartItemDto shape
+    const payload: any = {
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: (item as any).unitPrice ?? (item as any).price,
+      productName: (item as any).productName,
+      productImage: (item as any).productImage,
+      variantId: (item as any).variantId
+    }
+    return this.http.post<Cart>(`${this.apiUrl}/items`, payload).pipe(
+      tap(cart => this.cartSubject.next(cart)),
+      catchError(err => {
+        // Fallback to guest cart on 401/403 or network issues
+        console.warn('Falling back to guest cart for addItem due to error:', err?.status)
+        return this.addItemToGuestCart({
+          productId: payload.productId!,
+          variantId: payload.variantId,
+          quantity: payload.quantity!,
+          price: payload.unitPrice!,
+          productName: payload.productName!,
+          productImage: payload.productImage,
+          variant: (item as any).variant
+        })
+      })
+    )
   }
 
   private addItemToGuestCart(item: { productId: number, variantId?: number, quantity: number, price: number, productName: string, productImage?: string, variant?: string }): Observable<Cart | null> {
@@ -196,9 +224,24 @@ export class CartService {
     );
   }
 
-  private updateUserCartQuantity(cartItemId: number, quantity: number): Observable<Cart> {
+  private updateUserCartQuantity(cartItemId: number, quantity: number): Observable<Cart | null> {
     return this.http.put<Cart>(`${this.apiUrl}/items/${cartItemId}`, { quantity }).pipe(
-      tap(cart => this.cartSubject.next(cart))
+      tap(cart => this.cartSubject.next(cart)),
+      catchError(err => {
+        // Fallback to guest cart adjust
+        const guestCart = this.guestCartSubject.value
+        if (guestCart) {
+          // Map to guest cart index using temp id convention
+          const index = cartItemId - 1000
+          if (index >= 0 && index < guestCart.items.length) {
+            guestCart.items[index].quantity = quantity
+            this.recalculateGuestCartTotals(guestCart)
+            this.saveGuestCart(guestCart)
+            return of(this.convertGuestCartToCart(guestCart))
+          }
+        }
+        return of(null)
+      })
     );
   }
 
@@ -235,9 +278,22 @@ export class CartService {
     );
   }
 
-  private removeUserCartItem(cartItemId: number): Observable<Cart> {
+  private removeUserCartItem(cartItemId: number): Observable<Cart | null> {
     return this.http.delete<Cart>(`${this.apiUrl}/items/${cartItemId}`).pipe(
-      tap(cart => this.cartSubject.next(cart))
+      tap(cart => this.cartSubject.next(cart)),
+      catchError(err => {
+        const guestCart = this.guestCartSubject.value
+        if (guestCart) {
+          const index = cartItemId - 1000
+          if (index >= 0 && index < guestCart.items.length) {
+            guestCart.items.splice(index, 1)
+            this.recalculateGuestCartTotals(guestCart)
+            this.saveGuestCart(guestCart)
+            return of(this.convertGuestCartToCart(guestCart))
+          }
+        }
+        return of(null)
+      })
     );
   }
 
@@ -321,11 +377,11 @@ export class CartService {
   }
 
   // Legacy methods for compatibility
-  addItemToCart(item: Partial<CartItem>): Observable<Cart> {
+  addItemToCart(item: Partial<CartItem>): Observable<Cart | null> {
     return this.addItemToUserCart(item);
   }
 
-  updateItemQuantity(cartItemId: number, quantity: number): Observable<Cart> {
+  updateItemQuantity(cartItemId: number, quantity: number): Observable<Cart | null> {
     return this.updateUserCartQuantity(cartItemId, quantity);
   }
 

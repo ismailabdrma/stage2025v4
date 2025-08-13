@@ -16,12 +16,24 @@ public class SupplierMapper {
         dto.setCreated(supplier.getCreated());
         dto.setLastImport(supplier.getLastImport());
         dto.setPayoutFrequency(supplier.getPayoutFrequency());
+        // Map payment configuration
+        dto.setHasOwnPaymentSystem(supplier.isHasOwnPaymentSystem());
+        dto.setPaymentApiEndpoint(supplier.getPaymentApiEndpoint());
+        dto.setCommissionApiEndpoint(supplier.getCommissionApiEndpoint());
+        dto.setCustomPaymentSchedule(supplier.getCustomPaymentSchedule());
+        dto.setCustomPaymentDays(supplier.getCustomPaymentDays());
+        dto.setCustomPaymentHour(supplier.getCustomPaymentHour());
+        dto.setMinimumPaymentAmount(supplier.getMinimumPaymentAmount());
+        dto.setMaximumPaymentDelay(supplier.getMaximumPaymentDelay());
 
         if (supplier instanceof ApiSupplier api) {
             dto.setType("API");
             dto.setApiUrl(api.getApiUrl());
             dto.setApiKey(api.getApiKey());
             dto.setAuthMethod(api.getAuthMethod());
+            if (api.getProductsEndpoint() != null) dto.setProductsEndpoint(api.getProductsEndpoint());
+            if (api.getSingleEndpoint() != null) dto.setSingleEndpoint(api.getSingleEndpoint());
+            if (api.getDataFormat() != null) dto.setDataFormat(api.getDataFormat().name());
         } else if (supplier instanceof ExcelSupplier excel) {
             dto.setType("EXCEL");
             dto.setFileName(excel.getFileName());

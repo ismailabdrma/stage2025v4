@@ -11,8 +11,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -43,34 +49,36 @@ public class ProductImportService {
 
             for (SupplierProductDto supplierProduct : supplierProducts) {
                 try {
-                    Product product = new Product();
+                    Product product = resolveOrCreateProduct(supplier, supplierProduct);
+                    // Map fields
                     product.setName(supplierProduct.getName());
                     product.setDescription(supplierProduct.getDescription());
                     product.setSupplierPrice(supplierProduct.getPrice());
-                    product.setDisplayedPrice(supplierProduct.getPrice() * 1.2); // 20% markup
-                    product.setStockQuantity(supplierProduct.getStock());
-                    product.setExternalProductId(supplierProduct.getExternalProductId());
-                    product.setSupplier(supplier);
-                    product.setActive(false); // Admin approval required
-                    // setCreated is not available, using @CreationTimestamp instead
+                    product.setDisplayedPrice(supplierProduct.getPrice() * 1.2);
+                    product.setSyncedStock(supplierProduct.getStock());
+                    product.setActive(Optional.ofNullable(product.getActive()).orElse(false));
 
-                    // Handle category
-                    if (supplierProduct.getName() != null) { // getCategoryName() doesn't exist, using getName() instead
-                        Category category = categoryRepository.findByName("Default")
-                                .orElseGet(() -> {
-                                    Category newCategory = new Category();
-                                    newCategory.setName("Default");
-                                    newCategory.setDescription("Auto-created from import");
-                                    return categoryRepository.save(newCategory);
-                                });
-                        product.setCategory(category);
+                    // Category default
+                    Category category = categoryRepository.findByName("Default")
+                            .orElseGet(() -> {
+                                Category newCategory = new Category();
+                                newCategory.setName("Default");
+                                newCategory.setDescription("Auto-created from import");
+                                return categoryRepository.save(newCategory);
+                            });
+                    product.setCategory(category);
+
+                    // Image handling
+                    if (supplierProduct.getImageUrls() != null && !supplierProduct.getImageUrls().isEmpty()) {
+                        String normalized = saveOrNormalizeImage(supplierProduct.getImageUrls().get(0), supplier.getId(), supplierProduct.getExternalProductId());
+                        product.setImageUrls(java.util.List.of(normalized));
                     }
 
                     productRepository.save(product);
-                successCount++;
-            } catch (Exception e) {
+                    successCount++;
+                } catch (Exception e) {
                     log.error("Failed to import product: {}", e.getMessage());
-                errorCount++;
+                    errorCount++;
                 }
             }
 
@@ -95,17 +103,14 @@ public class ProductImportService {
         
         for (SupplierProductDto supplierProduct : products) {
             try {
-                Product product = new Product();
+                Product product = resolveOrCreateProduct(supplier, supplierProduct);
                 product.setName(supplierProduct.getName());
                 product.setDescription(supplierProduct.getDescription());
                 product.setSupplierPrice(supplierProduct.getPrice());
-                product.setDisplayedPrice(supplierProduct.getPrice() * 1.2); // 20% markup
-                product.setStockQuantity(supplierProduct.getStock());
-                product.setExternalProductId(supplierProduct.getExternalProductId());
-                product.setSupplier(supplier);
-                product.setActive(false); // Admin approval required
-                
-                // Handle category
+                product.setDisplayedPrice(supplierProduct.getPrice() * 1.2);
+                product.setSyncedStock(supplierProduct.getStock());
+                product.setActive(Optional.ofNullable(product.getActive()).orElse(false));
+
                 Category category = categoryRepository.findByName("Default")
                         .orElseGet(() -> {
                             Category newCategory = new Category();
@@ -114,7 +119,12 @@ public class ProductImportService {
                             return categoryRepository.save(newCategory);
                         });
                 product.setCategory(category);
-                
+
+                if (supplierProduct.getImageUrls() != null && !supplierProduct.getImageUrls().isEmpty()) {
+                    String normalized = saveOrNormalizeImage(supplierProduct.getImageUrls().get(0), supplier.getId(), supplierProduct.getExternalProductId());
+                    product.setImageUrls(java.util.List.of(normalized));
+                }
+
                 productRepository.save(product);
                 successCount++;
             } catch (Exception e) {
@@ -123,6 +133,40 @@ public class ProductImportService {
         }
         
         return successCount;
+    }
+
+    private Product resolveOrCreateProduct(Supplier supplier, SupplierProductDto dto) {
+        String externalId = (dto.getExternalProductId() != null && !dto.getExternalProductId().isBlank())
+                ? dto.getExternalProductId()
+                : (supplier.getName() + ":" + dto.getName()).toLowerCase();
+        return productRepository.findByExternalProductIdAndSupplier(externalId, supplier)
+                .orElseGet(() -> {
+                    Product p = new Product();
+                    p.setSupplier(supplier);
+                    p.setExternalProductId(externalId);
+                    return p;
+                });
+    }
+
+    private String saveOrNormalizeImage(String value, Long supplierId, String externalId) {
+        try {
+            if (value.startsWith("http://") || value.startsWith("https://")) {
+                String ext = value.contains(".") ? value.substring(value.lastIndexOf('.') + 1) : "jpg";
+                Path dir = Paths.get("uploads", "images", String.valueOf(supplierId));
+                Files.createDirectories(dir);
+                Path out = dir.resolve((externalId != null ? externalId : String.valueOf(System.currentTimeMillis())) + "." + ext);
+                try (InputStream in = new URL(value).openStream()) {
+                    Files.copy(in, out, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                return "/uploads/images/" + supplierId + "/" + out.getFileName();
+            }
+            // Filename or relative → normalize to uploads/images
+            value = value.replaceFirst("^/?(images/)?", "");
+            return "/uploads/images/" + value;
+        } catch (Exception e) {
+            log.warn("Failed to save image {}, reason: {}", value, e.getMessage());
+            return "/uploads/images/placeholder.jpg";
+        }
     }
     
     public java.util.Map<String, Object> getImportStatus(Long supplierId) {

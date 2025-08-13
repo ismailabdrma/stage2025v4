@@ -1,7 +1,6 @@
 package com.example.stage2025.security;
 
 import com.example.stage2025.service.impl.UserDetailsServiceImpl;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -63,6 +62,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                // Expose userId claim for downstream controllers
+                try {
+                    Long userId = jwtUtils.getUserId(token);
+                    if (userId != null) {
+                        request.setAttribute("userId", userId);
+                    }
+                } catch (Exception ignored) {
+                }
             }
         }
 

@@ -1,22 +1,21 @@
 
 <div class="product-detail-container">
   <div class="product-images">
-    <!-- Image carousel placeholder -->
     <ng-container *ngIf="imageUrls && imageUrls.length > 0; else noImage">
-      <img [src]="imageUrls[0]" alt="Product Image" class="main-image">
+      <img [src]="resolveImageUrl(imageUrls[0]) || '/assets/placeholder-product.jpg'" alt="Product Image" class="main-image">
       <div class="thumbnail-gallery">
-        <img *ngFor="let imageUrl of imageUrls" [src]="imageUrl" alt="Thumbnail" class="thumbnail">
+        <img *ngFor="let imageUrl of imageUrls" [src]="resolveImageUrl(imageUrl) || '/assets/placeholder-product.jpg'" alt="Thumbnail" class="thumbnail">
       </div>
     </ng-container>
     <ng-template #noImage>
-      <img src="placeholder.jpg" alt="No Image Available" class="main-image">
+      <img src="/assets/placeholder-product.jpg" alt="No Image Available" class="main-image">
     </ng-template>
   </div>
 
   <div class="product-info">
     <h1 class="product-name">{{ product?.name }}</h1>
     <p class="product-description">{{ product?.description }}</p>
-    <div class="price">{{ product?.price | currency }}</div>
+    <div class="price">{{ (product?.displayedPrice || product?.price) | currency }}</div>
 
     <div class="stock-info">
       <span *ngIf="isProductAvailable">In Stock: {{ product?.stock }}</span>
@@ -30,7 +29,10 @@
       <p>Characteristics: [List characteristics here]</p>
     </div>
 
-    <button class="add-to-cart-button" (click)="addToCart()" [disabled]="product?.stock === 0">Add to Cart</button>
+    <div class="action-row">
+      <button mat-raised-button color="primary" class="add-to-cart-button" (click)="addToCart()" [disabled]="!isProductAvailable">Ajouter au panier</button>
+      <app-buy-now-button [product]="buyNowProduct" [redirectToCheckout]="true"></app-buy-now-button>
+    </div>
   </div>
 </div>
 

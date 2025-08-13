@@ -60,16 +60,45 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendOrderConfirmation(Client client, Order order) {
         try {
+            StringBuilder body = new StringBuilder();
+            body.append("Dear ").append(client.getFirstName() != null ? client.getFirstName() : client.getUsername()).append(",\n\n");
+            body.append("Thank you for your order #").append(order.getOrderNumber() != null ? order.getOrderNumber() : order.getId()).append(".\n\n");
+
+            // Items breakdown
+            body.append("Items:\n");
+            order.getItems().forEach(item -> {
+                body.append(" - ")
+                    .append(item.getProduct().getName())
+                    .append(" x")
+                    .append(item.getQuantity())
+                    .append(" @ €")
+                    .append(String.format("%.2f", item.getUnitPrice()))
+                    .append(" = €")
+                    .append(String.format("%.2f", item.getSubtotal()))
+                    .append("\n");
+            });
+
+            body.append("\nSubtotal: €").append(String.format("%.2f", order.getSubtotal() != null ? order.getSubtotal() : 0.0)).append("\n");
+            body.append("Shipping: €").append(String.format("%.2f", order.getShippingFee() != null ? order.getShippingFee() : 0.0)).append("\n");
+            body.append("Total: €").append(String.format("%.2f", order.getTotal() != null ? order.getTotal() : 0.0)).append("\n");
+
+            body.append("Payment Status: ").append(order.getStatus() != null ? order.getStatus().name() : "PENDING").append("\n");
+
+            if (order.getDeliveryAddress() != null) {
+                body.append("\nDelivery Address:\n");
+                body.append(order.getDeliveryAddress().getStreet()).append("\n")
+                    .append(order.getDeliveryAddress().getCity()).append(" ")
+                    .append(order.getDeliveryAddress().getZipCode()).append("\n")
+                    .append(order.getDeliveryAddress().getCountry()).append("\n");
+            }
+
+            body.append("\nWe will notify you when your order ships.\n");
+
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(client.getEmail());
-            message.setSubject("Order Confirmation - Order #" + order.getId());
-            message.setText("Dear " + client.getFirstName() + ",\n\n" +
-                    "Your order #" + order.getId() + " has been confirmed.\n" +
-                    "Total Amount: €" + order.getTotalAmount() + "\n" +
-                    "Status: " + order.getStatus() + "\n\n" +
-                    "Thank you for your order!");
-            
+            message.setSubject("Order Confirmation - Order #" + (order.getOrderNumber() != null ? order.getOrderNumber() : order.getId()));
+            message.setText(body.toString());
             mailSender.send(message);
             log.info("Order confirmation sent to: {}", client.getEmail());
         } catch (Exception e) {
@@ -100,16 +129,47 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendSupplierOrderNotification(Supplier supplier, Order order) {
         try {
+            StringBuilder body = new StringBuilder();
+            body.append("Dear ").append(supplier.getName()).append(",\n\n");
+            body.append("A new order #").append(order.getOrderNumber() != null ? order.getOrderNumber() : order.getId()).append(" includes your items.\n\n");
+
+            // Items for this supplier
+            double supplierTotal = 0.0;
+            body.append("Your items:\n");
+            for (var item : order.getItems()) {
+                if (item.getProduct().getSupplier() != null && item.getProduct().getSupplier().getId().equals(supplier.getId())) {
+                    // Avoid null checks: assume subtotal is calculated when creating order items
+                    supplierTotal += item.getSubtotal();
+                    body.append(" - ")
+                        .append(item.getProduct().getName())
+                        .append(" x")
+                        .append(item.getQuantity())
+                        .append(" @ €")
+                        .append(String.format("%.2f", item.getUnitPrice()))
+                        .append(" = €")
+                        .append(String.format("%.2f", item.getSubtotal()))
+                        .append("\n");
+                }
+            }
+
+            body.append("\nSubtotal of your items: €").append(String.format("%.2f", supplierTotal)).append("\n");
+
+            // Payment flow
+            if (supplier.isHasOwnPaymentSystem()) {
+                body.append("Payment flow: Supplier handles customer payment.\n");
+                body.append("Commission owed to us will be calculated per agreement and notified separately.");
+            } else {
+                body.append("Payment flow: We handle customer payment.\n");
+                body.append("Payout will follow your schedule: ")
+                    .append(String.valueOf(supplier.getPayoutFrequency()))
+                    .append(".\n");
+            }
+
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(supplier.getContactEmail());
-            message.setSubject("New Order - Order #" + order.getId());
-            message.setText("Dear " + supplier.getName() + ",\n\n" +
-                    "A new order has been placed that includes your products:\n\n" +
-                    "Order ID: " + order.getId() + "\n" +
-                    "Total Amount: €" + order.getTotalAmount() + "\n" +
-                    "Please prepare the items for shipment.");
-            
+            message.setSubject("New Order - Order #" + (order.getOrderNumber() != null ? order.getOrderNumber() : order.getId()));
+            message.setText(body.toString());
             mailSender.send(message);
             log.info("Supplier notification sent to: {}", supplier.getContactEmail());
         } catch (Exception e) {

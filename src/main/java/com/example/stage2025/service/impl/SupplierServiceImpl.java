@@ -73,6 +73,13 @@ public class SupplierServiceImpl implements SupplierService {
             apiSupplier.setApiUrl(dto.getApiUrl());
             apiSupplier.setApiKey(dto.getApiKey());
             apiSupplier.setAuthMethod(dto.getAuthMethod());
+            if (dto.getProductsEndpoint() != null) apiSupplier.setProductsEndpoint(dto.getProductsEndpoint());
+            if (dto.getSingleEndpoint() != null) apiSupplier.setSingleEndpoint(dto.getSingleEndpoint());
+            if (dto.getDataFormat() != null) {
+                try {
+                    apiSupplier.setDataFormat(com.example.stage2025.enums.DataFormat.valueOf(dto.getDataFormat()));
+                } catch (IllegalArgumentException ignored) {}
+            }
             supplier = apiSupplier;
 
         } else if ("EXCEL".equalsIgnoreCase(dto.getType())) {
@@ -101,6 +108,17 @@ public class SupplierServiceImpl implements SupplierService {
         } else {
             throw new IllegalArgumentException("Unknown supplier type: " + dto.getType());
         }
+
+        // Apply payment configuration common fields
+        supplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+        supplier.setPaymentApiEndpoint(dto.getPaymentApiEndpoint());
+        supplier.setCommissionApiEndpoint(dto.getCommissionApiEndpoint());
+        supplier.setPayoutFrequency(dto.getPayoutFrequency());
+        supplier.setCustomPaymentSchedule(dto.getCustomPaymentSchedule());
+        supplier.setCustomPaymentDays(dto.getCustomPaymentDays());
+        supplier.setCustomPaymentHour(dto.getCustomPaymentHour());
+        supplier.setMinimumPaymentAmount(dto.getMinimumPaymentAmount());
+        supplier.setMaximumPaymentDelay(dto.getMaximumPaymentDelay());
 
         // Save supplier (must be saved before adding operations)
         Supplier saved = supplierRepository.save(supplier);
@@ -145,12 +163,29 @@ public class SupplierServiceImpl implements SupplierService {
 
         supplier.setName(dto.getName());
         supplier.setActive(dto.isActive());
+        // Update payment configuration
+        supplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+        supplier.setPaymentApiEndpoint(dto.getPaymentApiEndpoint());
+        supplier.setCommissionApiEndpoint(dto.getCommissionApiEndpoint());
+        supplier.setPayoutFrequency(dto.getPayoutFrequency());
+        supplier.setCustomPaymentSchedule(dto.getCustomPaymentSchedule());
+        supplier.setCustomPaymentDays(dto.getCustomPaymentDays());
+        supplier.setCustomPaymentHour(dto.getCustomPaymentHour());
+        supplier.setMinimumPaymentAmount(dto.getMinimumPaymentAmount());
+        supplier.setMaximumPaymentDelay(dto.getMaximumPaymentDelay());
 
         if (supplier instanceof ApiSupplier && "API".equalsIgnoreCase(dto.getType())) {
             ApiSupplier api = (ApiSupplier) supplier;
             api.setApiUrl(dto.getApiUrl());
             api.setApiKey(dto.getApiKey());
             api.setAuthMethod(dto.getAuthMethod());
+            if (dto.getProductsEndpoint() != null) api.setProductsEndpoint(dto.getProductsEndpoint());
+            if (dto.getSingleEndpoint() != null) api.setSingleEndpoint(dto.getSingleEndpoint());
+            if (dto.getDataFormat() != null) {
+                try {
+                    api.setDataFormat(com.example.stage2025.enums.DataFormat.valueOf(dto.getDataFormat()));
+                } catch (IllegalArgumentException ignored) {}
+            }
 
         } else if (supplier instanceof ExcelSupplier && "EXCEL".equalsIgnoreCase(dto.getType())) {
             ExcelSupplier excel = (ExcelSupplier) supplier;

@@ -13,6 +13,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   List<Order> findByClientId(Long clientId);
   List<Order> findByClientIdOrderByOrderDateDesc(Long clientId);
   Optional<Order> findByOrderNumber(String orderNumber);
+  List<Order> findByStatus(OrderStatus status);
   
   // Dashboard statistics methods
   long countByStatus(OrderStatus status);

@@ -1,6 +1,7 @@
 package com.example.stage2025.controller;
 
 import com.example.stage2025.service.UserManagementService;
+import com.example.stage2025.dto.UserDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,26 +19,23 @@ public class UserManagementController {
     private final UserManagementService userManagementService;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
-        // TODO: Implement user listing
-        return ResponseEntity.ok(List.of());
+    public ResponseEntity<List<UserDto>> getAllUsers() {
+        return ResponseEntity.ok(userManagementService.getAllUsers());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getUser(@PathVariable Long id) {
-        // TODO: Implement user details
-        return ResponseEntity.ok(Map.of("id", id, "status", "active"));
+    public ResponseEntity<UserDto> getUser(@PathVariable Long id) {
+        return ResponseEntity.ok(userManagementService.getUserById(id));
     }
 
-    @PostMapping("/{id}/activate")
-    public ResponseEntity<Map<String, String>> activateUser(@PathVariable Long id) {
-        // TODO: Implement user activation
-        return ResponseEntity.ok(Map.of("status", "activated"));
+    @PutMapping("/{id}/activate")
+    public ResponseEntity<UserDto> activateUser(@PathVariable Long id) {
+        return ResponseEntity.ok(userManagementService.activateUser(id));
     }
 
-    @PostMapping("/{id}/deactivate")
+    @PutMapping("/{id}/deactivate")
     public ResponseEntity<Map<String, String>> deactivateUser(@PathVariable Long id) {
-        // TODO: Implement user deactivation
+        userManagementService.deactivateUser(id);
         return ResponseEntity.ok(Map.of("status", "deactivated"));
     }
 }

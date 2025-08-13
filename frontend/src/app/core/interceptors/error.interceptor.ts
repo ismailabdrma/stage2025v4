@@ -30,6 +30,10 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         }
                         break
                     case 403:
+                        // Ignore analytics 403s silently
+                        if (req.url.includes('/api/analytics/')) {
+                            return throwError(() => error)
+                        }
                         errorMessage = "Access forbidden"
                         break
                     case 404:

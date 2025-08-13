@@ -13,5 +13,8 @@ public interface OrderService {
     OrderDto getOrderById(Long orderId);
     void updateOrderStatus(Long orderId, OrderStatus status);
     void updateShippingStatus(Long orderId, DeliveryStatus shippingStatus);
+    // Admin
+    List<OrderDto> getAllOrders();
+    List<OrderDto> getOrdersByStatus(OrderStatus status);
 }
 

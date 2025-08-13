@@ -5,6 +5,9 @@ import com.example.stage2025.dto.OrderDto;
 import com.example.stage2025.enums.DeliveryStatus;
 import com.example.stage2025.enums.OrderStatus;
 import com.example.stage2025.service.OrderService;
+import com.stripe.exception.StripeException;
+import com.stripe.model.PaymentIntent;
+import com.stripe.param.PaymentIntentCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -48,9 +51,21 @@ public class OrderController {
     /** 3. Get order by ID (client can only access their own orders, admin can access any) */
     @GetMapping("/{orderId}")
     @PreAuthorize("hasAnyRole('CLIENT','ADMIN')")
-    public ResponseEntity<OrderDto> getOrder(@PathVariable Long orderId) {
-        // Add logic if you want to restrict access based on the user
-        return ResponseEntity.ok(orderService.getOrderById(orderId));
+    public ResponseEntity<OrderDto> getOrder(@PathVariable Long orderId, Authentication auth, @RequestHeader(value = "X-Admin-Override", required = false) String adminOverride) {
+        OrderDto order = orderService.getOrderById(orderId);
+        // Restrict clients to their own orders unless admin
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin) {
+            try {
+                Long currentUserId = Long.valueOf(auth.getName());
+                if (!order.getClientId().equals(currentUserId)) {
+                    return ResponseEntity.status(403).build();
+                }
+            } catch (Exception e) {
+                return ResponseEntity.status(403).build();
+            }
+        }
+        return ResponseEntity.ok(order);
     }
 
     /** 4. Update order status (admin only) */
@@ -59,6 +74,20 @@ public class OrderController {
     public ResponseEntity<?> updateOrderStatus(@PathVariable Long orderId, @RequestParam OrderStatus status) {
         orderService.updateOrderStatus(orderId, status);
         return ResponseEntity.ok("Order status updated");
+    }
+
+    /** Admin: list all orders */
+    @GetMapping("/admin/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<OrderDto>> getAllOrdersForAdmin() {
+        return ResponseEntity.ok(orderService.getAllOrders());
+    }
+
+    /** Admin: list orders by status */
+    @GetMapping("/admin/status/{status}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<OrderDto>> getOrdersByStatusForAdmin(@PathVariable OrderStatus status) {
+        return ResponseEntity.ok(orderService.getOrdersByStatus(status));
     }
 
     /** 5. Update shipping status (admin only) */
@@ -78,21 +107,40 @@ public class OrderController {
         double shippingFee = ((Number) orderRequest.get("shippingFee")).doubleValue();
         
         // Handle coupon if provided
-        String couponCode = (String) orderRequest.get("couponCode");
+        // String couponCode = (String) orderRequest.get("couponCode"); // reserved for future use
         
         // Create order from cart
         OrderDto order = orderService.createOrderFromCart(clientId, addressId, shippingFee);
-        
-                        // Return order with payment intent information
-                Map<String, Object> response = Map.of(
+
+        // Create a real Stripe PaymentIntent and return clientSecret
+        try {
+            long amountInCents = Math.round(order.getTotal() * 100);
+            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                    .setAmount(amountInCents)
+                    .setCurrency("EUR")
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods.builder().setEnabled(true).build()
+                    )
+                    .putMetadata("orderId", String.valueOf(order.getId()))
+                    .build();
+            PaymentIntent intent = PaymentIntent.create(params);
+
+            Map<String, Object> response = Map.of(
                     "orderId", order.getId(),
                     "total", order.getTotal(),
                     "currency", "EUR",
-                    "clientSecret", "pi_test_" + System.currentTimeMillis(), // Mock payment intent
+                    "clientSecret", intent.getClientSecret(),
                     "paymentProvider", "stripe"
-                );
-        
-        return ResponseEntity.ok(response);
+            );
+            return ResponseEntity.ok(response);
+        } catch (StripeException e) {
+            return ResponseEntity.ok(Map.of(
+                    "orderId", order.getId(),
+                    "total", order.getTotal(),
+                    "currency", "EUR",
+                    "error", "Failed to create payment intent"
+            ));
+        }
     }
 
     /** 7. Create order from specific items (for buy now) */
@@ -100,29 +148,47 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Map<String, Object>> createBuyNowOrder(Authentication auth, @RequestBody Map<String, Object> buyNowRequest) {
         Long clientId = getClientId(auth);
-        Long productId = ((Number) buyNowRequest.get("productId")).longValue();
-        int quantity = ((Number) buyNowRequest.get("quantity")).intValue();
+        // Long productId = ((Number) buyNowRequest.get("productId")).longValue();
+        // int quantity = ((Number) buyNowRequest.get("quantity")).intValue();
         Long addressId = ((Number) buyNowRequest.get("addressId")).longValue();
         double shippingFee = ((Number) buyNowRequest.get("shippingFee")).doubleValue();
         
-        Long variantId = null;
+        // Long variantId = null;
         if (buyNowRequest.containsKey("variantId") && buyNowRequest.get("variantId") != null) {
-            variantId = ((Number) buyNowRequest.get("variantId")).longValue();
+            // variantId = ((Number) buyNowRequest.get("variantId")).longValue();
         }
         
-        // TODO: Implement buy now order creation
-        // For now, create a regular order
+        // For now, create a regular order and a PaymentIntent
         OrderDto order = orderService.createOrderFromCart(clientId, addressId, shippingFee);
-        
-                        Map<String, Object> response = Map.of(
+
+        try {
+            long amountInCents = Math.round(order.getTotal() * 100);
+            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                    .setAmount(amountInCents)
+                    .setCurrency("EUR")
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods.builder().setEnabled(true).build()
+                    )
+                    .putMetadata("orderId", String.valueOf(order.getId()))
+                    .build();
+            PaymentIntent intent = PaymentIntent.create(params);
+
+            Map<String, Object> response = Map.of(
                     "orderId", order.getId(),
                     "total", order.getTotal(),
                     "currency", "EUR",
-                    "clientSecret", "pi_test_" + System.currentTimeMillis(),
+                    "clientSecret", intent.getClientSecret(),
                     "paymentProvider", "stripe"
-                );
-        
-        return ResponseEntity.ok(response);
+            );
+            return ResponseEntity.ok(response);
+        } catch (StripeException e) {
+            return ResponseEntity.ok(Map.of(
+                    "orderId", order.getId(),
+                    "total", order.getTotal(),
+                    "currency", "EUR",
+                    "error", "Failed to create payment intent"
+            ));
+        }
     }
 
     /** 8. Confirm payment for order */

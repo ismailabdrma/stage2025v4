@@ -224,6 +224,9 @@ export class LoginComponent implements OnInit {
       if (params["email"]) {
         this.loginForm.patchValue({ identifier: params["email"] });
       }
+      if (params["redirect"]) {
+        sessionStorage.setItem('redirectUrl', params["redirect"])
+      }
     });
 
     this.message$.subscribe(message => {

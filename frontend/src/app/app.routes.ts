@@ -2,11 +2,13 @@ import type { Routes } from "@angular/router"
 import { authGuard } from "./core/guards/auth.guard"
 import { adminGuard } from "./core/guards/admin.guard"
 import { HomeComponent } from "./features/home/home.component"
+import { homeRedirectGuard } from "./core/guards/home-redirect.guard"
 
 export const routes: Routes = [
   {
     path: "",
     component: HomeComponent,
+    canActivate: [homeRedirectGuard],
   },
   {
     path: "auth",

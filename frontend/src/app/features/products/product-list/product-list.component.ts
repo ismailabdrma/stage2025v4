@@ -2,7 +2,7 @@ import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule, Router } from '@angular/router';
 import { ProductService } from '@core/services/product.service';
-import { ProductCardComponent } from '@shared/components/product-card/product-card.component'; // Assuming this path
+import { ProductCardComponent, ProductCard } from '@shared/components/product-card/product-card.component'; // Assuming this path
 import { FormsModule } from '@angular/forms'; // Import FormsModule for ngModel
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent, MatPaginatorModule } from '@angular/material/paginator';
@@ -103,6 +103,22 @@ export class ProductListComponent implements OnInit {
         this.snackBar.open('Error fetching products: ' + error.message, 'Close', { duration: 3000 });
       }
     });
+  }
+
+  mapToCard(p: any): ProductCard {
+    return {
+      id: p.id,
+      name: p.name,
+      price: p.displayedPrice,
+      originalPrice: p.supplierPrice && p.supplierPrice > p.displayedPrice ? p.supplierPrice : undefined,
+      imageUrl: (p.imageUrl ?? (p.imageUrls && p.imageUrls.length ? p.imageUrls[0] : undefined)),
+      description: p.description,
+      inStock: (p.syncedStock ?? p.stockQuantity ?? 0) > 0,
+      stockQuantity: p.syncedStock ?? p.stockQuantity ?? 0,
+      category: p.categoryName,
+      brand: p.brand,
+      slug: p.id?.toString()
+    };
   }
 
   // Removed this method as categories are loaded in ngOnInit

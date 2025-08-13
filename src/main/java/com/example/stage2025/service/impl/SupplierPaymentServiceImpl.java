@@ -171,17 +171,100 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
 
     @Override
     public SupplierPaymentSummaryDto getPaymentSummary() {
-        return null;
+        List<SupplierPayment> all = paymentRepository.findAll();
+        java.math.BigDecimal totalPaidAmount = all.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalPendingAmount = all.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalCommissionEarned = all.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .map(p -> p.getCommissionAmount() != null ? p.getCommissionAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        int pendingCount = (int) all.stream().filter(p -> p.getStatus() == PaymentStatus.PENDING).count();
+        int paidCount = (int) all.stream().filter(p -> p.getStatus() == PaymentStatus.PAID).count();
+        int failedCount = (int) all.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count();
+
+        java.math.BigDecimal averagePaymentAmount = all.isEmpty() ? java.math.BigDecimal.ZERO :
+                all.stream()
+                        .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+                        .divide(java.math.BigDecimal.valueOf(all.size()), java.math.RoundingMode.HALF_UP);
+
+        SupplierPaymentSummaryDto summary = new SupplierPaymentSummaryDto();
+        summary.setTotalPendingAmount(totalPendingAmount);
+        summary.setTotalPaidAmount(totalPaidAmount);
+        summary.setTotalCommissionEarned(totalCommissionEarned);
+        summary.setPendingPaymentsCount(pendingCount);
+        summary.setPaidPaymentsCount(paidCount);
+        summary.setFailedPaymentsCount(failedCount);
+        summary.setAveragePaymentAmount(averagePaymentAmount);
+        // Flags
+        summary.setHasOverduePayments(false);
+        summary.setHasFailedPayments(failedCount > 0);
+        summary.setRequiresAttention(pendingCount > 0 || failedCount > 0);
+        return summary;
     }
 
     @Override
     public SupplierPaymentSummaryDto getSupplierPaymentSummary(Long supplierId) {
-        return null;
+        List<SupplierPayment> bySupplier = paymentRepository.findBySupplierId(supplierId);
+        java.math.BigDecimal totalPaidAmount = bySupplier.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalPendingAmount = bySupplier.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalCommissionEarned = bySupplier.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .map(p -> p.getCommissionAmount() != null ? p.getCommissionAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        int pendingCount = (int) bySupplier.stream().filter(p -> p.getStatus() == PaymentStatus.PENDING).count();
+        int paidCount = (int) bySupplier.stream().filter(p -> p.getStatus() == PaymentStatus.PAID).count();
+        int failedCount = (int) bySupplier.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count();
+
+        java.math.BigDecimal averagePaymentAmount = bySupplier.isEmpty() ? java.math.BigDecimal.ZERO :
+                bySupplier.stream()
+                        .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+                        .divide(java.math.BigDecimal.valueOf(bySupplier.size()), java.math.RoundingMode.HALF_UP);
+
+        SupplierPaymentSummaryDto summary = new SupplierPaymentSummaryDto();
+        summary.setSupplierId(supplierId);
+        summary.setTotalPendingAmount(totalPendingAmount);
+        summary.setTotalPaidAmount(totalPaidAmount);
+        summary.setTotalCommissionEarned(totalCommissionEarned);
+        summary.setPendingPaymentsCount(pendingCount);
+        summary.setPaidPaymentsCount(paidCount);
+        summary.setFailedPaymentsCount(failedCount);
+        summary.setAveragePaymentAmount(averagePaymentAmount);
+        summary.setHasOverduePayments(false);
+        summary.setHasFailedPayments(failedCount > 0);
+        summary.setRequiresAttention(pendingCount > 0 || failedCount > 0);
+        return summary;
     }
 
     @Override
     public List<SupplierPaymentSummaryDto> getAllSupplierSummaries() {
-        return Collections.emptyList();
+        // Aggregate by supplier
+        java.util.Map<Long, java.util.List<SupplierPayment>> grouped = paymentRepository.findAll().stream()
+                .filter(p -> p.getSupplier() != null && p.getSupplier().getId() != null)
+                .collect(Collectors.groupingBy(p -> p.getSupplier().getId()));
+
+        java.util.List<SupplierPaymentSummaryDto> result = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<Long, java.util.List<SupplierPayment>> e : grouped.entrySet()) {
+            Long supplierId = e.getKey();
+            // Reuse helper to compute summary for each supplier
+            result.add(getSupplierPaymentSummary(supplierId));
+        }
+        return result;
     }
 
     @Override

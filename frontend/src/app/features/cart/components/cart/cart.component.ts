@@ -2,7 +2,7 @@
 
 import { Component, type OnInit, inject } from "@angular/core"
 import { CommonModule } from "@angular/common"
-import { RouterModule } from "@angular/router"
+import { RouterModule, Router } from "@angular/router"
 import { MatCardModule } from "@angular/material/card"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
@@ -14,6 +14,7 @@ import { MatDialog, MatDialogModule } from "@angular/material/dialog"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { ConfirmDialogComponent } from "@shared/components/confirm-dialog/confirm-dialog.component" // Assuming path to ConfirmDialogComponent
 import { CartService } from "@core/services/cart.service"
+import { AuthService } from "@core/services/auth.service"
 import type { Cart, CartItem } from "@core/models/cart.model"
 
 @Component({
@@ -52,7 +53,7 @@ import type { Cart, CartItem } from "@core/models/cart.model"
                   </div>
                   <div class="item-details">
                     <h3>{{ item.productName }}</h3>
-                    <p class="item-price">{{ item.unitPrice | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</p>
+                    <p class="item-price">{{ getItemUnitPrice(item) | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</p>
                   </div>
                   <div class="quantity-controls">
                     <button mat-icon-button (click)="updateQuantity(item, item.quantity - 1)" class="quantity-btn">
@@ -64,7 +65,7 @@ import type { Cart, CartItem } from "@core/models/cart.model"
                     </button>
                   </div>
                   <div class="item-total">
-                    <span class="total-price">{{ (item.unitPrice * item.quantity) | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</span>
+                    <span class="total-price">{{ getItemTotal(item) | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</span>
                   </div>
                   <div class="item-actions">
                     <button mat-icon-button (click)="removeItem(item)" class="remove-btn">
@@ -98,7 +99,7 @@ import type { Cart, CartItem } from "@core/models/cart.model"
                 </div>
                 <div class="cart-actions">
                   <button mat-stroked-button (click)="clearCart()" class="clear-btn">Vider le panier</button>
-                  <button mat-raised-button color="primary" class="cta" routerLink="/orders/checkout">
+                  <button mat-raised-button color="primary" class="cta" (click)="onCheckout()">
                     Passer la commande
                   </button>
                 </div>
@@ -326,6 +327,8 @@ import type { Cart, CartItem } from "@core/models/cart.model"
 })
 export class CartComponent implements OnInit {
   private cartService = inject(CartService)
+  private authService = inject(AuthService)
+  private router = inject(Router)
 
   private dialog = inject(MatDialog)
   private snackBar = inject(MatSnackBar)
@@ -406,6 +409,24 @@ export class CartComponent implements OnInit {
 
   getCartTotal(): number {
     if (!this.cart || !this.cart.items) return 0
-    return this.cart.items.reduce((total, item) => total + item.unitPrice * item.quantity, 0)
+    const sum = this.cart.items.reduce((total, item) => total + ((item.unitPrice ?? item.price ?? 0) * item.quantity), 0)
+    return sum > 0 ? sum : (this.cart.total ?? 0)
+  }
+
+  getItemUnitPrice(item: CartItem): number {
+    return (item.unitPrice ?? item.price ?? 0)
+  }
+
+  getItemTotal(item: CartItem): number {
+    return this.getItemUnitPrice(item) * (item.quantity ?? 0)
+  }
+
+  onCheckout(): void {
+    if (!this.cart || !this.cart.items || this.cart.items.length === 0) return
+    if (!this.authService.isAuthenticated()) {
+      this.router.navigate(["/auth/login"], { queryParams: { redirect: "/orders/checkout" }})
+      return
+    }
+    this.router.navigate(["/orders/checkout"]) 
   }
 }

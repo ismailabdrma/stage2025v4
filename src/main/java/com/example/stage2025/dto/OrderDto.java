@@ -19,5 +19,6 @@ public class OrderDto {
     private String shippingStatus;
     private Double total;
     private String clientEmail;
+    private Long clientId;
     private List<OrderItemDto> items;
 }

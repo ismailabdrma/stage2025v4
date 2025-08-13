@@ -352,6 +352,22 @@ public class EnterpriseOrderService implements OrderService {
         order.setShippingStatus(shippingStatus);
         orderRepository.save(order);
     }
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<OrderDto> getAllOrders() {
+		return orderRepository.findAll().stream()
+			.map(OrderMapper::toDto)
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<OrderDto> getOrdersByStatus(OrderStatus status) {
+		return orderRepository.findByStatus(status).stream()
+			.map(OrderMapper::toDto)
+			.collect(Collectors.toList());
+	}
 }
 
 // Exception classes are now in separate files

@@ -73,6 +73,12 @@ export class AuthEffects {
             this.actions$.pipe(
                 ofType(AuthActions.loginComplete),
                 tap(({ user }: any) => {
+                    const redirect = sessionStorage.getItem('redirectUrl')
+                    sessionStorage.removeItem('redirectUrl')
+                    if (redirect) {
+                        this.router.navigate([redirect])
+                        return
+                    }
                     if (user?.role === 'ADMIN') {
                         this.router.navigate(["/admin"]);
                     } else {

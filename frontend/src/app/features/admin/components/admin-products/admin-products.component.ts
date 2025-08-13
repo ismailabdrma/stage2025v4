@@ -14,6 +14,7 @@ import { ProductService } from "@core/services/product.service"
 import type { Product } from "@core/models/product.model"
 import { CreateProductDialogComponent } from "./create-product-dialog/create-product-dialog.component"
 import { ConfirmDialogComponent } from "../../../../shared/components/confirm-dialog/confirm-dialog.component"
+import { environment } from "@environments/environment"
 
 @Component({
   selector: "app-admin-products",
@@ -40,7 +41,7 @@ export class AdminProductsComponent implements OnInit {
   private snackBar = inject(MatSnackBar)
 
   products: Product[] = []
-  displayedColumns: string[] = ["id", "name", "category", "price", "stock", "actions"]
+  displayedColumns: string[] = ["image", "id", "name", "category", "price", "stock", "actions"]
   loading = false
   
   ngOnInit(): void {
@@ -122,5 +123,14 @@ export class AdminProductsComponent implements OnInit {
         this.snackBar.open("Error updating product status.", "Close", { duration: 3000 })
       },
     })
+  }
+
+  // Resolve image URLs that come from backend proxy or uploads
+  resolveImageUrl(url?: string): string {
+    if (!url) return 'assets/placeholder.png'
+    if (url.startsWith('/api/') || url.startsWith('/uploads/')) {
+      return `${environment.apiUrl}${url}`
+    }
+    return url
   }
 }

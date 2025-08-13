@@ -3,6 +3,7 @@ package com.example.stage2025.controller;
 import com.example.stage2025.dto.CartDto;
 import com.example.stage2025.dto.CartItemDto;
 import com.example.stage2025.service.CartService;
+import com.example.stage2025.service.ShippingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class CartController {
 
     private final CartService cartService;
+    private final ShippingService shippingService;
 
     private Long getClientId(Authentication auth) {
         return Long.valueOf(auth.getName());
@@ -116,7 +118,7 @@ public class CartController {
     @PostMapping("/apply-coupon")
     public ResponseEntity<CartDto> applyCoupon(Authentication auth, @RequestBody Map<String, String> payload) {
         Long clientId = getClientId(auth);
-        String couponCode = payload.get("code");
+        // String couponCode = payload.get("code"); // reserved for future use
         // TODO: Implement coupon logic
         return ResponseEntity.ok(cartService.getCartByClientId(clientId));
     }
@@ -126,21 +128,6 @@ public class CartController {
     public ResponseEntity<Map<String, Object>> getShippingQuote(Authentication auth, @RequestBody Map<String, Object> payload) {
         Long clientId = getClientId(auth);
         Long addressId = ((Number) payload.get("addressId")).longValue();
-        
-        // TODO: Implement shipping calculation
-        Map<String, Object> shippingOptions = Map.of(
-            "standard", Map.of(
-                "name", "Livraison Standard",
-                "price", 5.99,
-                "estimatedDays", "3-5 jours"
-            ),
-            "express", Map.of(
-                "name", "Livraison Express",
-                "price", 12.99,
-                "estimatedDays", "1-2 jours"
-            )
-        );
-        
-        return ResponseEntity.ok(Map.of("options", shippingOptions));
+        return ResponseEntity.ok(shippingService.getQuote(clientId, addressId));
     }
 }

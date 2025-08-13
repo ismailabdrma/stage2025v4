@@ -182,8 +182,12 @@ export class BuyNowButtonComponent {
       })
 
       if (this.redirectToCheckout) {
-        // Navigate directly to checkout
-        this.router.navigate(['/checkout'])
+        // Navigate to checkout (respect login redirect)
+        if (this.authService.isAuthenticated()) {
+          this.router.navigate(['/orders/checkout'])
+        } else {
+          this.router.navigate(['/auth/login'], { queryParams: { redirect: '/orders/checkout' } })
+        }
 
         // Track begin checkout
         this.analyticsService.trackBeginCheckout([{

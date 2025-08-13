@@ -15,6 +15,9 @@ public class OrderMapper {
         dto.setShippingStatus(order.getShippingStatus().name());
         dto.setTotal(order.getTotal());
         dto.setClientEmail(order.getClient().getEmail());
+        try {
+            dto.setClientId(order.getClient() != null ? order.getClient().getId() : null);
+        } catch (Exception ignored) {}
         dto.setItems(order.getItems().stream()
                 .map(OrderItemMapper::toDto)
                 .collect(Collectors.toList()));
