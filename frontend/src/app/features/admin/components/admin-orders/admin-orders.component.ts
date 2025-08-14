@@ -44,21 +44,52 @@ export class AdminOrdersComponent implements OnInit {
 
   orders: Order[] = []
   displayedColumns: string[] = ["id", "customerName", "orderDate", "total", "status", "actions"]
+  statuses = [
+    { value: 'ALL', label: 'All' },
+    { value: 'PAID', label: 'Paid' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'CONFIRMED', label: 'Confirmed' },
+    { value: 'SHIPPED', label: 'Shipped' },
+    { value: 'DELIVERED', label: 'Delivered' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ]
+  selectedStatus = 'ALL'
 
   ngOnInit(): void {
     this.loadOrders()
   }
 
   loadOrders(): void {
-    this.orderService.getAllOrders().subscribe({
+    const obs = this.selectedStatus === 'ALL'
+      ? this.orderService.getAllOrders()
+      : this.orderService.getOrdersByStatus(this.selectedStatus)
+
+    obs.subscribe({
       next: (orders) => {
-        this.orders = orders
+        this.orders = this.sortPaidFirst(orders)
       },
       error: (error) => {
         console.error("Error loading orders:", error)
         this.snackBar.open("Failed to load orders.", "Close", { duration: 3000 })
         this.orders = []
       },
+    })
+  }
+
+  onStatusFilterChange(value: string) {
+    this.selectedStatus = value
+    this.loadOrders()
+  }
+
+  private sortPaidFirst(orders: Order[]): Order[] {
+    const statusPriority: Record<string, number> = { PAID: 0 }
+    return [...orders].sort((a, b) => {
+      const pa = statusPriority[a.status] ?? 1
+      const pb = statusPriority[b.status] ?? 1
+      if (pa !== pb) return pa - pb
+      const da = new Date(a.orderDate).getTime()
+      const db = new Date(b.orderDate).getTime()
+      return db - da
     })
   }
 

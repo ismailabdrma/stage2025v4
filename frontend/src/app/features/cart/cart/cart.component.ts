@@ -1,23 +1,32 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { CartService } from '@core/services/cart.service';
+import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
+import { CartService } from '@core/services/cart.service';
 import { tap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-cart',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './cart.component.html',
 })
-export class CartComponent implements OnInit {
+export class CartComponent implements OnInit, OnDestroy {
   cart: any;
+  cart$!: Observable<any>;
   private cartService = inject(CartService);
   private router = inject(Router);
+  private cartSubscription?: any;
 
   ngOnInit(): void {
-    this.loadCart();
+    // Expose observable for async template binding and load current state
+    this.cart$ = this.cartService.getCart();
+    this.cartSubscription = this.cart$.subscribe(c => { if (c) this.cart = c; });
+  }
+
+  ngOnDestroy(): void {
+    this.cartSubscription?.unsubscribe?.();
   }
 
   loadCart(): void {
@@ -37,26 +46,26 @@ export class CartComponent implements OnInit {
     if (item.quantity < 1) {
       item.quantity = 1;
     }
-    this.cartService.updateItemQuantity(item.id, item.quantity).subscribe(
+    // Unified update so it works for guest and authenticated carts
+    this.cartService.updateQuantity(item.id, item.quantity).subscribe(
       (data) => {
-        this.cart = data; // Assuming API returns updated cart
+        if (data) this.cart = data;
       },
       (error) => {
         console.error('Error updating item quantity:', error);
         // TODO: Implement user-friendly error handling (e.g., check for insufficient stock)
-        this.loadCart(); // Reload cart to revert local changes on error
+        this.cartService.refreshCart();
       }
     );
   }
 
   removeItem(itemId: number): void {
-    this.cartService.removeItemFromCart(itemId).subscribe(
-      () => {
-        this.loadCart(); // Reload cart after successful removal
+    this.cartService.removeItem(itemId).subscribe(
+      (updated) => {
+        if (updated) this.cart = updated;
       },
       (error) => {
         console.error('Error removing item from cart:', error);
-        // TODO: Implement user-friendly error handling
       }
     );
   }
@@ -64,7 +73,7 @@ export class CartComponent implements OnInit {
   clearCart(): void {
     this.cartService.clearCart().subscribe(
       () => {
-        this.loadCart(); // Reload cart after successful clear
+        this.loadCart();
       },
       (error) => {
         console.error('Error clearing cart:', error);
@@ -73,17 +82,32 @@ export class CartComponent implements OnInit {
     );
   }
 
+  trackByItemId = (_: number, item: any) => item.id;
+
   get subtotal(): number {
     if (!this.cart || !this.cart.items) return 0;
     return this.cart.items.reduce(
-      (sum: number, item: any) => sum + ((item.unitPrice ?? item.price ?? 0) * item.quantity),
+      (sum: number, item: any) => sum + ((item.unitPrice ?? item.price ?? 0) * (item.quantity ?? 0)),
       0
     );
   }
 
   get total(): number {
-    // TODO: Include shipping costs if available
-    return this.subtotal;
+    const backendTotal = this.cart?.total;
+    return typeof backendTotal === 'number' ? backendTotal : this.subtotal;
+  }
+
+  calcSubtotal(cart: any): number {
+    if (!cart || !cart.items) return 0;
+    return cart.items.reduce(
+      (sum: number, item: any) => sum + ((item.unitPrice ?? item.price ?? 0) * (item.quantity ?? 0)),
+      0
+    );
+  }
+
+  calcTotal(cart: any): number {
+    const backendTotal = cart?.total;
+    return typeof backendTotal === 'number' ? backendTotal : this.calcSubtotal(cart);
   }
 
   get isCartEmpty(): boolean {

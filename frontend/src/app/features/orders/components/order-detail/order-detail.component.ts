@@ -98,7 +98,9 @@ import { MatSnackBar } from "@angular/material/snack-bar"
               <p>
                 {{ order.shippingAddress.firstName }} {{ order.shippingAddress.lastName }}<br>
                 {{ order.shippingAddress.address }}<br>
-                {{ order.shippingAddress.city }}, {{ order.shippingAddress.postalCode }}
+                {{ order.shippingAddress.city }}, {{ order.shippingAddress.postalCode }}<br>
+                {{ order.shippingAddress.country }}<br>
+                <span *ngIf="order.shippingAddress.phone">Tel: {{ order.shippingAddress.phone }}</span>
               </p>
             </div>
           </mat-card-content>
@@ -108,8 +110,12 @@ import { MatSnackBar } from "@angular/material/snack-bar"
               <mat-icon>arrow_back</mat-icon>
               Back to Orders
             </button>
- <button mat-button *ngIf="order.status === 'PENDING'" (click)="cancelOrder()">
+            <button mat-button *ngIf="order.status === 'PENDING'" (click)="cancelOrder()">
               Cancel Order
+            </button>
+            <button mat-raised-button color="primary" (click)="downloadInvoice()">
+              <mat-icon>picture_as_pdf</mat-icon>
+              Download Receipt
             </button>
           </mat-card-actions>
         </mat-card>
@@ -236,5 +242,19 @@ export class OrderDetailComponent implements OnInit {
         }
       });
     }
+  }
+
+  downloadInvoice(): void {
+    // Simple client-side PDF placeholder using window.print()-style; replace with real PDF endpoint if available
+    const order = this.order;
+    const rows = (order?.items || []).map((i: any) => `${i.productName} x${i.quantity} @ ${i.unitPrice} = ${(i.quantity * i.unitPrice).toFixed(2)}`).join('\n');
+    const doc = `Receipt for Order #${order?.id}\n\nDate: ${order?.createdDate}\nStatus: ${order?.status}\n\nShip To:\n${order?.shippingAddress?.firstName || ''} ${order?.shippingAddress?.lastName || ''}\n${order?.shippingAddress?.address || ''}\n${order?.shippingAddress?.city || ''} ${order?.shippingAddress?.postalCode || ''}\n${order?.shippingAddress?.country || ''}\nPhone: ${order?.shippingAddress?.phone || ''}\n\nItems:\n${rows}\n\nSubtotal: ${order?.subtotal?.toFixed?.(2)}\nShipping: ${order?.shipping?.toFixed?.(2)}\nTax: ${order?.tax?.toFixed?.(2)}\nTotal: ${order?.total?.toFixed?.(2)}\n`;
+    const blob = new Blob([doc], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `receipt-order-${order?.id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

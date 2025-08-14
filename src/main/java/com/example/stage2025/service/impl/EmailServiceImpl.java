@@ -17,14 +17,22 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${app.email.from}")
+    @Value("${app.email.from:noreply@stage2025.com}")
     private String fromEmail;
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
+    private String resolveFrom() {
+        // Prefer the SMTP username to avoid provider rejection on 'From'
+        if (mailUsername != null && !mailUsername.isBlank()) return mailUsername;
+        return fromEmail;
+    }
 
     @Override
     public void sendOtpEmail(String toEmail, String otp, String purpose) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo(toEmail);
             message.setSubject("Your OTP Code - Stage2025");
             message.setText("Your OTP code for " + purpose + " is: " + otp + "\n\nThis code will expire in 10 minutes.");
@@ -41,7 +49,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendAdminNewSupplierNotification(Supplier supplier) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo("admin@stage2025.com");
             message.setSubject("New Supplier Configuration - " + supplier.getName());
             message.setText("A new supplier has been configured:\n\n" +
@@ -95,7 +103,7 @@ public class EmailServiceImpl implements EmailService {
             body.append("\nWe will notify you when your order ships.\n");
 
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo(client.getEmail());
             message.setSubject("Order Confirmation - Order #" + (order.getOrderNumber() != null ? order.getOrderNumber() : order.getId()));
             message.setText(body.toString());
@@ -110,7 +118,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendAdminNewOrderNotification(Order order) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo("admin@stage2025.com");
             message.setSubject("New Order Received - #" + order.getId());
             message.setText("A new order has been received:\n\n" +
@@ -166,7 +174,7 @@ public class EmailServiceImpl implements EmailService {
             }
 
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo(supplier.getContactEmail());
             message.setSubject("New Order - Order #" + (order.getOrderNumber() != null ? order.getOrderNumber() : order.getId()));
             message.setText(body.toString());
@@ -186,7 +194,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendUserSuspensionNotification(User user, String reason) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo(user.getEmail());
             message.setSubject("Account Suspended - Stage2025");
             message.setText("Dear " + user.getFirstName() + ",\n\n" +
@@ -205,7 +213,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendUserReactivationNotification(User user) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo(user.getEmail());
             message.setSubject("Account Reactivated - Stage2025");
             message.setText("Dear " + user.getFirstName() + ",\n\n" +
@@ -224,7 +232,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendRoleChangeNotification(User user, Role oldRole, Role newRole) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(resolveFrom());
             message.setTo(user.getEmail());
             message.setSubject("Role Updated - Stage2025");
             message.setText("Dear " + user.getFirstName() + ",\n\n" +
@@ -280,7 +288,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendSupplierPaymentRequest(Supplier supplier, Order order, String message) {
         try {
             SimpleMailMessage mailMessage = new SimpleMailMessage();
-            mailMessage.setFrom(fromEmail);
+            mailMessage.setFrom(resolveFrom());
             mailMessage.setTo(supplier.getContactEmail());
             mailMessage.setSubject("Payment Request - Order #" + order.getId());
             mailMessage.setText("Dear " + supplier.getName() + ",\n\n" +

@@ -65,8 +65,8 @@ export class WishlistService {
     // Listen for auth state changes to merge wishlists
     this.authService.isAuthenticated$.subscribe(isAuth => {
       if (isAuth) {
+        // Backend wishlist API not available yet: avoid HTTP calls
         this.mergeGuestWishlistWithUserWishlist()
-        this.loadUserWishlists()
       } else {
         // User logged out, start fresh guest wishlist
         this.loadGuestWishlist()
@@ -80,7 +80,8 @@ export class WishlistService {
     return this.authService.isAuthenticated$.pipe(
       switchMap(isAuthenticated => {
         if (isAuthenticated) {
-          return this.loadUserWishlists()
+          // No backend: return in-memory list (empty for now)
+          return of(this.wishlistsSubject.value)
         } else {
           return of([])
         }
@@ -178,27 +179,9 @@ export class WishlistService {
   }
 
   private addToUserWishlist(item: any, wishlistId?: number): Observable<boolean> {
-    const targetWishlistId = wishlistId || this.getDefaultWishlistId()
-    if (!targetWishlistId) {
-      // Create default wishlist first
-      return this.createWishlist('Mes Favoris', true).pipe(
-        switchMap(wishlist => {
-          return this.http.post<WishlistItem>(`${this.apiUrl}/${wishlist.id}/items`, item).pipe(
-            tap(() => this.loadUserWishlists().subscribe()),
-            switchMap(() => of(true))
-          )
-        })
-      )
-    }
-
-    return this.http.post<WishlistItem>(`${this.apiUrl}/${targetWishlistId}/items`, item).pipe(
-      tap(() => this.loadUserWishlists().subscribe()),
-      switchMap(() => of(true)),
-      catchError(error => {
-        console.error('Failed to add to wishlist:', error)
-        return of(false)
-      })
-    )
+    // Backend not available: fallback to guest wishlist even when authenticated
+    this.toastService.info('Favoris enregistrés localement (mode hors-ligne)')
+    return this.addToGuestWishlist(item)
   }
 
   private addToGuestWishlist(item: { productId: number, productName: string, productImage?: string, price: number, variant?: string, variantId?: number }): Observable<boolean> {
@@ -240,25 +223,8 @@ export class WishlistService {
   }
 
   private removeFromUserWishlist(productId: number, variantId?: number, wishlistId?: number): Observable<boolean> {
-    const targetWishlistId = wishlistId || this.getDefaultWishlistId()
-    if (!targetWishlistId) return of(false)
-
-    // Find the item to remove
-    const wishlists = this.wishlistsSubject.value
-    const wishlist = wishlists.find(w => w.id === targetWishlistId)
-    if (!wishlist) return of(false)
-
-    const item = wishlist.items.find(i => i.productId === productId && i.variantId === variantId)
-    if (!item) return of(false)
-
-    return this.http.delete<void>(`${this.apiUrl}/${targetWishlistId}/items/${item.id}`).pipe(
-      tap(() => this.loadUserWishlists().subscribe()),
-      switchMap(() => of(true)),
-      catchError(error => {
-        console.error('Failed to remove from wishlist:', error)
-        return of(false)
-      })
-    )
+    // Backend not available: fallback to guest wishlist removal
+    return this.removeFromGuestWishlist(productId, variantId)
   }
 
   private removeFromGuestWishlist(productId: number, variantId?: number): Observable<boolean> {
@@ -336,23 +302,8 @@ export class WishlistService {
     if (!guestWishlist || guestWishlist.items.length === 0) {
       return
     }
-
-    // Send guest wishlist items to server for merging
-    this.http.post<any>(`${this.apiUrl}/merge`, {
-      guestWishlistItems: guestWishlist.items
-    }).pipe(
-      tap(() => {
-        this.clearGuestWishlist()
-        if (guestWishlist.items.length > 0) {
-          this.toastService.info(`${guestWishlist.items.length} favoris ont été sauvegardés`)
-        }
-        this.loadUserWishlists().subscribe()
-      }),
-      catchError(error => {
-        console.error('Failed to merge guest wishlist:', error)
-        return of(null)
-      })
-    ).subscribe()
+    // No backend for wishlists: Avoid HTTP call to /merge; keep items locally and notify user
+    this.toastService.info(`${guestWishlist.items.length} favoris conservés (pas de synchronisation serveur)`)    
   }
 
   private getDefaultWishlistId(): number | null {

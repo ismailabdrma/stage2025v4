@@ -526,6 +526,7 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
             payment.setProcessedDate(LocalDateTime.now());
             payment.setProcessedByAdminId(adminId);
             SupplierPayment saved = supplierPaymentRepository.save(payment);
+            notifySupplierPaymentProcessed(saved);
             return mapToDto(saved);
         } catch (Exception e) {
             payment.setStatus(PaymentStatus.FAILED);
@@ -567,6 +568,9 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
             payment.setProcessedDate(LocalDateTime.now());
         }
         SupplierPayment saved = supplierPaymentRepository.save(payment);
+        if (status == PaymentStatus.PAID) {
+            notifySupplierPaymentProcessed(saved);
+        }
         return mapToDto(saved);
     }
     @Override 
@@ -578,6 +582,7 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         payment.setConfirmedDate(LocalDateTime.now());
         payment.setStatus(PaymentStatus.PAID);
         SupplierPayment saved = supplierPaymentRepository.save(payment);
+        notifySupplierPaymentProcessed(saved);
         return mapToDto(saved);
     }
     @Override 
@@ -775,5 +780,33 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
     private SupplierPaymentDto processIndividualPayment(SupplierPayment payment) {
         // Implementation for individual payment processing
         return null;
+    }
+
+    private void notifySupplierPaymentProcessed(SupplierPayment payment) {
+        try {
+            if (payment.getSupplier() == null || payment.getSupplier().getContactEmail() == null) {
+                return;
+            }
+            Order firstOrder = null;
+            if (payment.getPaymentItems() != null && !payment.getPaymentItems().isEmpty()) {
+                firstOrder = payment.getPaymentItems().get(0).getOrder();
+            }
+            String msg;
+            if (payment.isCommissionPayment()) {
+                msg = String.format("Commission réglée: Réf %s, Montant: %s€", 
+                        payment.getPaymentReference(),
+                        payment.getTotalAmount() != null ? payment.getTotalAmount().toPlainString() : "0");
+            } else {
+                msg = String.format("Virement fournisseur effectué: Réf %s, Montant: %s€", 
+                        payment.getPaymentReference(),
+                        payment.getTotalAmount() != null ? payment.getTotalAmount().toPlainString() : "0");
+            }
+            // Reuse existing mail method to notify supplier
+            if (firstOrder != null) {
+                emailService.sendSupplierPaymentRequest(payment.getSupplier(), firstOrder, msg);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send supplier payment processed email for payment {}: {}", payment.getId(), e.getMessage());
+        }
     }
 }

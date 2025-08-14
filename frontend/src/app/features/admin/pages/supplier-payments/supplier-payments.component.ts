@@ -256,7 +256,7 @@ import { SupplierPaymentService, type SupplierPayment, type PaymentDashboard, ty
                       <th mat-header-cell *matHeaderCellDef>Actions</th>
                       <td mat-cell *matCellDef="let payment">
                         <div class="actions-cell">
-                          <button mat-icon-button [routerLink]="['/admin/payments', payment.id]" matTooltip="Voir détails">
+                          <button mat-icon-button (click)="viewPaymentDetails(payment.id)" matTooltip="Voir détails">
                             <mat-icon>visibility</mat-icon>
                           </button>
                           <button mat-icon-button *ngIf="payment.status === 'PENDING'" (click)="processPayment(payment)" matTooltip="Traiter">
@@ -264,6 +264,9 @@ import { SupplierPaymentService, type SupplierPayment, type PaymentDashboard, ty
                           </button>
                           <button mat-icon-button *ngIf="payment.status === 'PENDING'" (click)="cancelPayment(payment)" matTooltip="Annuler">
                             <mat-icon>cancel</mat-icon>
+                          </button>
+                          <button mat-icon-button color="primary" *ngIf="payment.status !== 'PAID'" (click)="markAsPaid(payment)" matTooltip="Marquer comme payé">
+                            <mat-icon>done</mat-icon>
                           </button>
                         </div>
                       </td>
@@ -484,6 +487,16 @@ export class SupplierPaymentsComponent implements OnInit {
     })
   }
 
+  markAsPaid(payment: SupplierPayment): void {
+    this.paymentService.updatePaymentStatus(payment.id, 'PAID', 'Marked as paid by admin').subscribe({
+      next: (updated) => {
+        this.snackBar.open('Marqué comme payé', 'Fermer', { duration: 3000 })
+        this.loadData()
+      },
+      error: () => this.snackBar.open('Erreur lors du marquage', 'Fermer', { duration: 3000 })
+    })
+  }
+
   cancelPayment(payment: SupplierPayment): void {
     const reason = prompt('Raison de l\'annulation:')
     if (reason) {
@@ -541,4 +554,14 @@ export class SupplierPaymentsComponent implements OnInit {
   getStatusColor = this.paymentService.getStatusColor
   getStatusLabel = this.paymentService.getStatusLabel
   getPaymentTypeLabel = this.paymentService.getPaymentTypeLabel
+
+  viewPaymentDetails(id: number): void {
+    this.paymentService.getPayment(id).subscribe({
+      next: (p) => {
+        const msg = `Réf: ${p.paymentReference}\nFournisseur: ${p.supplierName}\nMontant: ${this.formatCurrency(p.totalAmount)}\nStatut: ${this.getStatusLabel(p.status)}\nProgrammé: ${p.scheduledDate ? this.formatDate(p.scheduledDate) : ''}`
+        this.snackBar.open(msg, 'Fermer', { duration: 5000 })
+      },
+      error: () => this.snackBar.open('Impossible de charger les détails', 'Fermer', { duration: 3000 })
+    })
+  }
 }

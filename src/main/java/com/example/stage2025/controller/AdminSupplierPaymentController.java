@@ -62,10 +62,9 @@ public class AdminSupplierPaymentController {
     // Process immediate payment
     @PostMapping("/{paymentId}/process")
     public ResponseEntity<SupplierPaymentDto> processPayment(
-            @PathVariable Long paymentId,
-            @RequestHeader("X-Admin-Id") Long adminId) {
-        
-        SupplierPaymentDto payment = supplierPaymentService.processImmediatePayment(paymentId, adminId);
+            @PathVariable Long paymentId) {
+        // Admin id is optional; service will record it if provided elsewhere
+        SupplierPaymentDto payment = supplierPaymentService.processImmediatePayment(paymentId, null);
         return ResponseEntity.ok(payment);
     }
 
@@ -73,11 +72,9 @@ public class AdminSupplierPaymentController {
     @PutMapping("/{paymentId}/status")
     public ResponseEntity<SupplierPaymentDto> updatePaymentStatus(
             @PathVariable Long paymentId,
-            @RequestBody UpdatePaymentStatusRequest request,
-            @RequestHeader("X-Admin-Id") Long adminId) {
-        
+            @RequestBody UpdatePaymentStatusRequest request) {
         SupplierPaymentDto payment = supplierPaymentService.updatePaymentStatus(
-            paymentId, request.status(), request.notes(), adminId);
+            paymentId, request.status(), request.notes(), null);
         return ResponseEntity.ok(payment);
     }
 
@@ -85,11 +82,9 @@ public class AdminSupplierPaymentController {
     @PostMapping("/{paymentId}/cancel")
     public ResponseEntity<SupplierPaymentDto> cancelPayment(
             @PathVariable Long paymentId,
-            @RequestBody CancelPaymentRequest request,
-            @RequestHeader("X-Admin-Id") Long adminId) {
-        
+            @RequestBody CancelPaymentRequest request) {
         SupplierPaymentDto payment = supplierPaymentService.cancelPayment(
-            paymentId, request.reason(), adminId);
+            paymentId, request.reason(), null);
         return ResponseEntity.ok(payment);
     }
 
