@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,17 +19,25 @@ public class AddressController {
 
     private final AddressService addressService;
 
-    // Helper to get client ID from auth
-    private Long getClientId(Authentication auth) {
-        // Replace this with your own logic to get the current client's ID
-        return Long.valueOf(auth.getName());
+    // Helper to get client ID from JWT filter attribute or fallback to auth name if numeric
+    private Long resolveClientId(Authentication auth, Long userIdAttr) {
+        if (userIdAttr != null) {
+            return userIdAttr;
+        }
+        try {
+            return Long.valueOf(auth.getName());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid authenticated user id");
+        }
     }
 
     /** 1. Create address for current client */
     @PostMapping
     @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<AddressDto> createAddress(Authentication auth, @RequestBody AddressDto dto) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<AddressDto> createAddress(Authentication auth,
+                                                    @RequestAttribute(name = "userId", required = false) Long userIdAttr,
+                                                    @RequestBody AddressDto dto) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         AddressDto created = addressService.createAddress(clientId, dto);
         return ResponseEntity.ok(created);
     }
@@ -36,8 +45,9 @@ public class AddressController {
     /** 2. Get all addresses for current client */
     @GetMapping
     @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<List<AddressDto>> listAddresses(Authentication auth) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<List<AddressDto>> listAddresses(Authentication auth,
+                                                         @RequestAttribute(name = "userId", required = false) Long userIdAttr) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         List<AddressDto> list = addressService.getAddressesByClientId(clientId);
         return ResponseEntity.ok(list);
     }

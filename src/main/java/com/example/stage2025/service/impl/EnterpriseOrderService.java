@@ -354,6 +354,54 @@ public class EnterpriseOrderService implements OrderService {
     }
 
 	@Override
+	@Transactional
+	public void finalizePaidOrder(Long orderId) {
+		Order order = orderRepository.findById(orderId)
+			.orElseThrow(() -> new ResourceNotFoundException("Commande non trouvée"));
+
+		// Best-effort: clear cart if anything remains (enterprise flow typically cleared it already)
+		Client client = order.getClient();
+		if (client != null) {
+			Cart cart = client.getCart();
+			if (cart != null && cart.getItems() != null && !cart.getItems().isEmpty()) {
+				cart.getItems().clear();
+				cartRepository.save(cart);
+			}
+		}
+
+		// Ensure any reserved stock is released without touching actual stock again
+		if (order.getItems() != null) {
+			for (OrderItem item : order.getItems()) {
+				Product product = item.getProduct();
+				if (product == null || product.getId() == null) {
+					continue;
+				}
+				ReentrantLock productLock = productLocks.computeIfAbsent(product.getId(), k -> new ReentrantLock());
+				try {
+					productLock.lock();
+					Product fresh = productRepository.findById(product.getId())
+						.orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé: " + product.getId()));
+					Integer currentReserved = fresh.getReservedStock() != null ? fresh.getReservedStock() : 0;
+					int newReserved = Math.max(0, currentReserved - item.getQuantity());
+					fresh.setReservedStock(newReserved);
+					productRepository.save(fresh);
+				} finally {
+					productLock.unlock();
+					productLocks.remove(product.getId());
+				}
+			}
+		}
+
+		// Create supplier payments (idempotency should be handled inside the service)
+		try {
+			supplierPaymentService.createPaymentForOrder(order);
+			log.info("Supplier payments created for order {}", order.getOrderNumber());
+		} catch (Exception e) {
+			log.error("Failed to create supplier payments for order {}: {}", order.getOrderNumber(), e.getMessage());
+		}
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	public List<OrderDto> getAllOrders() {
 		return orderRepository.findAll().stream()

@@ -43,8 +43,15 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
         Address address = addressRepository.findById(addressId)
                 .orElseThrow(() -> new ResourceNotFoundException("Address not found"));
-        Cart cart = cartRepository.findByClientId(clientId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
+        // Use the cart attached to the client; if missing, try to create or load
+        Cart cart = client.getCart();
+        if (cart == null) {
+            cart = cartRepository.findByClientId(clientId).orElseGet(() -> {
+                Cart newCart = new Cart();
+                newCart.setClient(client);
+                return cartRepository.save(newCart);
+            });
+        }
 
         if (cart.getItems().isEmpty()) {
             throw new IllegalStateException("Cart is empty");
@@ -55,6 +62,12 @@ public class OrderServiceImpl implements OrderService {
                 .sum();
 
         double total = subtotal + shippingFee;
+
+        // Compute supplier counts for multi-supplier fields
+        long supplierCount = cart.getItems().stream()
+                .map(item -> item.getProduct().getSupplier())
+                .distinct()
+                .count();
 
         Order order = Order.builder()
                 .orderNumber(UUID.randomUUID().toString())
@@ -67,6 +80,8 @@ public class OrderServiceImpl implements OrderService {
                 .client(client)
                 .deliveryAddress(address)
                 .comments("")
+                .totalSuppliers((int) supplierCount)
+                .completedSuppliers(0)
                 .build();
 
         List<OrderItem> orderItems = cart.getItems().stream()
@@ -81,60 +96,44 @@ public class OrderServiceImpl implements OrderService {
 
         order.setItems(orderItems);
 
-        // === Update product stocks: reduce both syncedStock and reservedStock ===
-        for (CartItem cartItem : cart.getItems()) {
-            Product product = cartItem.getProduct();
-            int orderedQty = cartItem.getQuantity();
-            int syncedStock = product.getSyncedStock() != null ? product.getSyncedStock() : 0;
-            int reservedStock = product.getReservedStock() != null ? product.getReservedStock() : 0;
-
-            product.setSyncedStock(syncedStock - orderedQty);
-            product.setReservedStock(reservedStock - orderedQty);
-
-            productRepository.save(product); // make sure to persist!
-        }
-
-        // Clear cart
-        cart.getItems().clear();
-        cartRepository.save(cart);
-
+        // Do NOT adjust stock or clear cart yet; finalize after payment
         Order saved = orderRepository.save(order);
-
-        // Send email notifications
-        try {
-            // Send order confirmation to customer
-            emailService.sendOrderConfirmation(client, saved);
-            
-            // Send order notification to admin
-            emailService.sendAdminNewOrderNotification(saved);
-            
-            // Send order notifications to suppliers
-            saved.getItems().stream()
-                .map(item -> item.getProduct().getSupplier())
-                .distinct()
-                .forEach(supplier -> {
-                    if (supplier.getContactEmail() != null && !supplier.getContactEmail().isEmpty()) {
-                        emailService.sendSupplierOrderNotification(supplier, saved);
-                    }
-                });
-        } catch (Exception e) {
-            // Log but don't fail order creation due to email issues
-            System.err.println("Failed to send order notification emails: " + e.getMessage());
-        }
-
-        // Create supplier payments
-        try {
-            supplierPaymentService.createPaymentForOrder(saved);
-            log.info("Supplier payments created for order {}", saved.getId());
-        } catch (Exception e) {
-            // Log but don't fail order creation due to payment creation issues
-            System.err.println("Failed to create supplier payments for order " + saved.getId() + ": " + e.getMessage());
-        }
 
         return OrderMapper.toDto(saved);
     }
 
     @Override
+    @Transactional
+    public void finalizePaidOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        Client client = order.getClient();
+        if (client == null) return;
+        Cart cart = client.getCart();
+        if (cart != null && cart.getItems() != null) {
+            for (CartItem cartItem : cart.getItems()) {
+                Product product = cartItem.getProduct();
+                int orderedQty = cartItem.getQuantity();
+                int syncedStock = product.getSyncedStock() != null ? product.getSyncedStock() : 0;
+                int reservedStock = product.getReservedStock() != null ? product.getReservedStock() : 0;
+                product.setSyncedStock(Math.max(0, syncedStock - orderedQty));
+                product.setReservedStock(Math.max(0, reservedStock - orderedQty));
+                productRepository.save(product);
+            }
+            cart.getItems().clear();
+            cartRepository.save(cart);
+        }
+
+        try {
+            supplierPaymentService.createPaymentForOrder(order);
+            log.info("Supplier payments created for order {}", order.getId());
+        } catch (Exception e) {
+            System.err.println("Failed to create supplier payments for order " + order.getId() + ": " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<OrderDto> getOrdersByClient(Long clientId) {
         return orderRepository.findByClientId(clientId)
                 .stream()
@@ -143,6 +142,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public OrderDto getOrderById(Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));

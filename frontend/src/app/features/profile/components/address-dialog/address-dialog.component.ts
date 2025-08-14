@@ -136,7 +136,18 @@ export class AddressDialogComponent implements OnInit {
 
   onSaveClick(): void {
     if (this.addressForm.valid) {
-      this.dialogRef.close(this.addressForm.value);
+      const v = this.addressForm.value as any;
+      // Map to backend AddressDto shape
+      const dto = {
+        street: v.address,
+        city: v.city,
+        zipCode: v.postalCode,
+        country: v.country,
+        phone: v.phone,
+        defaultAddress: !!v.isDefault,
+        label: v.label
+      };
+      this.dialogRef.close(dto);
     }
   }
 }

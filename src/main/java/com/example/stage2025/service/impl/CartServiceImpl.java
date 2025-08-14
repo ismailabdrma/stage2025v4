@@ -118,7 +118,7 @@ public class CartServiceImpl implements CartService {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client non trouvé"));
         Cart cart = client.getCart();
-        if (cart != null) {
+        if (cart != null && cart.getItems() != null) {
             for (CartItem item : cart.getItems()) {
                 Product product = item.getProduct();
                 int reserved = product.getReservedStock() != null ? product.getReservedStock() : 0;

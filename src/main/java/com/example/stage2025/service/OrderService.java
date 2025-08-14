@@ -3,7 +3,6 @@ package com.example.stage2025.service;
 import com.example.stage2025.dto.OrderDto;
 import com.example.stage2025.enums.DeliveryStatus;
 import com.example.stage2025.enums.OrderStatus;
-import com.example.stage2025.enums.Status;
 
 import java.util.List;
 
@@ -16,5 +15,7 @@ public interface OrderService {
     // Admin
     List<OrderDto> getAllOrders();
     List<OrderDto> getOrdersByStatus(OrderStatus status);
+    /** Finalize order after successful payment: adjust stocks, clear cart, create supplier payments */
+    void finalizePaidOrder(Long orderId);
 }
 

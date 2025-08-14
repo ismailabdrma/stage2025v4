@@ -101,10 +101,30 @@ import { environment } from '@environments/environment';
                 <td mat-cell *matCellDef="let product">{{ product.name }}</td>
               </ng-container>
 
-              <!-- Price Column -->
-              <ng-container matColumnDef="price">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header>Price</th>
-                <td mat-cell *matCellDef="let product">\${{ product.displayedPrice | number:'1.2-2' }}</td>
+              <!-- Supplier Price Column -->
+              <ng-container matColumnDef="supplierPrice">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Supplier Price</th>
+                <td mat-cell *matCellDef="let product">
+                  <span class="supplier-price">
+                    \${{ product.supplierPrice | number:'1.2-2' || 'N/A' }}
+                  </span>
+                </td>
+              </ng-container>
+
+              <!-- Displayed Price Column -->
+              <ng-container matColumnDef="displayedPrice">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Displayed Price</th>
+                <td mat-cell *matCellDef="let product">
+                  <span class="displayed-price">
+                    \${{ product.displayedPrice | number:'1.2-2' }}
+                  </span>
+                  <span *ngIf="product.supplierPrice && product.displayedPrice !== product.supplierPrice"
+                        class="price-difference"
+                        [class.price-markup]="product.displayedPrice > product.supplierPrice"
+                        [class.price-discount]="product.displayedPrice < product.supplierPrice">
+                    ({{ getPriceDifferencePercentage(product) }}%)
+                  </span>
+                </td>
               </ng-container>
 
               <!-- Stock Column -->
@@ -219,13 +239,21 @@ import { environment } from '@environments/environment';
 
             <div class="form-row">
               <mat-form-field appearance="outline" class="half-width">
+                <mat-label>Supplier Price</mat-label>
+                <input matInput type="number" formControlName="supplierPrice" readonly>
+                <mat-hint>Original price from supplier (read-only)</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="half-width">
                 <mat-label>Display Price</mat-label>
                 <input matInput type="number" formControlName="displayedPrice" required>
                 <mat-error *ngIf="productForm.get('displayedPrice')?.hasError('required')">
                   Display price is required
                 </mat-error>
               </mat-form-field>
+            </div>
 
+            <div class="form-row">
               <mat-form-field appearance="outline" class="half-width">
                 <mat-label>Stock</mat-label>
                 <input matInput type="number" formControlName="syncedStock" required>
@@ -336,6 +364,34 @@ import { environment } from '@environments/environment';
       color: #721c24;
     }
 
+    .supplier-price {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .displayed-price {
+      color: #2e7d32;
+      font-weight: 600;
+    }
+
+    .price-difference {
+      font-size: 11px;
+      margin-left: 4px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+
+    .price-markup {
+      background-color: #e8f5e8;
+      color: #2e7d32;
+    }
+
+    .price-discount {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
     .no-products {
       text-align: center;
       padding: 40px;
@@ -413,13 +469,14 @@ export class ProductApprovalComponent implements OnInit {
   searchTerm = '';
 
   // Table
-  displayedColumns = ['image', 'name', 'price', 'stock', 'status', 'actions'];
+  displayedColumns = ['image', 'name', 'supplierPrice', 'displayedPrice', 'stock', 'status', 'actions'];
 
   // Form
   productForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
     description: [''],
     categoryName: ['', Validators.required],
+    supplierPrice: [{ value: '', disabled: true }], // Read-only field
     displayedPrice: ['', [Validators.required, Validators.min(0)]],
     syncedStock: ['', [Validators.required, Validators.min(0)]],
     active: [false]
@@ -518,6 +575,15 @@ export class ProductApprovalComponent implements OnInit {
     return this.isProductActive(product) ? 'ACTIVE' : 'PENDING';
   }
 
+  getPriceDifferencePercentage(product: Product): string {
+    if (!product.supplierPrice || !product.displayedPrice) {
+      return '0';
+    }
+
+    const difference = ((product.displayedPrice - product.supplierPrice) / product.supplierPrice) * 100;
+    return difference > 0 ? `+${difference.toFixed(1)}` : difference.toFixed(1);
+  }
+
   resolveImageUrl(url?: string): string | undefined {
     if (!url) return undefined;
 
@@ -543,6 +609,7 @@ export class ProductApprovalComponent implements OnInit {
       name: product.name,
       description: product.description || '',
       categoryName: (product as any).categoryName || '',
+      supplierPrice: product.supplierPrice || 0,
       displayedPrice: product.displayedPrice,
       syncedStock: product.syncedStock || 0,
       active: product.active || false

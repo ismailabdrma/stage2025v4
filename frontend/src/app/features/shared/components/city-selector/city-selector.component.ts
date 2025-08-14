@@ -5,13 +5,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { FormsModule } from '@angular/forms';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 @Component({
   selector: 'app-city-selector',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, FormsModule],
   template: `
     <div class="container" role="dialog" aria-modal="true" aria-label="Sélecteur de ville">
       <header class="header">

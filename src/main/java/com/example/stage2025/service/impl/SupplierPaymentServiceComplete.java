@@ -489,6 +489,8 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         dto.setSupplierName(payment.getSupplier().getName());
         dto.setSupplierEmail(payment.getSupplier().getContactEmail());
         dto.setTotalAmount(payment.getTotalAmount());
+        // legacy aliases expected by frontend table
+        dto.setAmount(payment.getTotalAmount());
         dto.setOurPrice(payment.getOurPrice());
         dto.setSupplierPrice(payment.getSupplierPrice());
         dto.setCommissionAmount(payment.getCommissionAmount());
@@ -497,6 +499,8 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         dto.setPaymentType(payment.getPaymentType());
         dto.setCreatedDate(payment.getCreatedDate());
         dto.setScheduledDate(payment.getScheduledDate());
+        // legacy alias
+        dto.setPaymentDate(payment.getScheduledDate());
         dto.setProcessedDate(payment.getProcessedDate());
         dto.setPaymentReference(payment.getPaymentReference());
         dto.setDescription(payment.getDescription());
@@ -505,7 +509,31 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
     }
 
     // Minimal implementations for interface compliance
-    @Override public SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId) { return null; }
+    @Override 
+    @Transactional
+    public SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId) { 
+        SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found"));
+        try {
+            if (payment.isCommissionPayment()) {
+                // Commission owed to us -> send invoice/mark as awaiting supplier transfer
+                payment.setProcessingNotes("Commission invoice sent to supplier");
+            } else {
+                // We pay supplier -> simulate transfer
+                payment.setExternalTransactionId("TX-" + System.currentTimeMillis());
+            }
+            payment.setStatus(PaymentStatus.PAID);
+            payment.setProcessedDate(LocalDateTime.now());
+            payment.setProcessedByAdminId(adminId);
+            SupplierPayment saved = supplierPaymentRepository.save(payment);
+            return mapToDto(saved);
+        } catch (Exception e) {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setProcessingNotes("Immediate processing failed: " + e.getMessage());
+            supplierPaymentRepository.save(payment);
+            throw e;
+        }
+    }
     @Override public SupplierPaymentDto getPaymentById(Long paymentId) {
         SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
             .orElseThrow(() -> new RuntimeException("Payment not found"));
@@ -514,22 +542,163 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
     @Override public void notifySupplierPayment(SupplierPayment payment) {}
     @Override public void sendPaymentToSupplierApi(SupplierPayment payment) {}
     @Override public void auditPaymentAction(Long paymentId, String action, String details, Long adminId) {}
-    @Override public List<SupplierPaymentDto> getPaymentsBySupplier(Long supplierId) { return Collections.emptyList(); }
-    @Override public List<SupplierPaymentDto> getPendingPayments() { return Collections.emptyList(); }
+    @Override 
+    @Transactional(readOnly = true)
+    public List<SupplierPaymentDto> getPaymentsBySupplier(Long supplierId) { 
+        return supplierPaymentRepository.findBySupplierId(supplierId).stream().map(this::mapToDto).toList(); 
+    }
+    @Override 
+    @Transactional(readOnly = true)
+    public List<SupplierPaymentDto> getPendingPayments() { 
+        return supplierPaymentRepository.findPendingAndProcessing().stream().map(this::mapToDto).toList(); 
+    }
     @Override public List<SupplierPaymentDto> createWeeklyPayments() { return Collections.emptyList(); }
     @Override public List<SupplierPaymentDto> createMonthlyPayments() { return Collections.emptyList(); }
     @Override public SupplierPaymentDto processGroupedPayment(Long supplierId, PaymentType type, LocalDateTime periodStart, LocalDateTime periodEnd) { return null; }
-    @Override public SupplierPaymentDto updatePaymentStatus(Long paymentId, PaymentStatus status, String notes, Long adminId) { return null; }
-    @Override public SupplierPaymentDto confirmPaymentReceived(Long paymentId, String supplierApiResponse) { return null; }
-    @Override public SupplierPaymentDto cancelPayment(Long paymentId, String reason, Long adminId) { return null; }
-    @Override public List<SupplierPaymentDto> getPaymentsByStatus(PaymentStatus status) { return Collections.emptyList(); }
-    @Override public List<SupplierPaymentDto> getPaymentsByDateRange(LocalDateTime start, LocalDateTime end) { return Collections.emptyList(); }
-    @Override public SupplierPaymentSummaryDto getPaymentSummary() { return null; }
-    @Override public SupplierPaymentSummaryDto getSupplierPaymentSummary(Long supplierId) { return null; }
-    @Override public List<SupplierPaymentSummaryDto> getAllSupplierSummaries() { return Collections.emptyList(); }
+    @Override 
+    @Transactional
+    public SupplierPaymentDto updatePaymentStatus(Long paymentId, PaymentStatus status, String notes, Long adminId) { 
+        SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found"));
+        payment.setStatus(status);
+        payment.setProcessingNotes(notes);
+        payment.setProcessedByAdminId(adminId);
+        if (status == PaymentStatus.PAID) {
+            payment.setProcessedDate(LocalDateTime.now());
+        }
+        SupplierPayment saved = supplierPaymentRepository.save(payment);
+        return mapToDto(saved);
+    }
+    @Override 
+    @Transactional
+    public SupplierPaymentDto confirmPaymentReceived(Long paymentId, String supplierApiResponse) { 
+        SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found"));
+        payment.setSupplierApiResponse(supplierApiResponse);
+        payment.setConfirmedDate(LocalDateTime.now());
+        payment.setStatus(PaymentStatus.PAID);
+        SupplierPayment saved = supplierPaymentRepository.save(payment);
+        return mapToDto(saved);
+    }
+    @Override 
+    @Transactional
+    public SupplierPaymentDto cancelPayment(Long paymentId, String reason, Long adminId) { 
+        SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found"));
+        payment.setStatus(PaymentStatus.CANCELLED);
+        payment.setProcessingNotes(reason);
+        payment.setProcessedByAdminId(adminId);
+        SupplierPayment saved = supplierPaymentRepository.save(payment);
+        return mapToDto(saved);
+    }
+    @Override 
+    @Transactional(readOnly = true)
+    public List<SupplierPaymentDto> getPaymentsByStatus(PaymentStatus status) { 
+        return supplierPaymentRepository.findByStatus(status).stream().map(this::mapToDto).toList(); 
+    }
+    @Override 
+    @Transactional(readOnly = true)
+    public List<SupplierPaymentDto> getPaymentsByDateRange(LocalDateTime start, LocalDateTime end) { 
+        return supplierPaymentRepository.findByCreatedDateBetween(start, end).stream().map(this::mapToDto).toList(); 
+    }
+    @Override 
+    @Transactional(readOnly = true)
+    public SupplierPaymentSummaryDto getPaymentSummary() { 
+        List<SupplierPayment> all = supplierPaymentRepository.findAll();
+        java.math.BigDecimal totalPaidAmount = all.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.PAID)
+            .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalPendingAmount = all.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+            .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalCommissionEarned = all.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.PAID)
+            .map(p -> p.getCommissionAmount() != null ? p.getCommissionAmount() : java.math.BigDecimal.ZERO)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        int pendingCount = (int) all.stream().filter(p -> p.getStatus() == PaymentStatus.PENDING).count();
+        int paidCount = (int) all.stream().filter(p -> p.getStatus() == PaymentStatus.PAID).count();
+        int failedCount = (int) all.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count();
+
+        java.math.BigDecimal averagePaymentAmount = all.isEmpty() ? java.math.BigDecimal.ZERO :
+            all.stream()
+                .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+                .divide(java.math.BigDecimal.valueOf(all.size()), java.math.RoundingMode.HALF_UP);
+
+        SupplierPaymentSummaryDto summary = new SupplierPaymentSummaryDto();
+        summary.setTotalPendingAmount(totalPendingAmount);
+        summary.setTotalPaidAmount(totalPaidAmount);
+        summary.setTotalCommissionEarned(totalCommissionEarned);
+        summary.setPendingPaymentsCount(pendingCount);
+        summary.setPaidPaymentsCount(paidCount);
+        summary.setFailedPaymentsCount(failedCount);
+        summary.setAveragePaymentAmount(averagePaymentAmount);
+        // Flags
+        summary.setHasOverduePayments(!supplierPaymentRepository.findOverduePayments(LocalDateTime.now()).isEmpty());
+        summary.setHasFailedPayments(failedCount > 0);
+        summary.setRequiresAttention(pendingCount > 0 || failedCount > 0);
+        return summary; 
+    }
+    @Override 
+    @Transactional(readOnly = true)
+    public SupplierPaymentSummaryDto getSupplierPaymentSummary(Long supplierId) { 
+        List<SupplierPayment> bySupplier = supplierPaymentRepository.findBySupplierId(supplierId);
+        java.math.BigDecimal totalPaidAmount = bySupplier.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.PAID)
+            .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalPendingAmount = bySupplier.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+            .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalCommissionEarned = bySupplier.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.PAID)
+            .map(p -> p.getCommissionAmount() != null ? p.getCommissionAmount() : java.math.BigDecimal.ZERO)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        int pendingCount = (int) bySupplier.stream().filter(p -> p.getStatus() == PaymentStatus.PENDING).count();
+        int paidCount = (int) bySupplier.stream().filter(p -> p.getStatus() == PaymentStatus.PAID).count();
+        int failedCount = (int) bySupplier.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count();
+
+        java.math.BigDecimal averagePaymentAmount = bySupplier.isEmpty() ? java.math.BigDecimal.ZERO :
+            bySupplier.stream()
+                .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+                .divide(java.math.BigDecimal.valueOf(bySupplier.size()), java.math.RoundingMode.HALF_UP);
+
+        SupplierPaymentSummaryDto summary = new SupplierPaymentSummaryDto();
+        summary.setSupplierId(supplierId);
+        summary.setTotalPendingAmount(totalPendingAmount);
+        summary.setTotalPaidAmount(totalPaidAmount);
+        summary.setTotalCommissionEarned(totalCommissionEarned);
+        summary.setPendingPaymentsCount(pendingCount);
+        summary.setPaidPaymentsCount(paidCount);
+        summary.setFailedPaymentsCount(failedCount);
+        summary.setAveragePaymentAmount(averagePaymentAmount);
+        summary.setHasOverduePayments(!supplierPaymentRepository.findOverduePayments(LocalDateTime.now()).isEmpty());
+        summary.setHasFailedPayments(failedCount > 0);
+        summary.setRequiresAttention(pendingCount > 0 || failedCount > 0);
+        return summary; 
+    }
+    @Override 
+    @Transactional(readOnly = true)
+    public List<SupplierPaymentSummaryDto> getAllSupplierSummaries() { 
+        Map<Long, List<SupplierPayment>> grouped = supplierPaymentRepository.findAll().stream()
+            .filter(p -> p.getSupplier() != null && p.getSupplier().getId() != null)
+            .collect(Collectors.groupingBy(p -> p.getSupplier().getId()));
+        List<SupplierPaymentSummaryDto> result = new ArrayList<>();
+        for (Map.Entry<Long, List<SupplierPayment>> e : grouped.entrySet()) {
+            result.add(getSupplierPaymentSummary(e.getKey()));
+        }
+        return result; 
+    }
     @Override public List<SupplierPaymentDto> getPaymentHistory(Long paymentId) { return Collections.emptyList(); }
 
     @Override
+    @Transactional(readOnly = true)
     public Map<String, Object> getDashboard() {
         Map<String, Object> dashboard = new HashMap<>();
         
@@ -545,6 +714,14 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
                     p.getCreatedDate().isAfter(LocalDateTime.now().minusDays(7)))
                 .limit(10)
                 .collect(Collectors.toList());
+            
+            // If no pending payments, show the most recent payments as a fallback on the UI
+            if (pendingPayments.isEmpty() && !allPayments.isEmpty()) {
+                pendingPayments = allPayments.stream()
+                    .sorted(java.util.Comparator.comparing(SupplierPayment::getCreatedDate, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())).reversed())
+                    .limit(10)
+                    .collect(Collectors.toList());
+            }
             
             // Calculate totals
             double totalPendingAmount = pendingPayments.stream()

@@ -11,6 +11,9 @@ public class CartItemMapper {
         dto.setUnitPrice(item.getUnitPrice());
         dto.setProductName(item.getProduct().getName());
         dto.setProductId(item.getProduct().getId());
+        if (item.getProduct().getImageUrls() != null && !item.getProduct().getImageUrls().isEmpty()) {
+            dto.setProductImage(item.getProduct().getImageUrls().get(0));
+        }
         return dto;
     }
 }

@@ -96,7 +96,7 @@ export class SystemMonitoringService {
     return this.http.get<{ [key: string]: number }>(`${this.apiUrl}/operations`).pipe(
       catchError(error => {
         console.error('Failed to fetch operation timings:', error)
-        return new Observable(observer => observer.next({}))
+        return new Observable<{ [key: string]: number }>(observer => { observer.next({}); observer.complete(); })
       })
     )
   }
@@ -108,7 +108,7 @@ export class SystemMonitoringService {
     return this.http.get<{ [key: string]: number }>(`${this.apiUrl}/operations/counts`).pipe(
       catchError(error => {
         console.error('Failed to fetch operation counts:', error)
-        return new Observable(observer => observer.next({}))
+        return new Observable<{ [key: string]: number }>(observer => { observer.next({}); observer.complete(); })
       })
     )
   }
@@ -132,7 +132,7 @@ export class SystemMonitoringService {
     return this.http.post<string>(`${this.apiUrl}/record/${event}`, {}).pipe(
       catchError(error => {
         console.error(`Failed to record event ${event}:`, error)
-        return new Observable(observer => observer.next(`Failed to record ${event}`))
+        return new Observable<string>(observer => { observer.next(`Failed to record ${event}`); observer.complete(); })
       })
     )
   }
@@ -144,7 +144,7 @@ export class SystemMonitoringService {
     return this.http.post<string>(`${this.apiUrl}/reset`, {}).pipe(
       catchError(error => {
         console.error('Failed to reset counters:', error)
-        return new Observable(observer => observer.next('Failed to reset counters'))
+        return new Observable<string>(observer => { observer.next('Failed to reset counters'); observer.complete(); })
       })
     )
   }
@@ -156,7 +156,7 @@ export class SystemMonitoringService {
     return this.http.get<number>(`${this.apiUrl}/operations/${operation}/average`).pipe(
       catchError(error => {
         console.error(`Failed to fetch average time for ${operation}:`, error)
-        return new Observable(observer => observer.next(0))
+        return new Observable<number>(observer => { observer.next(0); observer.complete(); })
       })
     )
   }
@@ -168,7 +168,7 @@ export class SystemMonitoringService {
     return this.http.post<string>(`${this.apiUrl}/health/check`, {}).pipe(
       catchError(error => {
         console.error('Failed to trigger health check:', error)
-        return new Observable(observer => observer.next('Health check failed'))
+        return new Observable<string>(observer => { observer.next('Health check failed'); observer.complete(); })
       })
     )
   }
@@ -239,7 +239,7 @@ export class SystemMonitoringService {
   isMonitoringAvailable(): Observable<boolean> {
     return this.http.get(`${this.apiUrl}/health`).pipe(
       map(() => true),
-      catchError(() => new Observable(observer => observer.next(false)))
+      catchError(() => new Observable<boolean>(observer => { observer.next(false); observer.complete(); }))
     )
   }
 

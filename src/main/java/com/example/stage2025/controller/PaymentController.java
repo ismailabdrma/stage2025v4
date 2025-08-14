@@ -42,6 +42,9 @@ public class PaymentController {
     @Value("${stripe.webhook.secret:}")
     private String stripeWebhookSecret;
 
+    @Value("${stripe.publishable.key:}")
+    private String stripePublishableKey;
+
     @PostMapping("/create-payment-intent")
     public ResponseEntity<PaymentIntentResponse> createPaymentIntent(@RequestBody PaymentIntentRequest request) {
         try {
@@ -102,6 +105,13 @@ public class PaymentController {
         }
     }
 
+    @GetMapping("/config")
+    public ResponseEntity<Map<String, String>> getStripeConfig() {
+        Map<String, String> resp = new HashMap<>();
+        resp.put("publishableKey", stripePublishableKey == null ? "" : stripePublishableKey);
+        return ResponseEntity.ok(resp);
+    }
+
     @PostMapping("/confirm")
     public ResponseEntity<Map<String, Object>> confirmPayment(@RequestBody PaymentConfirmRequest request) {
         try {
@@ -114,8 +124,30 @@ public class PaymentController {
                 // Update order status to confirmed
                 String orderId = paymentIntent.getMetadata().get("orderId");
                 if (orderId != null) {
-                    orderService.updateOrderStatus(Long.parseLong(orderId), OrderStatus.PAID);
+                    Long oid = Long.parseLong(orderId);
+                    orderService.updateOrderStatus(oid, OrderStatus.PAID);
+                    orderService.finalizePaidOrder(oid);
+                    try {
+                        java.util.Optional<Order> orderOpt = orderRepository.findById(oid);
+                        if (orderOpt.isPresent()) {
+                            Order order = orderOpt.get();
+                            // Send confirmation emails now that payment is succeeded
+                            emailService.sendOrderConfirmation(order.getClient(), order);
+                            emailService.sendAdminNewOrderNotification(order);
+                            order.getItems().forEach(i -> {
+                                Supplier s = i.getProduct().getSupplier();
+                                if (s != null && s.getContactEmail() != null && !s.getContactEmail().isEmpty()) {
+                                    emailService.sendSupplierOrderNotification(s, order);
+                                }
+                            });
+                        }
+                    } catch (Exception ignored) {}
                 }
+
+                // Mark payment record as PAID if it exists
+                try {
+                    paymentService.updatePaymentStatusByTransactionRef(paymentIntent.getId(), "PAID");
+                } catch (Exception ignored) {}
 
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", true);
@@ -225,14 +257,21 @@ public class PaymentController {
                 // Also update order status using metadata
                 String orderId = intent.getMetadata() != null ? intent.getMetadata().get("orderId") : null;
                 if (orderId != null) {
-                    orderService.updateOrderStatus(Long.parseLong(orderId), OrderStatus.PAID);
+                    Long oid = Long.parseLong(orderId);
+                    orderService.updateOrderStatus(oid, OrderStatus.PAID);
+                    orderService.finalizePaidOrder(oid);
                     try {
-                        Long oid = Long.parseLong(orderId);
                         java.util.Optional<Order> orderOpt = orderRepository.findById(oid);
                         if (orderOpt.isPresent()) {
                             Order order = orderOpt.get();
+                            // Send confirmation emails after webhook confirms success (idempotent)
+                            emailService.sendOrderConfirmation(order.getClient(), order);
+                            emailService.sendAdminNewOrderNotification(order);
                             order.getItems().forEach(i -> {
                                 Supplier s = i.getProduct().getSupplier();
+                                if (s != null && s.getContactEmail() != null && !s.getContactEmail().isEmpty()) {
+                                    emailService.sendSupplierOrderNotification(s, order);
+                                }
                                 if (s != null && s.isHasOwnPaymentSystem()) {
                                     emailService.sendSupplierPaymentRequest(s, order,
                                             "Commission owed notification for order #" + order.getId());

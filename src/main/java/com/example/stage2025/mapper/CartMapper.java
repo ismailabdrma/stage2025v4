@@ -3,6 +3,9 @@ package com.example.stage2025.mapper;
 import com.example.stage2025.dto.CartDto;
 import com.example.stage2025.entity.Cart;
 
+import java.util.Collections;
+import java.util.List;
+import com.example.stage2025.entity.CartItem;
 import java.util.stream.Collectors;
 
 public class CartMapper {
@@ -11,7 +14,8 @@ public class CartMapper {
         dto.setId(cart.getId());
         dto.setCreatedDate(cart.getCreatedDate());
         dto.setUpdatedDate(cart.getUpdatedDate());
-        dto.setItems(cart.getItems().stream()
+        List<CartItem> items = cart.getItems() == null ? Collections.<CartItem>emptyList() : cart.getItems();
+        dto.setItems(items.stream()
                 .map(CartItemMapper::toDto)
                 .collect(Collectors.toList()));
         return dto;

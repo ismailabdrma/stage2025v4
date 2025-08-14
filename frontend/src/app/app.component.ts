@@ -66,7 +66,7 @@ import { ToastService } from "./shared/components/toast-notification/toast-notif
           <span class="spacer"></span>
 
           <button class="cart-button" (click)="toggleMiniCart()" aria-label="Ouvrir le panier">
-            <mat-icon [matBadge]="cartItemCount" [matBadgeHidden]="cartItemCount === 0" matBadgeColor="accent">shopping_cart</mat-icon>
+            <mat-icon aria-hidden="false" [matBadge]="cartItemCount" [matBadgeHidden]="cartItemCount === 0" matBadgeColor="accent">shopping_cart</mat-icon>
             <span>Panier</span>
           </button>
         </ng-container>

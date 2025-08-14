@@ -22,7 +22,8 @@ public class StockSyncService {
     private final ProductRepository productRepository;
     private final ProductFetcherFactory productFetcherFactory;
     
-    @Scheduled(fixedDelay = 60000) // Every 1 minute
+    // Avoid overwriting reserved/paid decrements too aggressively in dev; slow down
+    @Scheduled(fixedDelay = 300000) // Every 5 minutes
     public void syncAllSupplierStock() {
         log.info("Starting scheduled stock sync for all suppliers");
         
@@ -63,7 +64,15 @@ public class StockSyncService {
             for (Product product : products) {
                 SupplierProductDto dto = byExternal.get(product.getExternalProductId());
                 if (dto != null) {
-                    product.setSyncedStock(dto.getStock());
+                    // Do not increase stock beyond current if we have reservations; keep min to avoid restocking after order
+                    Integer currentSynced = product.getSyncedStock() != null ? product.getSyncedStock() : 0;
+                    Integer reserved = product.getReservedStock() != null ? product.getReservedStock() : 0;
+                    int actualAvailable = Math.max(0, currentSynced - reserved);
+                    int supplierReported = dto.getStock() != null ? dto.getStock() : 0;
+                    // Pick the minimum between current available and supplier's reported to prevent accidental restock
+                    int newSynced = Math.min(currentSynced, supplierReported + reserved);
+                    // If supplier reports lower, reduce; if higher, cap to current to avoid restocking
+                    product.setSyncedStock(Math.max(0, newSynced));
                     product.setLastFetched(LocalDateTime.now());
                     productRepository.save(product);
                     updatedCount++;

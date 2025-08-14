@@ -80,10 +80,15 @@ export class SignupComponent implements OnInit {
 
   onSubmit(): void {
     if (this.signupForm.valid) {
-      // Always set role to USER for security - only admins can create admin accounts
+      // Always set role to CLIENT for security - only admins can create admin accounts
       const signupData = {
         ...this.signupForm.value,
-        role: "USER"
+        role: "CLIENT"
+      }
+      // Store email for effects-based redirect safeguard
+      const email = this.signupForm.get('email')?.value
+      if (email) {
+        sessionStorage.setItem('signup_email', email)
       }
       this.store.dispatch(AuthActions.signup({ request: signupData }))
     }

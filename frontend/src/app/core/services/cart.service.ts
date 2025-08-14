@@ -211,7 +211,7 @@ export class CartService {
     return of(this.convertGuestCartToCart(currentGuestCart));
   }
 
-  // Update quantity
+  // Update quantity (unified)
   updateQuantity(itemId: number, quantity: number): Observable<Cart | null> {
     return this.authService.isAuthenticated$.pipe(
       switchMap(isAuthenticated => {
@@ -228,6 +228,8 @@ export class CartService {
     return this.http.put<Cart>(`${this.apiUrl}/items/${cartItemId}`, { quantity }).pipe(
       tap(cart => this.cartSubject.next(cart)),
       catchError(err => {
+        console.error('Error updating cart item quantity:', err);
+        this.toastService.error('Failed to update item quantity');
         // Fallback to guest cart adjust
         const guestCart = this.guestCartSubject.value
         if (guestCart) {
@@ -376,6 +378,13 @@ export class CartService {
     );
   }
 
+  // Refresh cart data
+  refreshCart(): void {
+    if (this.authService.isAuthenticated()) {
+      this.getCart().subscribe();
+    }
+  }
+
   // Legacy methods for compatibility
   addItemToCart(item: Partial<CartItem>): Observable<Cart | null> {
     return this.addItemToUserCart(item);
@@ -386,6 +395,13 @@ export class CartService {
   }
 
   removeItemFromCart(cartItemId: number): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/item/${cartItemId}`);
+    return this.http.delete<void>(`${this.apiUrl}/item/${cartItemId}`).pipe(
+      tap(() => this.refreshCart()),
+      catchError(err => {
+        console.error('Error removing cart item:', err);
+        this.toastService.error('Failed to remove item from cart');
+        throw err;
+      })
+    );
   }
 }

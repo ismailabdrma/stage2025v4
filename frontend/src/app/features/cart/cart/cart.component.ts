@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { CartService } from '../../core/services/cart.service';
+import { CartService } from '@core/services/cart.service';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
@@ -10,7 +10,6 @@ import { tap } from 'rxjs/operators';
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './cart.component.html',
-  styleUrls: ['./cart.component.scss'],
 })
 export class CartComponent implements OnInit {
   cart: any;
@@ -75,11 +74,9 @@ export class CartComponent implements OnInit {
   }
 
   get subtotal(): number {
-    if (!this.cart || !this.cart.items) {
-      return 0;
-    }
+    if (!this.cart || !this.cart.items) return 0;
     return this.cart.items.reduce(
-      (sum: number, item: any) => sum + item.product.price * item.quantity,
+      (sum: number, item: any) => sum + ((item.unitPrice ?? item.price ?? 0) * item.quantity),
       0
     );
   }

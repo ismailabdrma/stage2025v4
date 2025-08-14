@@ -49,7 +49,7 @@ import type { Cart, CartItem } from "@core/models/cart.model"
               <div class="cart-items">
                 <div *ngFor="let item of cart.items" class="cart-item">
                   <div class="item-image">
-                    <mat-icon>shopping_bag</mat-icon>
+                    <img [src]="item.productImage || '/assets/placeholder.png'" alt="{{ item.productName }}" style="max-width:100%; max-height:100%; object-fit:contain;" />
                   </div>
                   <div class="item-details">
                     <h3>{{ item.productName }}</h3>
@@ -85,10 +85,10 @@ import type { Cart, CartItem } from "@core/models/cart.model"
             </mat-card-header>
             <mat-card-content>
               <div class="summary-content">
-                <div class="summary-line">
-                  <span>Sous-total</span>
-                  <span>{{ getCartTotal() | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</span>
-                </div>
+              <div class="summary-line">
+                <span>Sous-total</span>
+                <span>{{ getCartTotal() | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}</span>
+              </div>
                 <div class="summary-line">
                   <span>Frais de livraison</span>
                   <span>Gratuit</span>
@@ -337,7 +337,17 @@ export class CartComponent implements OnInit {
   displayedColumns = ["product", "price", "quantity", "total", "actions"]
 
   ngOnInit(): void {
-    this.loadCart()
+    this.loadCart();
+
+    // Also subscribe to cart changes
+    this.cartService.cart$.subscribe(cart => {
+      console.log('Cart updated in cart component:', cart);
+      this.cart = cart;
+      if (cart && cart.items) {
+        console.log('Cart items:', cart.items);
+        console.log('Cart total calculated:', this.getCartTotal());
+      }
+    });
   }
 
   loadCart(): void {
@@ -414,11 +424,17 @@ export class CartComponent implements OnInit {
   }
 
   getItemUnitPrice(item: CartItem): number {
-    return (item.unitPrice ?? item.price ?? 0)
+    const price = item.unitPrice || item.price || 0;
+    console.log('Item unit price:', { item: item.productName, unitPrice: item.unitPrice, price: item.price, result: price });
+    return price;
   }
 
   getItemTotal(item: CartItem): number {
-    return this.getItemUnitPrice(item) * (item.quantity ?? 0)
+    const unitPrice = this.getItemUnitPrice(item);
+    const quantity = item.quantity || 0;
+    const total = unitPrice * quantity;
+    console.log('Item total:', { item: item.productName, unitPrice, quantity, total });
+    return total;
   }
 
   onCheckout(): void {

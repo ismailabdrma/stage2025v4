@@ -13,5 +13,7 @@ public class CartItemDto {
     private Integer quantity;
     private Double unitPrice;
     private String productName;
-    private Long productId;}
+    private Long productId;
+    private String productImage;
+}
 

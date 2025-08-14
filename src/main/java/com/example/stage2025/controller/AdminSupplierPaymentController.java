@@ -25,18 +25,7 @@ public class AdminSupplierPaymentController {
     // Dashboard Overview
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getPaymentDashboard() {
-        List<SupplierPaymentDto> pendingPayments = supplierPaymentService.getPendingPayments();
-        SupplierPaymentSummaryDto summary = supplierPaymentService.getPaymentSummary();
-        
-        Map<String, Object> dashboard = Map.of(
-            "pendingPayments", pendingPayments,
-            "summary", summary,
-            "pendingCount", pendingPayments.size(),
-            "totalPendingAmount", pendingPayments.stream()
-                .mapToDouble(p -> p.getTotalAmount().doubleValue())
-                .sum()
-        );
-        
+        Map<String, Object> dashboard = supplierPaymentService.getDashboard();
         return ResponseEntity.ok(dashboard);
     }
 
@@ -57,7 +46,7 @@ public class AdminSupplierPaymentController {
         } else if (startDate != null && endDate != null) {
             payments = supplierPaymentService.getPaymentsByDateRange(startDate, endDate);
         } else {
-            payments = supplierPaymentService.getPendingPayments(); // Default to pending
+            payments = supplierPaymentService.getAllPayments(); // Default to all payments
         }
         
         return ResponseEntity.ok(payments);
@@ -66,8 +55,8 @@ public class AdminSupplierPaymentController {
     // Get payment by ID
     @GetMapping("/{paymentId}")
     public ResponseEntity<SupplierPaymentDto> getPayment(@PathVariable Long paymentId) {
-        // Implementation would get payment by ID
-        return ResponseEntity.ok(new SupplierPaymentDto());
+        SupplierPaymentDto dto = supplierPaymentService.getPaymentById(paymentId);
+        return ResponseEntity.ok(dto);
     }
 
     // Process immediate payment

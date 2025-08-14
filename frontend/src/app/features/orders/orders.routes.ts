@@ -10,6 +10,10 @@ export const ordersRoutes: Routes = [
     loadComponent: () => import("./components/checkout/checkout.component").then((m) => m.CheckoutComponent),
   },
   {
+    path: "success",
+    loadComponent: () => import("./components/order-success/order-success.component").then((m) => m.OrderSuccessComponent),
+  },
+  {
     path: ":id",
     loadComponent: () => import("./components/order-detail/order-detail.component").then((m) => m.OrderDetailComponent),
   },

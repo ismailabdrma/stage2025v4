@@ -5,7 +5,7 @@ export interface User {
   firstName?: string
   lastName?: string
   phone?: string
-  role: "ADMIN" | "USER"
+  role: "ADMIN" | "CLIENT"
   active: boolean
 }
 
@@ -18,7 +18,7 @@ export interface SignupRequest {
   username: string
   email: string
   password: string
-  role: "ADMIN" | "USER"
+  role: "ADMIN" | "CLIENT"
 }
 
 export interface OtpVerifyRequest {

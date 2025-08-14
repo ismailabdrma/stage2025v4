@@ -17,11 +17,15 @@ export class AuthService {
   public isAuthenticated$ = this.isAuthenticatedSubject.asObservable()
 
   signup(request: SignupRequest): Observable<string> {
-    return this.http.post<string>(`${this.apiUrl}/signup`, request)
+    return this.http.post<any>(`${this.apiUrl}/signup`, request).pipe(
+      map((resp: any) => (resp && typeof resp === 'object' ? resp.message : resp) || 'Registration successful')
+    )
   }
 
   verifyEmail(request: OtpVerifyRequest): Observable<string> {
-    return this.http.post<string>(`${this.apiUrl}/verify-email`, request)
+    return this.http.post<any>(`${this.apiUrl}/verify-email`, request).pipe(
+      map((resp: any) => (resp && typeof resp === 'object' ? resp.message : resp) || 'Email verified successfully')
+    )
   }
 
   // Update login method to handle OTP/admin JSON responses correctly

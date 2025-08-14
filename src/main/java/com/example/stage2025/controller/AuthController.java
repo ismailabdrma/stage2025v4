@@ -55,6 +55,12 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse("SUCCESS", "Registration successful! OTP sent to email."));
     }
 
+    /** Alias for legacy/frontend endpoint: /signup -> /register */
+    @PostMapping("/signup")
+    public ResponseEntity<?> signup(@RequestBody RegisterRequest req) {
+        return register(req);
+    }
+
     /** --- 2. Verify Registration OTP and activate account --- */
     @PostMapping("/verify-registration")
     public ResponseEntity<?> verifyRegistration(@RequestBody OtpVerifyRequest req) {
@@ -69,6 +75,12 @@ public class AuthController {
         } else {
             return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Invalid or expired OTP."));
         }
+    }
+
+    /** Alias for legacy/frontend endpoint: /verify-email -> /verify-registration */
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody OtpVerifyRequest req) {
+        return verifyRegistration(req);
     }
 
     /** --- 3. Login (admins get direct token, clients need OTP) --- */

@@ -7,6 +7,7 @@ import com.example.stage2025.service.ShippingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,21 +21,26 @@ public class CartController {
     private final CartService cartService;
     private final ShippingService shippingService;
 
-    private Long getClientId(Authentication auth) {
-        return Long.valueOf(auth.getName());
+    private Long resolveClientId(Authentication auth, Long userIdAttr) {
+        if (userIdAttr != null) return userIdAttr;
+        try {
+            return Long.valueOf(auth.getName());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid authenticated user id");
+        }
     }
 
     /** 1. Get current cart */
     @GetMapping
-    public ResponseEntity<CartDto> getCart(Authentication auth) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<CartDto> getCart(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         return ResponseEntity.ok(cartService.getCartByClientId(clientId));
     }
 
     /** 2. Add item to cart */
     @PostMapping("/add")
-    public ResponseEntity<CartDto> addItem(Authentication auth, @RequestBody CartItemDto itemDto) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<CartDto> addItem(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody CartItemDto itemDto) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         return ResponseEntity.ok(cartService.addItemToCart(clientId, itemDto));
     }
 
@@ -53,16 +59,16 @@ public class CartController {
 
     /** 5. Clear all items from cart */
     @DeleteMapping("/clear")
-    public ResponseEntity<?> clearCart(Authentication auth) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<?> clearCart(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         cartService.clearCart(clientId);
         return ResponseEntity.noContent().build();
     }
 
     /** 6. Add item to cart (new format with variant support) */
     @PostMapping("/items")
-    public ResponseEntity<CartDto> addItemWithVariant(Authentication auth, @RequestBody CartItemDto itemDto) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<CartDto> addItemWithVariant(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody CartItemDto itemDto) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         return ResponseEntity.ok(cartService.addItemToCart(clientId, itemDto));
     }
 
@@ -75,16 +81,16 @@ public class CartController {
 
     /** 8. Remove item from cart (new format returning updated cart) */
     @DeleteMapping("/items/{cartItemId}")
-    public ResponseEntity<CartDto> removeItemReturnCart(Authentication auth, @PathVariable Long cartItemId) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<CartDto> removeItemReturnCart(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @PathVariable Long cartItemId) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         cartService.removeItemFromCart(cartItemId);
         return ResponseEntity.ok(cartService.getCartByClientId(clientId));
     }
 
     /** 9. Merge guest cart with user cart after login */
     @PostMapping("/merge")
-    public ResponseEntity<CartDto> mergeGuestCart(Authentication auth, @RequestBody Map<String, Object> payload) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<CartDto> mergeGuestCart(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> payload) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> guestCartItems = (List<Map<String, Object>>) payload.get("guestCartItems");
@@ -105,8 +111,8 @@ public class CartController {
 
     /** 10. Get cart item count for badge */
     @GetMapping("/count")
-    public ResponseEntity<Map<String, Integer>> getCartItemCount(Authentication auth) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<Map<String, Integer>> getCartItemCount(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         CartDto cart = cartService.getCartByClientId(clientId);
         int itemCount = cart.getItems().stream()
                 .mapToInt(CartItemDto::getQuantity)
@@ -116,8 +122,8 @@ public class CartController {
 
     /** 11. Apply coupon code */
     @PostMapping("/apply-coupon")
-    public ResponseEntity<CartDto> applyCoupon(Authentication auth, @RequestBody Map<String, String> payload) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<CartDto> applyCoupon(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, String> payload) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         // String couponCode = payload.get("code"); // reserved for future use
         // TODO: Implement coupon logic
         return ResponseEntity.ok(cartService.getCartByClientId(clientId));
@@ -125,8 +131,8 @@ public class CartController {
 
     /** 12. Get shipping quote for cart */
     @PostMapping("/shipping-quote")
-    public ResponseEntity<Map<String, Object>> getShippingQuote(Authentication auth, @RequestBody Map<String, Object> payload) {
-        Long clientId = getClientId(auth);
+    public ResponseEntity<Map<String, Object>> getShippingQuote(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> payload) {
+        Long clientId = resolveClientId(auth, userIdAttr);
         Long addressId = ((Number) payload.get("addressId")).longValue();
         return ResponseEntity.ok(shippingService.getQuote(clientId, addressId));
     }

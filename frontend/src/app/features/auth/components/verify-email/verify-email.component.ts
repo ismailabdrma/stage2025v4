@@ -52,6 +52,9 @@ export class VerifyEmailComponent implements OnInit {
   }
 
   ngOnInit() {
+    // Clear any prior auth UI state (e.g., signup success message) to avoid unintended redirects
+    this.store.dispatch(AuthActions.resetAuthUI());
+
     this.route.queryParams.subscribe(params => {
       if (params["email"]) {
         this.userEmail = params["email"];
@@ -65,14 +68,7 @@ export class VerifyEmailComponent implements OnInit {
         tap(message => {
           if (message) {
             this.snackBar.open(message, "Close", { duration: 5000 });
-            if (message.includes("successful")) {
-              // Navigate to login with email prefilled
-              setTimeout(() => {
-                this.router.navigate(["/auth/login"], {
-                  queryParams: { email: this.verifyForm.value.email },
-                });
-              }, 2000);
-            }
+            // Do not navigate here; global effect handles redirect after successful verification
           }
         })
     ).subscribe();

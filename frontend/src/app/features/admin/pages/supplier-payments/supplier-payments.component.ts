@@ -12,9 +12,10 @@ import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatSelectModule } from "@angular/material/select"
 import { MatInputModule } from "@angular/material/input"
 import { MatDatepickerModule } from "@angular/material/datepicker"
+import { MatNativeDateModule } from "@angular/material/core"
 import { MatProgressSpinnerModule } from "@angular/material/progress-spinner"
-import { MatSnackBar } from "@angular/material/snack-bar"
-import { MatDialog } from "@angular/material/dialog"
+import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar"
+import { MatDialog, MatDialogModule } from "@angular/material/dialog"
 import { SupplierPaymentService, type SupplierPayment, type PaymentDashboard, type SupplierPaymentSummary } from "@core/services/supplier-payment.service"
 
 @Component({
@@ -35,7 +36,10 @@ import { SupplierPaymentService, type SupplierPayment, type PaymentDashboard, ty
     MatSelectModule,
     MatInputModule,
     MatDatepickerModule,
+    MatNativeDateModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
+    MatDialogModule,
   ],
   template: `
     <div class="payment-dashboard">
@@ -367,7 +371,7 @@ import { SupplierPaymentService, type SupplierPayment, type PaymentDashboard, ty
 
     </div>
   `,
-  styleUrl: "./supplier-payments.component.scss"
+  styleUrls: ["./supplier-payments.component.scss"]
 })
 export class SupplierPaymentsComponent implements OnInit {
   private paymentService = inject(SupplierPaymentService)

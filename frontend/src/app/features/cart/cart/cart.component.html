@@ -5,19 +5,17 @@
     <div class="cart-items">
       <div class="cart-item" *ngFor="let item of cart.items">
         <div class="item-details">
-          <img [src]="item.product.imageUrl || 'placeholder.jpg'" alt="{{ item.product.name }}" class="item-image">
+          <img [src]="item.productImage || 'assets/placeholder.png'" alt="{{ item.productName }}" class="item-image">
           <div class="item-info">
- <h3>{{ item.product.name }}</h3>
- <p>Price: {{ item.product.price | currency }}</p>
+ <h3>{{ item.productName }}</h3>
+ <p>Price: {{ (item.unitPrice || item.price) | currency }}</p>
           </div>
         </div>
         <div class="item-quantity">
- <button (click)="updateQuantity(item, item.quantity - 1)">-</button>
- <input type="number" [(ngModel)]="item.quantity" min="1" (change)="updateQuantity(item, item.quantity)">
- <button (click)="updateQuantity(item, item.quantity + 1)">+</button>
+ <button (click)="updateQuantity(item)">Update</button>
         </div>
         <div class="item-total">
- <p>Total: {{ item.product.price * item.quantity | currency }}</p>
+ <p>Total: {{ (item.unitPrice || item.price) * item.quantity | currency }}</p>
 
         </div>
         <button class="remove-button" (click)="removeItem(item.id)">Remove</button>

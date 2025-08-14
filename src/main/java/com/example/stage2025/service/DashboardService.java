@@ -2,6 +2,7 @@ package com.example.stage2025.service;
 
 import com.example.stage2025.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,7 +17,9 @@ public class DashboardService {
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final SupplierRepository supplierRepository;
+    private final SupplierPaymentRepository supplierPaymentRepository;
 
+    @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStats() {
         Map<String, Object> stats = new HashMap<>();
         
@@ -33,21 +36,21 @@ public class DashboardService {
             
             // Calculate revenue statistics
             Double totalRevenue = orderRepository.findAll().stream()
-                .filter(order -> order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED"))
-                .mapToDouble(order -> order.getTotal() != null ? order.getTotal() : 0.0)
-                .sum();
+                .filter(order -> order.getStatus() != null && (order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED") || order.getStatus().name().equals("PAID")))
+                .map(order -> order.getTotal() != null ? order.getTotal() : 0.0)
+                .reduce(0.0, Double::sum);
             
             // Today's revenue (orders from today)
             LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
             Double todayRevenue = orderRepository.findByOrderDateAfter(todayStart).stream()
-                .filter(order -> order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED"))
+                .filter(order -> order.getStatus() != null && (order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED") || order.getStatus().name().equals("PAID")))
                 .mapToDouble(order -> order.getTotal() != null ? order.getTotal() : 0.0)
                 .sum();
             
             // This month's revenue
             LocalDateTime monthStart = LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
             Double monthRevenue = orderRepository.findByOrderDateAfter(monthStart).stream()
-                .filter(order -> order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED"))
+                .filter(order -> order.getStatus() != null && (order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED") || order.getStatus().name().equals("PAID")))
                 .mapToDouble(order -> order.getTotal() != null ? order.getTotal() : 0.0)
                 .sum();
             
@@ -63,24 +66,16 @@ public class DashboardService {
                 ((currentMonthOrders - lastMonthOrders) * 100.0 / lastMonthOrders) : 0.0;
             
             // User growth rate (new users this month vs last month)
-            long currentMonthUsers = userRepository.findAll().stream()
-                .filter(user -> user.getCreatedAt() != null && user.getCreatedAt().isAfter(currentMonthStart))
-                .mapToLong(user -> 1L)
-                .sum();
+            long currentMonthUsers = userRepository.countByCreatedAtAfter(currentMonthStart);
             
-            long lastMonthUsers = userRepository.findAll().stream()
-                .filter(user -> user.getCreatedAt() != null && 
-                    user.getCreatedAt().isAfter(lastMonthStart) && 
-                    user.getCreatedAt().isBefore(currentMonthStart))
-                .mapToLong(user -> 1L)
-                .sum();
+            long lastMonthUsers = userRepository.countByCreatedAtBetween(lastMonthStart, currentMonthStart);
             
             double userGrowthRate = lastMonthUsers > 0 ? 
                 ((currentMonthUsers - lastMonthUsers) * 100.0 / lastMonthUsers) : 0.0;
             
             // Revenue growth rate
             Double lastMonthRevenue = orderRepository.findByOrderDateBetween(lastMonthStart, currentMonthStart).stream()
-                .filter(order -> order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED"))
+                .filter(order -> order.getStatus() != null && (order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED") || order.getStatus().name().equals("PAID")))
                 .mapToDouble(order -> order.getTotal() != null ? order.getTotal() : 0.0)
                 .sum();
             
@@ -88,20 +83,13 @@ public class DashboardService {
                 ((monthRevenue - lastMonthRevenue) * 100.0 / lastMonthRevenue) : 0.0;
             
             // Order status breakdown
-            long pendingOrders = orderRepository.findAll().stream()
-                .filter(order -> order.getStatus().name().equals("PENDING"))
-                .mapToLong(order -> 1L)
-                .sum();
-            
-            long processingOrders = orderRepository.findAll().stream()
-                .filter(order -> order.getStatus().name().equals("PROCESSING"))
-                .mapToLong(order -> 1L)
-                .sum();
-            
-            long completedOrders = orderRepository.findAll().stream()
-                .filter(order -> order.getStatus().name().equals("COMPLETED") || order.getStatus().name().equals("DELIVERED"))
-                .mapToLong(order -> 1L)
-                .sum();
+            long pendingOrders = orderRepository.countByStatus(com.example.stage2025.enums.OrderStatus.PENDING);
+            long processingOrders = orderRepository.countByStatus(com.example.stage2025.enums.OrderStatus.PROCESSING);
+            long shippedOrders = orderRepository.countByStatus(com.example.stage2025.enums.OrderStatus.SHIPPED);
+            long deliveredOrders = orderRepository.countByStatus(com.example.stage2025.enums.OrderStatus.DELIVERED);
+            long cancelledOrders = orderRepository.countByStatus(com.example.stage2025.enums.OrderStatus.CANCELLED);
+            long completedOrders = orderRepository.countByStatus(com.example.stage2025.enums.OrderStatus.COMPLETED)
+                    + deliveredOrders;
             
             // Build comprehensive stats map
             stats.put("totalUsers", totalUsers);
@@ -111,6 +99,9 @@ public class DashboardService {
             stats.put("totalOrders", totalOrders);
             stats.put("pendingOrders", pendingOrders);
             stats.put("processingOrders", processingOrders);
+            stats.put("shippedOrders", shippedOrders);
+            stats.put("deliveredOrders", deliveredOrders);
+            stats.put("cancelledOrders", cancelledOrders);
             stats.put("completedOrders", completedOrders);
             stats.put("totalSuppliers", totalSuppliers);
             stats.put("activeSuppliers", activeSuppliers);
@@ -127,6 +118,69 @@ public class DashboardService {
             stats.put("userGrowthRate", userGrowthRate);
             stats.put("revenueGrowthRate", revenueGrowthRate);
             
+            // Recent paid orders (only PAID)
+            java.util.List<java.util.Map<String, Object>> recentOrders = new java.util.ArrayList<>();
+            orderRepository.findByStatus(com.example.stage2025.enums.OrderStatus.PAID)
+                .stream()
+                .sorted(java.util.Comparator.comparing(com.example.stage2025.entity.Order::getOrderDate).reversed())
+                .limit(10)
+                .forEach(o -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id", o.getId());
+                    String clientName = "";
+                    if (o.getClient() != null) {
+                        String fn = o.getClient().getFirstName() != null ? o.getClient().getFirstName() : "";
+                        String ln = o.getClient().getLastName() != null ? o.getClient().getLastName() : "";
+                        clientName = (fn + " " + ln).trim();
+                    }
+                    m.put("clientName", clientName);
+                    m.put("totalAmount", o.getTotal() != null ? o.getTotal() : 0.0);
+                    m.put("status", o.getStatus() != null ? o.getStatus().name() : "");
+                    m.put("createdAt", o.getOrderDate() != null ? o.getOrderDate() : java.time.LocalDateTime.now());
+                    m.put("itemCount", o.getItems() != null ? o.getItems().size() : 0);
+                    recentOrders.add(m);
+                });
+            stats.put("recentOrders", recentOrders);
+
+            // Low stock products (threshold <= 10)
+            java.util.List<java.util.Map<String, Object>> lowStockProducts = new java.util.ArrayList<>();
+            productRepository.findAll()
+                .stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .filter(p -> {
+                    Integer synced = p.getSyncedStock();
+                    Integer stock = p.getStockQuantity();
+                    if (synced != null) return synced <= 10;
+                    return stock != null && stock <= 10;
+                })
+                .forEach(p -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id", p.getId());
+                    m.put("name", p.getName());
+                    Integer stockVal = p.getSyncedStock() != null ? p.getSyncedStock() : (p.getStockQuantity() != null ? p.getStockQuantity() : 0);
+                    m.put("stock", stockVal);
+                    m.put("supplier", p.getSupplier() != null ? p.getSupplier().getName() : "");
+                    m.put("price", p.getDisplayedPrice() != null ? p.getDisplayedPrice() : 0.0);
+                    lowStockProducts.add(m);
+                });
+            stats.put("lowStockProducts", lowStockProducts);
+
+            // Pending supplier payments (next due)
+            java.util.List<java.util.Map<String, Object>> pendingPayments = new java.util.ArrayList<>();
+            supplierPaymentRepository.findPendingAndProcessing()
+                .stream()
+                .limit(10)
+                .forEach(sp -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id", sp.getId());
+                    m.put("supplier", sp.getSupplier() != null ? sp.getSupplier().getName() : "");
+                    m.put("amount", sp.getTotalAmount() != null ? sp.getTotalAmount() : java.math.BigDecimal.ZERO);
+                    m.put("dueDate", sp.getScheduledDate() != null ? sp.getScheduledDate() : java.time.LocalDateTime.now());
+                    m.put("description", sp.getDescription() != null ? sp.getDescription() : "");
+                    pendingPayments.add(m);
+                });
+            stats.put("pendingPayments", pendingPayments);
+
             // System health
             stats.put("systemStatus", "healthy");
             stats.put("lastUpdated", System.currentTimeMillis());

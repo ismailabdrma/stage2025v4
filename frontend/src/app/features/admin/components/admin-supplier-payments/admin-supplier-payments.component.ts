@@ -11,9 +11,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SupplierPaymentService } from '@core/services/supplier-payment.service';
-import { CreateSupplierPaymentDialogComponent } from '../create-supplier-payment-dialog/create-supplier-payment-dialog.component';
 
 @Component({
   selector: 'app-admin-supplier-payments',
@@ -31,9 +31,10 @@ import { CreateSupplierPaymentDialogComponent } from '../create-supplier-payment
     MatIconModule,
     MatProgressSpinnerModule,
     MatDialogModule,
+    MatMenuModule,
   ],
   templateUrl: './admin-supplier-payments.component.html',
-  styleUrl: './admin-supplier-payments.component.scss',
+  styleUrls: ['./admin-supplier-payments.component.scss'],
 })
 export class AdminSupplierPaymentsComponent implements OnInit {
   private supplierPaymentService = inject(SupplierPaymentService);
@@ -50,7 +51,7 @@ export class AdminSupplierPaymentsComponent implements OnInit {
 
   loadSupplierPayments(): void {
     this.loading = true;
-    this.supplierPaymentService.getAllSupplierPayments().subscribe({
+    this.supplierPaymentService.getAllPayments().subscribe({
       next: (payments) => {
         this.supplierPayments = payments;
         this.loading = false;
@@ -64,14 +65,7 @@ export class AdminSupplierPaymentsComponent implements OnInit {
   }
 
   openCreatePaymentDialog(): void {
-    const dialogRef = this.dialog.open(CreateSupplierPaymentDialogComponent, {
-      width: '500px',
-    });
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.loadSupplierPayments(); // Refresh list after creation
-      }
-    });
+    this.snackBar.open('Create payment dialog not implemented yet', 'Close', { duration: 3000 });
   }
 
   viewPaymentDetails(id: number): void {

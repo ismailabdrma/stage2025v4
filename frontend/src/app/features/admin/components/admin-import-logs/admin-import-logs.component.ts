@@ -19,7 +19,7 @@ import { SupplierService } from '@core/services/supplier.service';
     MatCardModule,
     MatTableModule,
     MatProgressSpinnerModule,
-    MatSnackBar,
+    // Note: MatSnackBar is an injectable service, not a standalone import
     MatFormFieldModule,
     MatSelectModule,
     FormsModule,

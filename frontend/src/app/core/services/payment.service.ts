@@ -6,20 +6,27 @@ import { environment } from '@environments/environment'
 @Injectable({ providedIn: 'root' })
 export class PaymentService {
   private http = inject(HttpClient)
-  private apiUrl = `${environment.apiUrl}/api/orders`
+  private ordersApi = `${environment.apiUrl}/api/orders`
+  private paymentsApi = `${environment.apiUrl}/api/payments`
 
   // Creates an order from cart and returns PaymentIntent clientSecret and orderId
   createOrderAndPayment(addressId: number, shippingFee: number): Observable<{ orderId: number; clientSecret?: string; error?: string }> {
-    return this.http.post<{ orderId: number; clientSecret?: string; error?: string }>(`${this.apiUrl}`, {
+    return this.http.post<{ orderId: number; clientSecret?: string; error?: string }>(`${this.ordersApi}`, {
       addressId,
       shippingFee
     })
   }
 
-  confirmOrderPayment(orderId: number, paymentIntentId: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/${orderId}/confirm-payment`, { paymentIntentId })
+  confirmOrderPayment(orderId: number, paymentIntentId: string): Observable<{ success: boolean; message?: string }> {
+    // Confirm against payments endpoint which verifies with Stripe and sends emails
+    return this.http.post<{ success: boolean; message?: string }>(`${this.paymentsApi}/confirm`, { paymentIntentId })
+  }
+
+  getStripeConfig(): Observable<{ publishableKey: string }> {
+    return this.http.get<{ publishableKey: string }>(`${this.paymentsApi}/config`)
   }
 }
+
 
 
 

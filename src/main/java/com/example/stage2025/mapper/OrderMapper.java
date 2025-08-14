@@ -14,7 +14,9 @@ public class OrderMapper {
         dto.setStatus(order.getStatus().name());
         dto.setShippingStatus(order.getShippingStatus().name());
         dto.setTotal(order.getTotal());
-        dto.setClientEmail(order.getClient().getEmail());
+        try {
+            dto.setClientEmail(order.getClient() != null ? order.getClient().getEmail() : null);
+        } catch (Exception ignored) {}
         try {
             dto.setClientId(order.getClient() != null ? order.getClient().getId() : null);
         } catch (Exception ignored) {}
