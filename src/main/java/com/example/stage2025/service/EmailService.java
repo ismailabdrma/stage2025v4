@@ -2,15 +2,20 @@ package com.example.stage2025.service;
 
 import com.example.stage2025.entity.*;
 import com.example.stage2025.enums.Role;
+import com.example.stage2025.entity.Order;
+import com.example.stage2025.entity.OrderItem;
+
+import java.util.List;
 
 public interface EmailService {
     void sendOtpEmail(String toEmail, String otp, String purpose);
     void sendAdminNewSupplierNotification(Supplier supplier);
     
     // Order-related emails
-    void sendOrderConfirmation(Client client, Order order);
+    void sendOrderConfirmationEmail(String clientEmail, Order order);
     void sendAdminNewOrderNotification(Order order);
     void sendSupplierOrderNotification(Supplier supplier, Order order);
+    void sendSupplierOrderSummary(String supplierEmail, Order order, List<OrderItem> items);
     
     // OTP and verification emails
     void sendEmailVerificationOTP(String email, String otp);

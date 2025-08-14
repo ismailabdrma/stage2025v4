@@ -10,6 +10,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -65,7 +67,7 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    @Override
+  
     public void sendOrderConfirmation(Client client, Order order) {
         try {
             StringBuilder body = new StringBuilder();
@@ -302,5 +304,80 @@ public class EmailServiceImpl implements EmailService {
             log.error("Failed to send payment request to supplier {}: {}", supplier.getContactEmail(), e.getMessage());
         }
     }
-}
+
+    @Override
+    public void sendOrderConfirmationEmail(String clientEmail, Order order) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(resolveFrom());
+            message.setTo(clientEmail);
+            message.setSubject("Order Confirmation - Order #" + order.getOrderNumber());
             
+            StringBuilder body = new StringBuilder();
+            body.append("Dear ").append(order.getClient().getFirstName() != null ? order.getClient().getFirstName() : order.getClient().getUsername()).append(",\n\n");
+            body.append("Thank you for your order #").append(order.getOrderNumber() != null ? order.getOrderNumber() : order.getId()).append(".\n\n");
+
+            // Items breakdown
+            body.append("Items:\n");
+            order.getItems().forEach(item -> body.append(" - ")
+                .append(item.getProduct().getName())
+                .append(" x")
+                .append(item.getQuantity())
+                .append(" @ €")
+                .append(String.format("%.2f", item.getUnitPrice()))
+                .append(" = €")
+                .append(String.format("%.2f", item.getSubtotal()))
+                .append("\n"));
+
+            body.append("\nSubtotal: €").append(String.format("%.2f", order.getSubtotal() != null ? order.getSubtotal() : 0.0)).append("\n");
+            body.append("Shipping: €").append(String.format("%.2f", order.getShippingFee() != null ? order.getShippingFee() : 0.0)).append("\n");
+            body.append("Total: €").append(String.format("%.2f", order.getTotal() != null ? order.getTotal() : 0.0)).append("\n");
+
+            body.append("Payment Status: ").append(order.getStatus() != null ? order.getStatus().name() : "PENDING").append("\n");
+
+            if (order.getDeliveryAddress() != null) {
+                body.append("\nDelivery Address:\n");
+                body.append(order.getDeliveryAddress().getStreet()).append("\n")
+                    .append(order.getDeliveryAddress().getCity()).append(" ")
+                    .append(order.getDeliveryAddress().getZipCode()).append("\n")
+                    .append(order.getDeliveryAddress().getCountry()).append("\n");
+            }
+
+            body.append("\nWe will notify you when your order ships.\n");
+
+            message.setText(body.toString());
+            mailSender.send(message);
+            log.info("Order confirmation email sent successfully to: {}", clientEmail);
+        } catch (Exception e) {
+            log.error("Failed to send order confirmation email to {}: {}", clientEmail, e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendSupplierOrderSummary(String supplierEmail, Order order, List<OrderItem> items) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(resolveFrom());
+        message.setTo(supplierEmail);
+        message.setSubject("New Order Summary - Order #" + order.getOrderNumber());
+        
+        StringBuilder body = new StringBuilder();
+        body.append("You have received a new order. Order details:\n\n");
+        body.append("Order Number: ").append(order.getOrderNumber()).append("\n");
+        body.append("Order Date: ").append(order.getOrderDate()).append("\n\n");
+        body.append("Items:\n");
+        
+        for (OrderItem item : items) {
+            body.append("- ").append(item.getProduct().getName())
+                .append(" (Quantity: ").append(item.getQuantity())
+                .append(", Price: €").append(item.getUnitPrice())
+                .append(")\n");
+        }
+        
+        body.append("\nTotal Amount: €").append(items.stream().mapToDouble(OrderItem::getSubtotal).sum());
+        body.append("\n\nPlease process this order as soon as possible.");
+        
+        message.setText(body.toString());
+        mailSender.send(message);
+        log.info("Supplier order summary sent successfully to: {}", supplierEmail);
+    }
+}

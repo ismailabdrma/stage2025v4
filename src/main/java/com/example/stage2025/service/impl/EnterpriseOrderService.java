@@ -267,20 +267,33 @@ public class EnterpriseOrderService implements OrderService {
     private void sendOrderNotifications(Order order, Map<Supplier, List<CartItem>> itemsBySupplier) {
         try {
             // Send customer confirmation
-            emailService.sendOrderConfirmation(order.getClient(), order);
-            
+            emailService.sendOrderConfirmationEmail(order.getClient().getEmail(), order);
+            log.info("Order confirmation email sent to customer: {}", order.getClient().getEmail());
+
             // Send admin notification
             emailService.sendAdminNewOrderNotification(order);
-            
+            log.info("Order notification email sent to admin");
+
             // Send supplier notifications for each supplier
-            for (Supplier supplier : itemsBySupplier.keySet()) {
+            for (Map.Entry<Supplier, List<CartItem>> entry : itemsBySupplier.entrySet()) {
+                Supplier supplier = entry.getKey();
+                List<CartItem> supplierItems = entry.getValue();
+
                 if (supplier.getContactEmail() != null && !supplier.getContactEmail().isEmpty()) {
-                    emailService.sendSupplierOrderNotification(supplier, order);
+                    try {
+                        emailService.sendSupplierOrderNotification(supplier, order);
+                        log.info("Order notification email sent to supplier: {} ({})", supplier.getName(), supplier.getContactEmail());
+                    } catch (Exception e) {
+                        log.error("Failed to send notification to supplier: {} ({}). Error: {}", 
+                                  supplier.getName(), supplier.getContactEmail(), e.getMessage());
+                    }
+                } else {
+                    log.warn("Skipping notification for supplier {} due to missing contact email", supplier.getName());
                 }
             }
-            
+
             log.info("All order notifications sent for order {}", order.getOrderNumber());
-            
+
         } catch (Exception e) {
             log.error("Failed to send order notifications for order {}: {}", order.getOrderNumber(), e.getMessage());
         }

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,7 +33,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepository cartRepository;
     private final ClientRepository clientRepository;
     private final AddressRepository addressRepository;
-    private final ProductRepository productRepository; // ADD THIS
+    private final ProductRepository productRepository;
     private final EmailService emailService;
     private final SupplierPaymentService supplierPaymentService;
 
@@ -128,7 +129,34 @@ public class OrderServiceImpl implements OrderService {
             supplierPaymentService.createPaymentForOrder(order);
             log.info("Supplier payments created for order {}", order.getId());
         } catch (Exception e) {
-            System.err.println("Failed to create supplier payments for order " + order.getId() + ": " + e.getMessage());
+            log.error("Failed to create supplier payments for order {}: {}", order.getId(), e.getMessage());
+        }
+
+        // Send confirmation email to the client
+        try {
+            emailService.sendOrderConfirmationEmail(client.getEmail(), order);
+            log.info("Order confirmation email sent for order {}", order.getId());
+        } catch (Exception e) {
+            log.error("Failed to send order confirmation email for order {}: {}", order.getId(), e.getMessage());
+        }
+
+        // Send order summary to each supplier
+        try {
+            Map<Supplier, List<OrderItem>> supplierItems = order.getItems().stream()
+                    .collect(Collectors.groupingBy(item -> item.getProduct().getSupplier()));
+
+            for (Map.Entry<Supplier, List<OrderItem>> entry : supplierItems.entrySet()) {
+                Supplier supplier = entry.getKey();
+                List<OrderItem> items = entry.getValue();
+                try {
+                    emailService.sendSupplierOrderSummary(supplier.getContactEmail(), order, items);
+                    log.info("Order summary email sent to supplier {} for order {}", supplier.getId(), order.getId());
+                } catch (Exception e) {
+                    log.error("Failed to send order summary email to supplier {} for order {}: {}", supplier.getId(), order.getId(), e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error processing supplier order summaries for order {}: {}", order.getId(), e.getMessage());
         }
     }
 
@@ -181,5 +209,3 @@ public class OrderServiceImpl implements OrderService {
                 .collect(Collectors.toList());
     }
 }
-
-

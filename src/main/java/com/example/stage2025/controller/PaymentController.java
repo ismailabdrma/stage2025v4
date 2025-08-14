@@ -131,8 +131,8 @@ public class PaymentController {
                         java.util.Optional<Order> orderOpt = orderRepository.findById(oid);
                         if (orderOpt.isPresent()) {
                             Order order = orderOpt.get();
-                            // Send confirmation emails now that payment is succeeded
-                            emailService.sendOrderConfirmation(order.getClient(), order);
+                            // Send confirmation email now that payment is succeeded
+                            emailService.sendOrderConfirmationEmail(order.getClient().getEmail(), order);
                             emailService.sendAdminNewOrderNotification(order);
                             order.getItems().forEach(i -> {
                                 Supplier s = i.getProduct().getSupplier();
@@ -141,13 +141,17 @@ public class PaymentController {
                                 }
                             });
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        log.error("Error sending confirmation emails: {}", e.getMessage());
+                    }
                 }
 
                 // Mark payment record as PAID if it exists
                 try {
                     paymentService.updatePaymentStatusByTransactionRef(paymentIntent.getId(), "PAID");
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.error("Error updating payment status: {}", e.getMessage());
+                }
 
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", true);
@@ -265,7 +269,7 @@ public class PaymentController {
                         if (orderOpt.isPresent()) {
                             Order order = orderOpt.get();
                             // Send confirmation emails after webhook confirms success (idempotent)
-                            emailService.sendOrderConfirmation(order.getClient(), order);
+                            emailService.sendOrderConfirmationEmail(order.getClient().getEmail(), order);
                             emailService.sendAdminNewOrderNotification(order);
                             order.getItems().forEach(i -> {
                                 Supplier s = i.getProduct().getSupplier();
