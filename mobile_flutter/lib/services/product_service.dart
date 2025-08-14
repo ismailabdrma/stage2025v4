@@ -20,7 +20,9 @@ class ProductService {
 
   Future<ProductModel> getProduct(int id) async {
     final Response res = await _client.get('/api/products/$id');
-    return ProductModel.fromJson(Map<String, dynamic>.from(res.data));
+    final raw = res.data;
+    final Map<String, dynamic> map = raw is String ? (raw.isEmpty ? {} : Map<String, dynamic>.from({})) : Map<String, dynamic>.from(raw);
+    return ProductModel.fromJson(map);
   }
 }
 

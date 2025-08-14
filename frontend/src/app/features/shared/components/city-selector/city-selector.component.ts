@@ -104,3 +104,4 @@ export class CitySelectorComponent {
   confirm(): void { this.dialogRef.close({ city: this.query }); }
   close(): void { this.dialogRef.close(); }
 }
+

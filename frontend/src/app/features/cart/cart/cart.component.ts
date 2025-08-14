@@ -118,3 +118,5 @@ export class CartComponent implements OnInit, OnDestroy {
     this.router.navigate(['/checkout']);
   }
 }
+  
+

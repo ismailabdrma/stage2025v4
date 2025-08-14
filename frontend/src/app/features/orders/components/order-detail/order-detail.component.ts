@@ -258,3 +258,5 @@ export class OrderDetailComponent implements OnInit {
     URL.revokeObjectURL(url);
   }
 }
+
+

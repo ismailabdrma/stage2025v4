@@ -274,19 +274,19 @@ public class OrderController {
             Map.of(
                 "status", "CREATED",
                 "timestamp", "2024-01-15T10:00:00Z",
-                "description", "Commande créée",
+                "description", "Commande cr\u00E9\u00E9e",
                 "icon", "shopping_cart"
             ),
             Map.of(
                 "status", "PAID",
                 "timestamp", "2024-01-15T10:05:00Z",
-                "description", "Paiement confirmé",
+                "description", "Paiement confirm\u00E9",
                 "icon", "payment"
             ),
             Map.of(
                 "status", "PROCESSING",
                 "timestamp", "2024-01-15T14:00:00Z",
-                "description", "Commande en préparation",
+                "description", "Commande en pr\u00E9paration",
                 "icon", "package"
             )
         );

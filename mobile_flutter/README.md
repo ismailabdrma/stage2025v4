@@ -13,26 +13,43 @@ cd mobile_flutter
 flutter create .
 # Install dependencies
 flutter pub get
-# Configure API base URL (default http://10.0.2.2:8082)
+# Configure API base URL (default http://10.0.2.2:8080)
 # Edit: lib/config/environment.dart
 # Run on Chrome (Web) or on a device
 flutter run -d chrome
 ```
 
+## Configure backend URL
+Edit `lib/config/environment.dart` and set `EnvironmentConfig.apiUrl` to your backend base URL.
+- Android emulator → `http://10.0.2.2:8080` maps to host `http://localhost:8080`.
+- iOS simulator → use `http://localhost:8080` directly.
+
 ## What’s included (MVP)
 - Auth: login (admin = direct JWT; user = OTP verification step)
-- Products: list and detail with image proxy/base64 support
-- Simple in-memory cart placeholder (extend as needed)
+- Products: list and detail
+- Cart: view/update/remove items
+- Orders: list and detail
+- Skeleton Checkout screen (Stripe mobile flow TBD)
 
 ## Structure
 - `lib/config/environment.dart` – API base URL
-- `lib/models/` – Product, User
-- `lib/services/` – Api client, AuthService, ProductService
+- `lib/models/` – Product
+- `lib/services/` – ApiClient (Dio), AuthService, ProductService
 - `lib/providers/` – AuthProvider, ProductsProvider
 - `lib/screens/` – Login, OTP Verify, Products List, Product Detail
 - `lib/widgets/` – ProductCard
 
-Extend progressively to orders, payments, and admin features.
+Extend progressively to cart/checkout and admin features.
+
+## New Routes
+- `/products` – product list
+- `/product` – product detail (expects a `ProductModel` argument)
+- `/cart` – cart screen (view/update/remove)
+- `/checkout` – checkout placeholder (receives `CartModel`)
+- `/orders` – my orders list
+- `/order` – order detail (expects orderId)
+- `/profile` – profile and addresses (placeholder)
+- `/wishlist` – wishlist (placeholder)
 
 
 

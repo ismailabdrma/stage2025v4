@@ -26,4 +26,6 @@ public class OrderDto {
     private Long clientId;
     private ShippingAddressDto shippingAddress;
     private List<OrderItemDto> items;
+
+
 }
