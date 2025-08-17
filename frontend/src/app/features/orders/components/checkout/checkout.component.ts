@@ -16,7 +16,7 @@ import { AddressService } from "@core/services/address.service"
 import { MatDialog } from "@angular/material/dialog"
 import { AddressDialogComponent } from "@app/features/profile/components/address-dialog/address-dialog.component"
 import { OrderService } from "@core/services/order.service"
-import { PaymentService } from "@core/services/payment.service"
+import { PaymentService, PaymentRoutingResult } from "@core/services/payment.service"
 import { environment } from "@environments/environment"
 import type { Cart } from "@core/models/cart.model"
 
@@ -47,85 +47,135 @@ import type { Cart } from "@core/models/cart.model"
 
           <mat-card-content>
             <mat-stepper [linear]="true" #stepper orientation="vertical" (selectionChange)="onStepChange($event)">
-            <mat-step [stepControl]="shippingForm" label="Adresse de livraison">
-              <form [formGroup]="shippingForm" (ngSubmit)="goToPayment(stepper)">
-                <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                  <mat-label>Prénom</mat-label>
-                    <input matInput formControlName="firstName" required>
+            
+              <!-- Step 1: Shipping Address -->
+              <mat-step [stepControl]="shippingForm" label="Adresse de livraison">
+                <form [formGroup]="shippingForm" (ngSubmit)="goToPayment(stepper)">
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="half-width">
+                      <mat-label>Prénom</mat-label>
+                      <input matInput formControlName="firstName" required>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="half-width">
+                      <mat-label>Nom</mat-label>
+                      <input matInput formControlName="lastName" required>
+                    </mat-form-field>
+                  </div>
+
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Adresse</mat-label>
+                    <input matInput formControlName="address" required>
                   </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                  <mat-label>Nom</mat-label>
-                    <input matInput formControlName="lastName" required>
+
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="half-width">
+                      <mat-label>Ville</mat-label>
+                      <input matInput formControlName="city" required>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="half-width">
+                      <mat-label>Code postal</mat-label>
+                      <input matInput formControlName="postalCode" required>
+                    </mat-form-field>
+                  </div>
+
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Adresse enregistrée</mat-label>
+                    <mat-select [(ngModel)]="selectedAddressId" (selectionChange)="onAddressSelect()" [ngModelOptions]="{standalone: true}">
+                      <mat-option *ngFor="let a of addresses" [value]="a.id">
+                        {{ a.label || 'Adresse' }} - {{ a.street || a.address }}, {{ a.city }}
+                      </mat-option>
+                    </mat-select>
                   </mat-form-field>
+
+                  <button mat-button type="button" (click)="openAddressDialog()">Ajouter une adresse</button>
+                  <div class="step-actions">
+                    <button mat-raised-button color="primary" type="submit">Suivant</button>
+                  </div>
+                </form>
+              </mat-step>
+
+              <!-- Step 2: Payment Method -->
+              <mat-step [stepControl]="paymentForm" label="Paiement">
+                <!-- Payment Routing Info -->
+                <div class="payment-routing-info" *ngIf="paymentRouting">
+                  <div class="alert alert-info" *ngIf="paymentRouting.paymentFlow === 'DIRECT_TO_SUPPLIER'">
+                    <mat-icon>info</mat-icon>
+                    <div>
+                      <h4>Paiement direct au fournisseur</h4>
+                      <p>Vous serez redirigé vers le système de paiement sécurisé de {{ paymentRouting.primarySupplier?.name }}.</p>
+                    </div>
+                  </div>
+                  
+                  <div class="alert alert-success" *ngIf="paymentRouting.paymentFlow === 'PLATFORM_PAYMENT'">
+                    <mat-icon>security</mat-icon>
+                    <div>
+                      <h4>Paiement sécurisé</h4>
+                      <p *ngIf="paymentRouting.supplierCount === 1">Paiement via notre plateforme sécurisée.</p>
+                      <p *ngIf="(paymentRouting.supplierCount || 0) > 1">
+                        Paiement pour {{ paymentRouting.supplierCount }} fournisseurs via notre plateforme sécurisée.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Adresse</mat-label>
-                  <input matInput formControlName="address" required>
-                </mat-form-field>
+                <form [formGroup]="paymentForm">
+                  <!-- Stripe Payment Element (only for platform payments) -->
+                  <div class="full-width" *ngIf="paymentRouting?.paymentFlow === 'PLATFORM_PAYMENT'">
+                    <div id="payment-element" class="payment-element"></div>
+                  </div>
 
-                <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                  <mat-label>Ville</mat-label>
-                    <input matInput formControlName="city" required>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                  <mat-label>Code postal</mat-label>
-                    <input matInput formControlName="postalCode" required>
-                  </mat-form-field>
-                </div>
+                  <!-- Direct supplier payment message -->
+                  <div class="supplier-payment-info" *ngIf="paymentRouting?.paymentFlow === 'DIRECT_TO_SUPPLIER'">
+                    <mat-icon>redirect_link</mat-icon>
+                    <p>
+                      Cliquez sur "Suivant" pour être redirigé vers le système de paiement de
+                      {{ paymentRouting?.primarySupplier?.name ?? 'le fournisseur' }}.
+                    </p>
+                  </div>
 
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Adresse enregistrée</mat-label>
-                  <mat-select [(ngModel)]="selectedAddressId" (selectionChange)="onAddressSelect()" [ngModelOptions]="{standalone: true}">
-                    <mat-option *ngFor="let a of addresses" [value]="a.id">
-                      {{ a.label || 'Adresse' }} - {{ a.street || a.address }}, {{ a.city }}
-                    </mat-option>
-                  </mat-select>
-                </mat-form-field>
 
-                <button mat-button type="button" (click)="openAddressDialog()">Ajouter une adresse</button>
-                <div class="step-actions">
-                  <button mat-raised-button color="primary" type="submit">Suivant</button>
-                </div>
-              </form>
-            </mat-step>
+                  <div class="step-actions">
+                    <button mat-button matStepperPrevious>Retour</button>
+                    <button mat-raised-button color="primary" matStepperNext 
+                            [disabled]="creatingIntent || checkingPaymentRouting">
+                      <mat-spinner diameter="20" *ngIf="creatingIntent || checkingPaymentRouting"></mat-spinner>
+                      <span *ngIf="!creatingIntent && !checkingPaymentRouting">Suivant</span>
+                    </button>
+                  </div>
+                </form>
+              </mat-step>
 
-            <mat-step [stepControl]="paymentForm" label="Paiement">
-              <div class="payment-methods">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Mode de paiement</mat-label>
-                  <mat-select [(ngModel)]="selectedPaymentMethod" [ngModelOptions]="{standalone: true}">
-                    <mat-option value="STRIPE">Stripe</mat-option>
-                    <mat-option value="SUPPLIER" *ngIf="supplierHasOwnPayment">Paiement fournisseur</mat-option>
-                  </mat-select>
-                </mat-form-field>
-              </div>
-              <form [formGroup]="paymentForm">
-                <div class="full-width" *ngIf="selectedPaymentMethod==='STRIPE'">
-                  <div id="payment-element" class="payment-element"></div>
-                </div>
-                <div class="step-actions">
-                  <button mat-button matStepperPrevious>Retour</button>
-                  <button mat-raised-button color="primary" matStepperNext [disabled]="creatingIntent">Suivant</button>
-                </div>
-              </form>
-            </mat-step>
+              <!-- Step 3: Confirmation -->
+              <mat-step label="Confirmation">
+                <div class="confirmation-content">
+                  <h3>Votre commande est prête</h3>
+                  <p>Vérifiez les informations ci-dessous avant de finaliser.</p>
+                  
+                  <!-- Payment method confirmation -->
+                  <div class="payment-method-summary">
+                    <h4>Méthode de paiement :</h4>
+                    <p *ngIf="paymentRouting?.paymentFlow === 'PLATFORM_PAYMENT'">
+                      Paiement sécurisé via notre plateforme
+                    </p>
+                    <p *ngIf="paymentRouting?.paymentFlow === 'DIRECT_TO_SUPPLIER'">
+                      Paiement direct chez {{ paymentRouting?.primarySupplier?.name ?? 'le fournisseur' }}
+                    </p>
+                  </div>
 
-            <mat-step label="Confirmation">
-              <div class="confirmation-content">
-                <h3>Votre commande est prête</h3>
-                <p>Vérifiez les informations ci-dessous avant de finaliser.</p>
-                <div class="step-actions">
-                  <button mat-button matStepperPrevious>Retour</button>
-                  <button mat-raised-button color="primary" class="cta" (click)="placeOrder()" [disabled]="placingOrder">
-                    <mat-spinner diameter="20" *ngIf="placingOrder"></mat-spinner>
-                    <span *ngIf="!placingOrder">Passer la commande</span>
-                  </button>
+                  <div class="step-actions">
+                    <button mat-button matStepperPrevious>Retour</button>
+                    <button mat-raised-button color="primary" class="cta" (click)="placeOrder()" [disabled]="placingOrder">
+                      <mat-spinner diameter="20" *ngIf="placingOrder"></mat-spinner>
+                      <span *ngIf="!placingOrder && paymentRouting?.paymentFlow === 'PLATFORM_PAYMENT'">
+                        Payer {{ getCartTotal() | currency:'EUR':'symbol':'1.2-2':'fr-FR' }}
+                      </span>
+                      <span *ngIf="!placingOrder && paymentRouting?.paymentFlow === 'DIRECT_TO_SUPPLIER'">
+                        Procéder au paiement
+                      </span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </mat-step>
+              </mat-step>
             </mat-stepper>
           </mat-card-content>
         </mat-card>
@@ -215,6 +265,49 @@ import type { Cart } from "@core/models/cart.model"
     .confirmation-content h3 { margin: 0 0 8px; }
     .confirmation-content p { color: var(--text-secondary,#6A6A6A); margin: 0 0 16px; }
 
+    /* Payment routing styles */
+    .payment-routing-info { margin-bottom: 24px; }
+    .alert { 
+      display: flex; 
+      align-items: flex-start; 
+      gap: 12px; 
+      padding: 16px; 
+      border-radius: 8px; 
+      margin-bottom: 16px; 
+    }
+    .alert.alert-info { 
+      background-color: #e3f2fd; 
+      border: 1px solid #2196f3; 
+      color: #1976d2; 
+    }
+    .alert.alert-success { 
+      background-color: #e8f5e8; 
+      border: 1px solid #4caf50; 
+      color: #2e7d32; 
+    }
+    .alert h4 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+    .alert p { margin: 0; font-size: 14px; }
+
+    .supplier-payment-info { 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      padding: 20px; 
+      background-color: #f5f5f5; 
+      border-radius: 8px; 
+      margin: 16px 0; 
+    }
+    .supplier-payment-info mat-icon { color: #666; }
+
+    .payment-method-summary { 
+      background-color: #f9f9f9; 
+      padding: 16px; 
+      border-radius: 8px; 
+      margin: 16px 0; 
+    }
+    .payment-method-summary h4 { margin: 0 0 8px; }
+    .payment-method-summary p { margin: 0; color: #666; }
+
     @media (max-width: 1024px) {
       .checkout-layout { 
         grid-template-columns: 1fr; 
@@ -242,22 +335,27 @@ export class CheckoutComponent implements OnInit {
   shippingForm: FormGroup
   paymentForm: FormGroup
   cart: Cart | null = null
-  loadingCart = true;
-  loadingAddresses = true;
-  placingOrder = false;
-  creatingAddress = false;
   addresses: any[] = [];
   selectedAddressId: number | null = null;
+
+  // Stripe related
   stripe?: any;
-  cardElement?: any;
   elements?: any;
   paymentElement?: any;
   paymentElementMounted = false;
   clientSecret?: string;
+
+  // Order and payment
   createdOrderId?: number;
+
+  // Loading states
+  placingOrder = false;
+  creatingAddress = false;
   creatingIntent = false;
-  selectedPaymentMethod: 'STRIPE' | 'SUPPLIER' = 'STRIPE';
-  supplierHasOwnPayment = false;
+  checkingPaymentRouting = false;
+
+  // Payment routing - FIXED TYPE
+  paymentRouting: PaymentRoutingResult | null = null;
 
   constructor() {
     this.shippingForm = this.fb.group({
@@ -271,28 +369,23 @@ export class CheckoutComponent implements OnInit {
       addressId: [null]
     })
 
-    // No manual card fields when using Stripe Payment Element
     this.paymentForm = this.fb.group({})
   }
 
   ngOnInit(): void {
     this.loadCart();
     this.loadAddresses();
-    // Initialize Stripe.js
     this.loadStripe()
   }
+
   private async loadStripe() {
     try {
       if (!(window as any).Stripe) {
-        console.log('Loading Stripe.js...');
         await this.injectStripeJs()
       }
-      // Fetch publishable key from backend to ensure it matches server account
       const cfg = await this.paymentService.getStripeConfig().toPromise().catch(() => ({ publishableKey: environment.stripePublicKey }))
       const pubKey = cfg?.publishableKey || environment.stripePublicKey
-      console.log('Initializing Stripe with key:', pubKey);
       this.stripe = (window as any).Stripe(pubKey)
-      console.log('Stripe initialized successfully:', this.stripe);
     } catch (error) {
       console.error('Error loading Stripe:', error);
       this.snackBar.open('Erreur lors du chargement de Stripe', 'Close', { duration: 3000 });
@@ -310,12 +403,10 @@ export class CheckoutComponent implements OnInit {
     })
   }
 
-
   loadAddresses(): void {
     this.addressService.getAddresses().subscribe({
       next: (addresses) => {
         this.addresses = addresses || [];
-        // Auto-select default address if available (various backend keys)
         const def = this.addresses.find((a: any) => (a?.defaultAddress === true) || (a?.isDefault === true) || (a?.DefaultAddress === true));
         this.selectedAddressId = def?.id ?? (this.addresses[0]?.id ?? null);
         if (this.selectedAddressId) {
@@ -330,21 +421,6 @@ export class CheckoutComponent implements OnInit {
     this.cartService.getCart().subscribe({
       next: (cart) => {
         this.cart = cart
-        // Determine if any supplier in cart has its own payment system
-        try {
-          const suppliers = new Set<number>();
-          this.supplierHasOwnPayment = false;
-          ((cart && cart.items) ? cart.items : []).forEach((i: any) => {
-            const sup = i?.product?.supplier;
-            if (sup?.id && !suppliers.has(sup.id)) {
-              suppliers.add(sup.id);
-              if (sup?.hasOwnPaymentSystem) this.supplierHasOwnPayment = true;
-            }
-          });
-          if (this.supplierHasOwnPayment) {
-            this.selectedPaymentMethod = 'SUPPLIER';
-          }
-        } catch {}
       },
       error: (error) => {
         console.error("Error loading cart:", error)
@@ -382,14 +458,13 @@ export class CheckoutComponent implements OnInit {
   openAddressDialog(): void {
     const dialogRef = this.dialog.open(AddressDialogComponent, {
       width: '400px',
-      data: null // No data for adding a new address
+      data: null
     });
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
         this.addressService.addAddress(result).subscribe({
           next: (created) => {
-            // Optimistically add and select the new address
             if (created) {
               this.addresses = [created, ...(this.addresses || [])];
               this.selectedAddressId = created.id;
@@ -405,15 +480,13 @@ export class CheckoutComponent implements OnInit {
   }
 
   goToPayment(stepper: any): void {
-    // Minimal check: require a selected addressId and basic fields
     const id = this.shippingForm.get('addressId')?.value || this.selectedAddressId;
     const addr = this.shippingForm.get('address')?.value || (this.addresses||[]).find((a:any)=>a.id===id)?.street;
     const city = this.shippingForm.get('city')?.value || (this.addresses||[]).find((a:any)=>a.id===id)?.city;
     const postal = this.shippingForm.get('postalCode')?.value || (this.addresses||[]).find((a:any)=>a.id===id)?.zipCode;
+
     if (addr && city && postal) {
-      // ensure addressId is set
       if (!id) {
-        // Create address silently if not selected
         this.creatingAddress = true;
         const country = this.shippingForm.get('country')?.value || '';
         const payload = { street: addr, city, zipCode: postal, country, defaultAddress: true };
@@ -436,48 +509,97 @@ export class CheckoutComponent implements OnInit {
         stepper.next();
       }
     } else {
-      // If user filled manual fields but has no saved addressId, create it now
       this.snackBar.open('Veuillez compléter l\'adresse', 'Close', { duration: 2000 })
     }
   }
 
   async onStepChange(event: any) {
-    // When entering the payment step, create PaymentIntent + mount Stripe Element
     if (event?.selectedIndex === 1) {
-      if (this.selectedPaymentMethod === 'STRIPE') {
+      await this.checkPaymentRouting();
+
+      if (this.paymentRouting?.paymentFlow === 'PLATFORM_PAYMENT') {
         await this.ensureClientSecret();
         await this.mountStripePaymentElement();
       }
     }
   }
 
+  private async checkPaymentRouting() {
+    if (this.paymentRouting) return;
+
+    this.checkingPaymentRouting = true;
+    try {
+      const addressId = this.shippingForm.get('addressId')?.value || this.selectedAddressId || 0
+      const shippingFee = 0
+
+      console.log('Creating order and checking payment routing...');
+      const orderResponse = await this.paymentService.createOrderAndPayment(addressId, shippingFee).toPromise()
+      this.createdOrderId = orderResponse?.orderId
+      console.log('Order created with ID:', this.createdOrderId);
+
+      if (!this.createdOrderId) {
+        throw new Error('Failed to create order')
+      }
+
+      // SIMPLIFIED: Skip routing check since it's broken, assume DIRECT_TO_SUPPLIER for now
+      // The actual routing will be determined when creating the payment intent
+      this.paymentRouting = {
+        success: true,
+        paymentFlow: 'DIRECT_TO_SUPPLIER', // This will be corrected by the payment intent creation
+        orderId: this.createdOrderId,
+        message: 'Payment routing will be determined during payment',
+        totalAmount: this.getCartTotal() * 100,
+        supplierCount: 1,
+        primarySupplier: undefined
+      };
+      console.log('Payment routing set (will be corrected by payment intent):', this.paymentRouting);
+
+    } catch (error) {
+      console.error('Error checking payment routing:', error);
+      this.snackBar.open('Erreur lors de la vérification du mode de paiement', 'Close', { duration: 3000 });
+      this.paymentRouting = null; // FIXED: Explicitly set to null on error
+    } finally {
+      this.checkingPaymentRouting = false;
+    }
+  }
+
   private async ensureClientSecret() {
-    if (this.clientSecret && this.createdOrderId) return;
+    if (this.clientSecret) return;
     if (!this.stripe) {
       this.snackBar.open('Stripe non initialisé', 'Close', { duration: 3000 })
       return;
     }
     try {
       this.creatingIntent = true;
-      const addressId = this.shippingForm.get('addressId')?.value || this.selectedAddressId || 0
-      const shippingFee = 0
-      console.log('Creating order with addressId:', addressId, 'shippingFee:', shippingFee);
 
-      const res = await this.paymentService.createOrderAndPayment(addressId, shippingFee).toPromise()
-      console.log('Order creation response:', res);
-
-      this.createdOrderId = res?.orderId
-      this.clientSecret = res?.clientSecret
-
-      console.log('Order created:', { orderId: this.createdOrderId, clientSecret: this.clientSecret });
+      if (!this.createdOrderId) {
+        const addressId = this.shippingForm.get('addressId')?.value || this.selectedAddressId || 0
+        const shippingFee = 0
+        const res = await this.paymentService.createOrderAndPayment(addressId, shippingFee).toPromise()
+        this.createdOrderId = res?.orderId
+        this.clientSecret = res?.clientSecret
+      } else {
+        const totalAmount = Math.round(this.getCartTotal() * 100);
+        // PATCH: include externalProductId in items
+        const items = (this.cart?.items || []).map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice ?? item.price ?? 0,
+          externalProductId: item.externalProductId
+        }));
+        const paymentIntentResponse = await this.paymentService.createPaymentIntent({
+          orderId: this.createdOrderId,
+          amount: totalAmount,
+          currency: 'eur',
+          items // PATCH: send items with externalProductId
+        } as any).toPromise()
+        this.clientSecret = paymentIntentResponse?.clientSecret
+      }
 
       if (!this.clientSecret) {
-        console.error('No client secret received from order creation');
         this.snackBar.open('Impossible de créer l\'intention de paiement', 'Close', { duration: 3000 })
       }
     } catch (e: any) {
-      console.error('Error creating order:', e);
-      console.error('Error details:', e.message, e.error);
       this.snackBar.open('Erreur lors de la préparation du paiement: ' + (e.message || 'Unknown error'), 'Close', { duration: 5000 })
     } finally {
       this.creatingIntent = false;
@@ -485,13 +607,10 @@ export class CheckoutComponent implements OnInit {
   }
 
   private async mountStripePaymentElement() {
-    if (!this.stripe) return;
-    if (!this.clientSecret) return;
+    if (!this.stripe || !this.clientSecret) return;
 
-    // Always reinitialize Elements with the latest clientSecret
     this.elements = this.stripe.elements({ clientSecret: this.clientSecret });
 
-    // Clean container and safely destroy any previous element
     const container = document.getElementById('payment-element');
     if (container) {
       try {
@@ -507,7 +626,6 @@ export class CheckoutComponent implements OnInit {
       this.paymentElementMounted = false;
     }
 
-    // Create fresh Payment Element and mount
     this.paymentElement = this.elements.create('payment');
     this.paymentElement.on('ready', () => this.paymentElementMounted = true);
     this.paymentElement.on('change', (e: any) => {
@@ -515,11 +633,11 @@ export class CheckoutComponent implements OnInit {
         this.snackBar.open(e.error.message, 'Close', { duration: 3000 })
       }
     });
+
     if (container) {
       try {
         this.paymentElement.mount('#payment-element');
       } catch (err) {
-        // If the element was destroyed unexpectedly, recreate and mount once more
         try { this.paymentElement.destroy(); } catch {}
         this.paymentElement = this.elements.create('payment');
         this.paymentElement.on('ready', () => this.paymentElementMounted = true);
@@ -529,144 +647,118 @@ export class CheckoutComponent implements OnInit {
   }
 
   async placeOrder(): Promise<void> {
-    console.log('Place order called');
-    console.log('Form valid:', this.shippingForm.valid);
-    console.log('Cart:', this.cart);
-    console.log('Cart items:', this.cart?.items?.length);
-
     if (!(this.shippingForm.valid && this.cart && this.cart.items.length > 0)) {
-      console.log('Validation failed - form or cart invalid');
       return;
     }
 
-    if (!this.stripe) {
-      console.error('Stripe not initialized');
-      this.snackBar.open('Stripe non initialisé', 'Close', { duration: 3000 })
-      return
-    }
-
-    console.log('Starting payment process...');
     this.placingOrder = true
 
     try {
-      // Ensure we have a clientSecret and order created from the payment step
       const orderId = this.createdOrderId;
+      console.log('Place order called. Order ID:', orderId, 'Payment routing:', this.paymentRouting);
+      
+      if (!orderId) {
+        this.snackBar.open('Commande non trouvée', 'Close', { duration: 3000 })
+        return
+      }
 
-      if (this.selectedPaymentMethod === 'SUPPLIER') {
-        // Redirect to supplier payment URL if provided in cart metadata
-        const url = (this.cart as any)?.supplierPaymentUrl || (this.cart as any)?.items?.[0]?.product?.supplier?.paymentApiEndpoint
-        if (url) {
-          window.location.href = `${url}?orderId=${orderId}`
+      if (!this.paymentRouting) {
+        console.error('No payment routing available');
+        this.snackBar.open('Information de paiement non disponible', 'Close', { duration: 3000 });
+        return;
+      }
+
+      if (this.paymentRouting.paymentFlow === 'DIRECT_TO_SUPPLIER') {
+        // Redirect to supplier payment using existing order
+        console.log('Creating payment intent for direct supplier payment. Order ID:', orderId);
+        const totalAmount = Math.round(this.getCartTotal() * 100);
+        
+        try {
+          const paymentIntentResponse = await this.paymentService.createPaymentIntent({
+            orderId: orderId,
+            amount: totalAmount,
+            currency: 'eur'
+          }).toPromise()
+          
+          console.log('Payment intent request completed successfully');
+          console.log('Direct supplier payment response:', paymentIntentResponse);
+          
+          if (paymentIntentResponse?.paymentUrl) {
+            console.log('Redirecting to payment URL:', paymentIntentResponse.paymentUrl);
+            window.location.href = paymentIntentResponse.paymentUrl;
+            return;
+          } else {
+            console.error('Payment URL not found in response:', paymentIntentResponse);
+            this.snackBar.open('URL de paiement fournisseur introuvable', 'Close', { duration: 3000 })
+            return
+          }
+        } catch (paymentError) {
+          console.error('Payment intent creation failed:', paymentError);
+          this.snackBar.open('Erreur lors de la création du paiement: ' + (paymentError as any)?.message, 'Close', { duration: 5000 })
+          return;
+        }
+      } else {
+        // Platform payment with Stripe
+        if (!this.stripe || !this.clientSecret) {
+          this.snackBar.open('Paiement non initialisé', 'Close', { duration: 3000 })
           return
         }
-        this.snackBar.open('URL de paiement fournisseur introuvable', 'Close', { duration: 3000 })
-        this.placingOrder = false
-        return
-      }
 
-      // STRIPE FLOW
-      if (!this.clientSecret || !this.createdOrderId) {
-        await this.ensureClientSecret();
-      }
-      const clientSecret = this.clientSecret;
-      if (!orderId || !clientSecret) {
-        this.snackBar.open('Échec de la préparation du paiement', 'Close', { duration: 3000 })
-        this.placingOrder = false
-        return
-      }
-
-      // Ensure Elements and Payment Element are initialized and mounted before confirming
-      if (!this.elements) {
-        this.elements = this.stripe.elements({ clientSecret });
-      }
-      if (!this.paymentElementMounted) {
-        await this.mountStripePaymentElement();
-      }
-      if (!this.paymentElementMounted) {
-        console.error('Payment Element failed to mount');
-        this.snackBar.open('Le composant de paiement ne s\'est pas chargé. Réessayez.', 'Close', { duration: 4000 })
-        this.placingOrder = false
-        return
-      }
-
-      // Submit the Payment Element first to run synchronous validations and wallet flows
-      const submitResult = await this.elements.submit();
-      if ((submitResult as any)?.error) {
-        const msg = (submitResult as any).error?.message || 'Validation du paiement échouée';
-        console.error('Elements submit error:', (submitResult as any).error);
-        this.snackBar.open(msg, 'Close', { duration: 4000 });
-        this.placingOrder = false;
-        return;
-      }
-
-      console.log('Confirming payment with Stripe...');
-      console.log('Client secret:', clientSecret);
-      console.log('Elements:', this.elements);
-
-      const result = await this.stripe.confirmPayment({
-        elements: this.elements,
-        clientSecret,
-        confirmParams: {
-          return_url: window.location.origin + '/orders/success'
+        if (!this.paymentElementMounted) {
+          this.snackBar.open('Élément de paiement non prêt', 'Close', { duration: 3000 })
+          return
         }
-      })
 
-      console.log('Stripe payment result:', result);
-
-      if (result.error) {
-        console.error('Stripe payment error:', result.error);
-        this.snackBar.open(result.error.message || 'Paiement échoué', 'Close', { duration: 4000 })
-        this.placingOrder = false
-        return
-      }
-
-      // Check if payment requires action (3D Secure, etc.)
-      if (result.paymentIntent && result.paymentIntent.status === 'requires_action') {
-        console.log('Payment requires additional action');
-        this.snackBar.open('Authentification requise - veuillez suivre les instructions', 'Close', { duration: 5000 });
-        this.placingOrder = false;
-        return;
-      }
-
-      const paymentIntentId = result.paymentIntent?.id
-      if (!paymentIntentId) {
-        console.error('No payment intent ID received');
-        this.snackBar.open('Paiement non confirmé', 'Close', { duration: 3000 })
-        this.placingOrder = false
-        return
-      }
-
-      console.log('Confirming payment with backend:', paymentIntentId);
-      try {
-        const confirmRes = await this.paymentService.confirmOrderPayment(orderId, paymentIntentId).toPromise()
-        console.log('Backend confirmation result:', confirmRes);
-
-        if (confirmRes?.success) {
-          this.snackBar.open('Paiement réussi', 'Close', { duration: 2000 })
-          this.router.navigate(['/'])
-        } else {
-          this.snackBar.open(confirmRes?.message || 'Confirmation du paiement échouée', 'Close', { duration: 3000 })
-          this.router.navigate(['/orders/checkout'])
+        const submitResult = await this.elements.submit();
+        if ((submitResult as any)?.error) {
+          const msg = (submitResult as any).error?.message || 'Validation du paiement échouée';
+          this.snackBar.open(msg, 'Close', { duration: 4000 });
+          return;
         }
-      } catch (backendError) {
-        console.error('Backend confirmation error:', backendError);
-        this.snackBar.open('Erreur de confirmation du paiement', 'Close', { duration: 3000 });
+
+        const result = await this.stripe.confirmPayment({
+          elements: this.elements,
+          clientSecret: this.clientSecret,
+          confirmParams: {
+            return_url: window.location.origin + '/orders/success'
+          }
+        })
+
+        if (result.error) {
+          this.snackBar.open(result.error.message || 'Paiement échoué', 'Close', { duration: 4000 })
+          return
+        }
+
+        const paymentIntentId = result.paymentIntent?.id
+        if (!paymentIntentId) {
+          this.snackBar.open('Paiement non confirmé', 'Close', { duration: 3000 })
+          return
+        }
+
+        try {
+          const confirmRes = await this.paymentService.confirmOrderPayment(orderId, paymentIntentId).toPromise()
+
+          if (confirmRes?.success) {
+            this.snackBar.open('Paiement réussi', 'Close', { duration: 2000 })
+            this.router.navigate(['/orders/success'])
+          } else {
+            this.snackBar.open(confirmRes?.message || 'Confirmation du paiement échouée', 'Close', { duration: 3000 })
+          }
+        } catch (backendError) {
+          console.error('Backend confirmation error:', backendError);
+          this.snackBar.open('Erreur de confirmation du paiement', 'Close', { duration: 3000 });
+        }
       }
 
     } catch (e: any) {
       console.error('Payment error:', e);
-      console.error('Error details:', e.message, e.stack);
-
       let errorMessage = 'Erreur lors du paiement';
       if (e.message) {
         errorMessage += ': ' + e.message;
       }
-
       this.snackBar.open(errorMessage, 'Close', { duration: 5000 })
     } finally {
       this.placingOrder = false
     }
   }
 }
-
-

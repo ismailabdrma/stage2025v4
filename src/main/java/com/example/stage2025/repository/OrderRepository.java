@@ -2,6 +2,7 @@ package com.example.stage2025.repository;
 
 import com.example.stage2025.entity.Order;
 import com.example.stage2025.enums.OrderStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -34,4 +35,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   
   @Query("SELECT COUNT(o) FROM Order o WHERE o.orderDate BETWEEN :start AND :end")
   long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+  @EntityGraph(attributePaths = {"items", "items.product", "items.product.supplier"})
+  Optional<Order> findWithItemsAndProductSupplierById(Long id);
+  
+  // Payment confirmation methods
+  Optional<Order> findBySessionId(String sessionId);
+  List<Order> findTop5ByStatusOrderByCreatedAtDesc(OrderStatus status);
 }

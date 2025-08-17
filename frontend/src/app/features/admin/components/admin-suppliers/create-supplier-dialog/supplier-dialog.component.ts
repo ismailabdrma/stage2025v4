@@ -223,6 +223,19 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                             <mat-option *ngFor="let op of soapOperations" [value]="op">{{ op }}</mat-option>
                                         </mat-select>
                                     </mat-form-field>
+
+                                    <!-- Checkbox for payment operation ownership -->
+                                    <mat-checkbox formControlName="hasOwnPaymentSystem">
+                                        Supplier handles customer payment directly (own payment operation)
+                                    </mat-checkbox>
+                                    <!-- Payment panel only if supplier does NOT own payment operation -->
+                                    <div *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
+                                        <mat-form-field appearance="outline" class="full-width">
+                                            <mat-label>Platform Payment Settings</mat-label>
+                                            <input matInput formControlName="paymentApiEndpoint" placeholder="Platform payment API endpoint">
+                                        </mat-form-field>
+                                        <!-- Add more platform payment fields as needed -->
+                                    </div>
                 </ng-container>
 
                                 <!-- Excel/CSV Configuration -->

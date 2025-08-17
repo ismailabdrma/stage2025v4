@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Success - Redirecting...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        h1 {
+            margin: 0 0 1rem 0;
+            font-size: 1.5rem;
+        }
+        p {
+            margin: 0;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>Payment Successful!</h1>
+        <p>Redirecting you to your order confirmation...</p>
+    </div>
+
+    <script>
+        // Extract session_id from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+        
+        console.log('Stripe success page - Session ID:', sessionId);
+        
+        // Redirect to Angular success page with session_id
+        if (sessionId) {
+            // Redirect to Angular app's success page
+            setTimeout(() => {
+                window.location.href = `http://localhost:4200/orders/success?session_id=${sessionId}`;
+            }, 2000); // Small delay to show the success message
+        } else {
+            // No session ID found, redirect to home
+            setTimeout(() => {
+                window.location.href = 'http://localhost:4200/';
+            }, 3000);
+        }
+    </script>
+</body>
+</html> 

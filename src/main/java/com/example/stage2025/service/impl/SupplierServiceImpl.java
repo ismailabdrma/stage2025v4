@@ -104,15 +104,27 @@ public class SupplierServiceImpl implements SupplierService {
             soapSupplier.setPassword(dto.getPassword());
             soapSupplier.setPaymentOperationName(dto.getPaymentOperationName());
             soapSupplier.setRefundOperationName(dto.getRefundOperationName());
-            soapSupplier.setOperations(new ArrayList<>()); // Will populate later
+            // Set payment system fields from DTO (admin can choose)
+            soapSupplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+            // Explicitly set payment integration type for SOAP suppliers
+            soapSupplier.setPaymentIntegrationType("SOAP");
+            // Set autoPaymentEnabled from DTO if present, else default to TRUE
+            if (dto.getAutoPaymentEnabled() != null) {
+                soapSupplier.setAutoPaymentEnabled(dto.getAutoPaymentEnabled());
+            } else {
+                soapSupplier.setAutoPaymentEnabled(Boolean.TRUE);
+            }
+            soapSupplier.setOperations(new ArrayList<>());
             supplier = soapSupplier;
 
         } else {
             throw new IllegalArgumentException("Unknown supplier type: " + dto.getType());
         }
 
-        // Apply payment configuration common fields
-        supplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+        // Common fields for all supplier types (but don't override SOAP-specific settings)
+        if (!(supplier instanceof SoapSupplier)) {
+            supplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+        }
         supplier.setPaymentApiEndpoint(dto.getPaymentApiEndpoint());
         supplier.setCommissionApiEndpoint(dto.getCommissionApiEndpoint());
         supplier.setPayoutFrequency(dto.getPayoutFrequency());
@@ -122,7 +134,6 @@ public class SupplierServiceImpl implements SupplierService {
         supplier.setMinimumPaymentAmount(dto.getMinimumPaymentAmount());
         supplier.setMaximumPaymentDelay(dto.getMaximumPaymentDelay());
 
-        // Save supplier (must be saved before adding operations)
         Supplier saved = supplierRepository.save(supplier);
 
         // ---- Only for SOAP suppliers: Add operation metadata if provided ----
@@ -155,7 +166,7 @@ public class SupplierServiceImpl implements SupplierService {
             System.err.println("Failed to send admin notification email: " + e.getMessage());
         }
 
-        return SupplierMapper.toDto(supplierRepository.save(saved));
+        return SupplierMapper.toDto(saved);
     }
 
     @Override
@@ -294,6 +305,14 @@ public class SupplierServiceImpl implements SupplierService {
         soapSupplier.setRefundOperationName(dto.getRefundOperationName());
         // Common payment configuration
         soapSupplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+        // Explicitly set payment integration type for SOAP suppliers
+        soapSupplier.setPaymentIntegrationType("SOAP");
+        // Set autoPaymentEnabled from DTO if present, else default to TRUE
+        if (dto.getAutoPaymentEnabled() != null) {
+            soapSupplier.setAutoPaymentEnabled(dto.getAutoPaymentEnabled());
+        } else {
+            soapSupplier.setAutoPaymentEnabled(Boolean.TRUE);
+        }
         soapSupplier.setPaymentApiEndpoint(dto.getPaymentApiEndpoint());
         soapSupplier.setCommissionApiEndpoint(dto.getCommissionApiEndpoint());
         soapSupplier.setPayoutFrequency(dto.getPayoutFrequency());
@@ -418,6 +437,8 @@ public class SupplierServiceImpl implements SupplierService {
                     product.setDisplayedPrice(supplierProduct.getPrice());
                     product.setSyncedStock(supplierProduct.getStock());
                     product.setExternalProductId(supplierProduct.getExternalProductId());
+                    // Set supplierRef to the same value as externalProductId for consistency
+                    product.setSupplierRef(supplierProduct.getExternalProductId());
                     product.setSupplier(supplier);
                     product.setCategory(defaultCategory);
                     product.setActive(true); // Set to active so they appear in the product list

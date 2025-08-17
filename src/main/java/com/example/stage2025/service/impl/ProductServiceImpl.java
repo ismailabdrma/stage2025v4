@@ -64,6 +64,7 @@ public class ProductServiceImpl implements ProductService {
                 .supplier(supplier)
                 .active(true)
                 .externalProductId(dto.getExternalProductId())
+                .supplierRef(dto.getExternalProductId()) // Set supplierRef to the same value as externalProductId
                 .build();
 
         Product saved = productRepository.save(product);
@@ -91,6 +92,8 @@ public class ProductServiceImpl implements ProductService {
         }
         if (dto.getExternalProductId() != null) {
             product.setExternalProductId(dto.getExternalProductId());
+            // Keep supplierRef in sync with externalProductId
+            product.setSupplierRef(dto.getExternalProductId());
         }
         if (dto.getImageUrls() != null) {
             product.setImageUrls(dto.getImageUrls());

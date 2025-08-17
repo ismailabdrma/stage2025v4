@@ -1,32 +1,38 @@
-// src/main/java/com/example/stage2025/controller/OrderController.java
 package com.example.stage2025.controller;
 
 import com.example.stage2025.dto.OrderDto;
+import com.example.stage2025.dto.PaymentIntentRequest;
+import com.example.stage2025.dto.PaymentIntentResponse;
 import com.example.stage2025.enums.DeliveryStatus;
 import com.example.stage2025.enums.OrderStatus;
 import com.example.stage2025.service.OrderService;
 import com.example.stage2025.service.PaymentService;
+import com.example.stage2025.service.impl.SmartPaymentRoutingService;
 import com.example.stage2025.dto.PaymentDto;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
+@Slf4j
 public class OrderController {
 
     private final OrderService orderService;
     private final PaymentService paymentService;
+    private final SmartPaymentRoutingService smartPaymentRoutingService;
 
     // Helper to get client ID from authentication
     private Long resolveClientId(Authentication auth, Long userIdAttr) {
@@ -119,17 +125,86 @@ public class OrderController {
         return ResponseEntity.ok("Shipping status updated");
     }
 
-    /** 6. Create order with JSON body (for buy now and cart checkout) */
+    /**
+     * NEW: Create order and determine payment method with smart routing
+     */
+    @PostMapping("/create-with-payment")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<Map<String, Object>> createOrderWithPayment(
+            Authentication auth,
+            @RequestAttribute(name = "userId", required = false) Long userIdAttr,
+            @RequestBody Map<String, Object> request) {
+        try {
+            Long clientId = resolveClientId(auth, userIdAttr);
+            Long addressId = Long.valueOf(request.get("addressId").toString());
+            Double shippingFee = Double.valueOf(request.get("shippingFee").toString());
+
+            log.info("Creating order with payment for client: {}, addressId: {}, shippingFee: {}",
+                    clientId, addressId, shippingFee);
+
+            // Step 1: Create the order
+            OrderDto orderDto = orderService.createOrderFromCart(clientId, addressId, shippingFee);
+
+            if (orderDto == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Failed to create order"
+                ));
+            }
+
+            // Step 2: Check payment routing
+            SmartPaymentRoutingService.PaymentRoutingResult routing =
+                    smartPaymentRoutingService.determinePaymentFlow(orderDto.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("orderId", orderDto.getId());
+            response.put("paymentFlow", routing.getPaymentFlow().name());
+            response.put("message", routing.getMessage());
+
+            if (routing.getPaymentFlow() == SmartPaymentRoutingService.PaymentFlow.PLATFORM_PAYMENT) {
+                // For platform payments, create Stripe payment intent
+                try {
+                    PaymentIntentRequest paymentRequest = PaymentIntentRequest.builder()
+                            .orderId(orderDto.getId())
+                            .amount((long) (routing.getTotalAmount() * 100)) // Convert to cents
+                            .currency("eur")
+                            .build();
+
+                    PaymentIntentResponse paymentIntent = smartPaymentRoutingService.createPaymentIntent(paymentRequest);
+                    response.put("clientSecret", paymentIntent.getClientSecret());
+                    response.put("paymentIntentId", paymentIntent.getId());
+                } catch (Exception e) {
+                    log.error("Error creating payment intent for order {}: {}", orderDto.getId(), e.getMessage());
+                    response.put("clientSecret", null);
+                    response.put("error", "Failed to create payment intent: " + e.getMessage());
+                }
+            } else {
+                // For direct supplier payments, client will handle redirect
+                response.put("supplierName", routing.getPrimarySupplier().getName());
+                response.put("redirectRequired", true);
+            }
+
+            log.info("Order created successfully: {}", response);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error creating order with payment: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "message", "Internal server error: " + e.getMessage()
+            ));
+        }
+    }
+
+    /** 6. Create order with JSON body (for buy now and cart checkout) - LEGACY SUPPORT */
     @PostMapping
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Map<String, Object>> createOrderFromJson(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> orderRequest) {
         Long clientId = resolveClientId(auth, userIdAttr);
         Long addressId = ((Number) orderRequest.get("addressId")).longValue();
         double shippingFee = ((Number) orderRequest.get("shippingFee")).doubleValue();
-        
-        // Handle coupon if provided
-        // String couponCode = (String) orderRequest.get("couponCode"); // reserved for future use
-        
+
         // Create order from cart
         OrderDto order = orderService.createOrderFromCart(clientId, addressId, shippingFee);
 
@@ -182,16 +257,13 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Map<String, Object>> createBuyNowOrder(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> buyNowRequest) {
         Long clientId = resolveClientId(auth, userIdAttr);
-        // Long productId = ((Number) buyNowRequest.get("productId")).longValue();
-        // int quantity = ((Number) buyNowRequest.get("quantity")).intValue();
         Long addressId = ((Number) buyNowRequest.get("addressId")).longValue();
         double shippingFee = ((Number) buyNowRequest.get("shippingFee")).doubleValue();
-        
-        // Long variantId = null;
+
         if (buyNowRequest.containsKey("variantId") && buyNowRequest.get("variantId") != null) {
-            // variantId = ((Number) buyNowRequest.get("variantId")).longValue();
+            // Handle variant if needed
         }
-        
+
         // For now, create a regular order and a PaymentIntent
         OrderDto order = orderService.createOrderFromCart(clientId, addressId, shippingFee);
 
@@ -245,10 +317,10 @@ public class OrderController {
         // TODO: Implement payment confirmation logic
         // For now, just update order status
         orderService.updateOrderStatus(orderId, OrderStatus.PAID);
-        
+
         return ResponseEntity.ok(Map.of(
-            "status", "confirmed",
-            "message", "Payment confirmed successfully"
+                "status", "confirmed",
+                "message", "Payment confirmed successfully"
         ));
     }
 
@@ -258,10 +330,10 @@ public class OrderController {
     public ResponseEntity<Map<String, String>> cancelOrder(@PathVariable Long orderId, Authentication auth) {
         // TODO: Add validation that user owns this order
         orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED);
-        
+
         return ResponseEntity.ok(Map.of(
-            "status", "cancelled",
-            "message", "Order cancelled successfully"
+                "status", "cancelled",
+                "message", "Order cancelled successfully"
         ));
     }
 
@@ -271,26 +343,26 @@ public class OrderController {
     public ResponseEntity<List<Map<String, Object>>> getOrderTimeline(@PathVariable Long orderId) {
         // TODO: Implement order timeline
         List<Map<String, Object>> timeline = List.of(
-            Map.of(
-                "status", "CREATED",
-                "timestamp", "2024-01-15T10:00:00Z",
-                "description", "Commande cr\u00E9\u00E9e",
-                "icon", "shopping_cart"
-            ),
-            Map.of(
-                "status", "PAID",
-                "timestamp", "2024-01-15T10:05:00Z",
-                "description", "Paiement confirm\u00E9",
-                "icon", "payment"
-            ),
-            Map.of(
-                "status", "PROCESSING",
-                "timestamp", "2024-01-15T14:00:00Z",
-                "description", "Commande en pr\u00E9paration",
-                "icon", "package"
-            )
+                Map.of(
+                        "status", "CREATED",
+                        "timestamp", "2024-01-15T10:00:00Z",
+                        "description", "Commande créée",
+                        "icon", "shopping_cart"
+                ),
+                Map.of(
+                        "status", "PAID",
+                        "timestamp", "2024-01-15T10:05:00Z",
+                        "description", "Paiement confirmé",
+                        "icon", "payment"
+                ),
+                Map.of(
+                        "status", "PROCESSING",
+                        "timestamp", "2024-01-15T14:00:00Z",
+                        "description", "Commande en préparation",
+                        "icon", "package"
+                )
         );
-        
+
         return ResponseEntity.ok(timeline);
     }
 }

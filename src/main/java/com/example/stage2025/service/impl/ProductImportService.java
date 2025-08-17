@@ -60,6 +60,8 @@ public class ProductImportService {
                         product.setDisplayedPrice(supplierProduct.getPrice());
                     }
                     product.setSyncedStock(supplierProduct.getStock());
+                    // Set supplierRef to the same value as externalProductId for consistency
+                    product.setSupplierRef(supplierProduct.getExternalProductId());
                     product.setActive(Optional.ofNullable(product.getActive()).orElse(false));
 
                     // Category default
@@ -115,6 +117,8 @@ public class ProductImportService {
                     product.setDisplayedPrice(supplierProduct.getPrice());
                 }
                 product.setSyncedStock(supplierProduct.getStock());
+                // Set supplierRef to the same value as externalProductId for consistency
+                product.setSupplierRef(supplierProduct.getExternalProductId());
                 product.setActive(Optional.ofNullable(product.getActive()).orElse(false));
 
                 Category category = categoryRepository.findByName("Default")
@@ -150,6 +154,8 @@ public class ProductImportService {
                     Product p = new Product();
                     p.setSupplier(supplier);
                     p.setExternalProductId(externalId);
+                    // Set supplierRef to the same value as externalProductId for consistency
+                    p.setSupplierRef(externalId);
                     return p;
                 });
     }

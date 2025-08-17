@@ -12,6 +12,7 @@ import com.example.stage2025.repository.*;
 import com.example.stage2025.service.OrderService;
 import com.example.stage2025.service.EmailService;
 import com.example.stage2025.service.SupplierPaymentService;
+import com.example.stage2025.service.impl.SoapPaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class EnterpriseOrderService implements OrderService {
     private final ProductRepository productRepository;
     private final EmailService emailService;
     private final SupplierPaymentService supplierPaymentService;
+    private final SoapPaymentService soapPaymentService;
 
     // In-memory locks for critical sections (in production, use Redis)
     private final Map<String, ReentrantLock> orderLocks = new ConcurrentHashMap<>();
@@ -301,8 +303,27 @@ public class EnterpriseOrderService implements OrderService {
 
     private void createSupplierPayments(Order order) {
         try {
-            supplierPaymentService.createPaymentForOrder(order);
-            log.info("Supplier payments created for order {}", order.getOrderNumber());
+            for (OrderItem item : order.getItems()) {
+                Supplier supplier = item.getProduct().getSupplier();
+                if (supplier instanceof SoapSupplier && supplier.isHasOwnPaymentSystem()) {
+                    SoapSupplier soapSupplier = (SoapSupplier) supplier;
+                    boolean paymentSuccess = soapPaymentService.processSoapPayment(soapSupplier.getId(), order);
+                    if (paymentSuccess) {
+                        // Create commission payment record
+                        supplierPaymentService.createPaymentForOrder(order);
+                    } else {
+                        log.error("SOAP payment failed for order {} and supplier {}", order.getOrderNumber(), supplier.getName());
+                        // Handle payment failure (e.g., mark order as failed, notify admin)
+                    }
+                } else if (supplier.isHasOwnPaymentSystem()) {
+                    // Existing logic for other suppliers with own payment systems
+                    supplierPaymentService.createPaymentForOrder(order);
+                } else {
+                    // Existing logic for suppliers without own payment systems
+                    supplierPaymentService.createPaymentForOrder(order);
+                }
+            }
+            log.info("Supplier payments processed for order {}", order.getOrderNumber());
         } catch (Exception e) {
             log.error("Failed to create supplier payments for order {}: {}", order.getOrderNumber(), e.getMessage());
         }
