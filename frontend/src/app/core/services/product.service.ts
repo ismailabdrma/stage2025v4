@@ -29,7 +29,10 @@ export class ProductService {
         }
       });
     }
-    return this.http.get<Product[]>(`${this.apiUrl}/products`, { params: httpParams });
+    
+    // Use the correct endpoint that exists in the backend
+    const endpoint = params?.includeInactive !== undefined ? '/admin/all' : '/all';
+    return this.http.get<Product[]>(`${this.apiUrl}/products${endpoint}`, { params: httpParams });
   }
 
   getProductById(id: number): Observable<Product> {

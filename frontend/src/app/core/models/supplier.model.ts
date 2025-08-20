@@ -16,6 +16,7 @@ export interface Supplier {
     operationsMeta?: Array<{ operationName: string, soapAction: string, inputElement: string, outputElement: string }>
     paymentOperationName?: string
     refundOperationName?: string
+    successOperationName?: string
     url?: string
     active: boolean
     createdAt?: string

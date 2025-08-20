@@ -1,12 +1,12 @@
 <div class="product-detail-container" *ngIf="product">
   <div class="product-images">
     <div class="main-image">
-      <img [src]="selectedImage || '/assets/placeholder-product.jpg'" 
+      <img [src]="selectedImage || '/assets/logo.svg'" 
            [alt]="product.name" class="main-product-image">
     </div>
     <div class="thumbnail-images" *ngIf="product.imageUrls.length > 1">
       <img *ngFor="let image of product.imageUrls" 
-           [src]="resolveImageUrl(image) || '/assets/placeholder-product.jpg'" 
+           [src]="resolveImageUrl(image) || '/assets/logo.svg'" 
            [alt]="product.name"
            class="thumbnail"
            [class.active]="selectedImage === image"

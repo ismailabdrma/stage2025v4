@@ -21,7 +21,7 @@ export class SupplierService {
 
   // Create SOAP supplier and auto-extract WSDL operations on backend
   createSupplierAutoSoap(supplier: any): Observable<Supplier> {
-    return this.http.post<Supplier>(`${this.api}/auto-soap`, supplier)
+    return this.http.post<Supplier>(`${this.api}/auto-soap`, supplier);
   }
 
   // Upload Excel file for a supplier import

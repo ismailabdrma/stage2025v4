@@ -28,6 +28,7 @@ export interface BuyNowProduct {
   category?: string
   brand?: string
   slug?: string
+  externalProductId?: string
 }
 
 @Component({
@@ -164,7 +165,8 @@ export class BuyNowButtonComponent {
         price: this.currentPrice,
         productName: this.product.name,
         productImage: this.product.image,
-        variant: this.selectedVariant ? this.formatVariantName(this.selectedVariant) : undefined
+        variant: this.selectedVariant ? this.formatVariantName(this.selectedVariant) : undefined,
+        externalProductId: this.product.externalProductId
       }
 
       // Add to cart

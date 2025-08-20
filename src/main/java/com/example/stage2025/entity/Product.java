@@ -1,10 +1,12 @@
 package com.example.stage2025.entity;
 
+import com.example.stage2025.enums.ProductStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -52,10 +54,17 @@ public class Product {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
     @Column(name = "image_url", columnDefinition = "LONGTEXT")
-    private List<String> imageUrls;
+    @OrderColumn(name = "image_order")
+    private List<String> imageUrls = new ArrayList<>();
 
     private String supplierRef;
+    
+    @Builder.Default
     private Boolean active = true;
+    
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private ProductStatus status = ProductStatus.PENDING;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

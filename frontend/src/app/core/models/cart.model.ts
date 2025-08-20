@@ -8,6 +8,7 @@ export interface CartItem {
   productImage?: string
   variant?: string
   variantId?: number
+  externalProductId?: string
 }
 
 export interface Cart {

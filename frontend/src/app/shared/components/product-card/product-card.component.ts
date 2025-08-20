@@ -29,6 +29,7 @@ export interface ProductCard {
   category?: string;
   brand?: string;
   slug?: string;
+  externalProductId?: string;
 }
 
 @Component({
@@ -97,7 +98,8 @@ export class ProductCardComponent implements OnInit {
       quantity: 1,
       price: this.product.price,
       productName: this.product.name,
-      productImage: this.product.imageUrl
+      productImage: this.product.imageUrl,
+      externalProductId: this.product.externalProductId
     };
 
     this.cartService.addItem(cartItem).subscribe({

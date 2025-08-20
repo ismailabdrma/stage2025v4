@@ -18,8 +18,11 @@ public class PaymentIntentResponse {
     private String paymentFlow;        // "DIRECT_TO_SUPPLIER" or "PLATFORM_PAYMENT"
     private String paymentUrl;         // For direct supplier payments
     private String supplierName;       // For direct supplier payments
+    private Long supplierId;           // For direct supplier payments
     private Integer supplierCount;     // For platform payments
     private String description;
+    private Boolean success;           // For error responses
+    private String message;            // For error responses
     public boolean isDirectPayment() {
         return "DIRECT_TO_SUPPLIER".equals(paymentFlow);
     }

@@ -20,8 +20,11 @@ export interface PaymentIntentResponse {
   paymentFlow?: string;        // "DIRECT_TO_SUPPLIER" or "PLATFORM_PAYMENT"
   paymentUrl?: string;         // For direct supplier payments
   supplierName?: string;       // For direct supplier payments
+  supplierId?: number;         // For direct supplier payments
   supplierCount?: number;      // For platform payments
   description?: string;        // Payment description
+  success?: boolean;           // For error responses
+  message?: string;            // For error responses
 }
 
 export interface PaymentRoutingResult {
@@ -53,6 +56,9 @@ export class PaymentService {
     supplierName?: string;
     redirectRequired?: boolean;
     message?: string;
+    paymentIntentId?: string;
+    paymentUrl?: string;
+    supplierId?: number;
   }> {
     return this.http.post<{
       success: boolean;
@@ -63,6 +69,9 @@ export class PaymentService {
       supplierName?: string;
       redirectRequired?: boolean;
       message?: string;
+      paymentIntentId?: string;
+      paymentUrl?: string;
+      supplierId?: number;
     }>(`${this.ordersApi}/create-with-payment`, {
       addressId,
       shippingFee

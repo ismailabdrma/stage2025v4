@@ -125,31 +125,39 @@ public class ProductController {
     @GetMapping("/inactive")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<ProductDto>> getInactiveProducts() {
-        List<Product> inactive = productRepository.findByActiveFalse();
-        List<ProductDto> dtos = inactive.stream().map(ProductMapper::toDto).toList();
-        return ResponseEntity.ok(dtos);
+        try {
+            List<ProductDto> products = productService.getAllProductsForAdmin(false);
+            return ResponseEntity.ok(products);
+        } catch (Exception e) {
+            log.error("Error getting inactive products: {}", e.getMessage());
+            return ResponseEntity.ok(List.of());
+        }
     }
 
     // --- Admin: Activate product ---
     @PutMapping("/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> activateProduct(@PathVariable Long id) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
-        product.setActive(true);
-        productRepository.save(product);
-        return ResponseEntity.ok("Product activated");
+        try {
+            ProductDto product = productService.activateProduct(id);
+            return ResponseEntity.ok(product);
+        } catch (Exception e) {
+            log.error("Error activating product {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     // --- Admin: Deactivate product ---
     @PutMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deactivateProduct(@PathVariable Long id) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
-        product.setActive(false);
-        productRepository.save(product);
-        return ResponseEntity.ok("Product deactivated");
+        try {
+            ProductDto product = productService.suspendProduct(id);
+            return ResponseEntity.ok(product);
+        } catch (Exception e) {
+            log.error("Error deactivating product {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     // --- Public: Get featured products ---
@@ -172,25 +180,8 @@ public class ProductController {
     public ResponseEntity<List<ProductDto>> getAllProductsForAdmin(
             @RequestParam(value = "includeInactive", required = false, defaultValue = "true") boolean includeInactive) {
         try {
-            List<Product> allProducts = productRepository.findAll();
-            log.info("Total products in database: {}", allProducts.size());
-
-            List<ProductDto> products;
-            if (includeInactive) {
-                // Get all products regardless of status
-                products = allProducts.stream()
-                        .map(ProductMapper::toDto)
-                        .collect(Collectors.toList());
-                log.info("Returning all {} products (includeInactive=true)", products.size());
-            } else {
-                // Get only active products
-                products = allProducts.stream()
-                        .filter(p -> Boolean.TRUE.equals(p.getActive()))
-                        .map(ProductMapper::toDto)
-                        .collect(Collectors.toList());
-                log.info("Returning {} active products (includeInactive=false)", products.size());
-            }
-
+            List<ProductDto> products = productService.getAllProductsForAdmin(includeInactive);
+            log.info("Returning {} products for admin (includeInactive={})", products.size(), includeInactive);
             return ResponseEntity.ok(products);
         } catch (Exception e) {
             log.error("Error getting products for admin: {}", e.getMessage(), e);
@@ -273,7 +264,15 @@ public class ProductController {
         ProductDto updateDto = new ProductDto();
         if (updateData.containsKey("name")) updateDto.setName((String) updateData.get("name"));
         if (updateData.containsKey("description")) updateDto.setDescription((String) updateData.get("description"));
-        if (updateData.containsKey("displayedPrice")) updateDto.setDisplayedPrice(((Number) updateData.get("displayedPrice")).doubleValue());
+        
+        // Fix: Add null check for displayedPrice
+        if (updateData.containsKey("displayedPrice")) {
+            Object priceObj = updateData.get("displayedPrice");
+            if (priceObj != null) {
+                updateDto.setDisplayedPrice(((Number) priceObj).doubleValue());
+            }
+        }
+        
         if (updateData.containsKey("categoryName")) updateDto.setCategoryName((String) updateData.get("categoryName"));
         
         return ResponseEntity.ok(productService.bulkUpdateProducts(productIds, updateDto));

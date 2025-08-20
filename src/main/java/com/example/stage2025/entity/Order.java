@@ -96,9 +96,18 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id")
     private Payment payment;
+    
+    // Add getter/setter for payment
+    public Payment getPayment() {
+        return payment;
+    }
+    
+    public void setPayment(Payment payment) {
+        this.payment = payment;
+    }
     
     // Compatibility methods for EmailService
     public Double getTotalAmount() {
@@ -107,6 +116,15 @@ public class Order {
     
     public void setTotalAmount(Double totalAmount) {
         this.total = totalAmount;
+    }
+    
+    // Add missing getTotal method that PaymentCompletionService expects
+    public Double getTotal() {
+        return this.total;
+    }
+    
+    public void setTotal(Double total) {
+        this.total = total;
     }
     
     public User getUser() {
@@ -119,13 +137,41 @@ public class Order {
         }
     }
 
-    private String currency;
+    @Column(length = 3, nullable = false)
+    private String currency = "EUR"; // Default to EUR
 
     public String getCurrency() {
-        return currency;
+        return currency != null ? currency : "EUR"; // Ensure never returns null
     }
 
     public void setCurrency(String currency) {
-        this.currency = currency;
+        this.currency = currency != null ? currency : "EUR"; // Ensure never set to null
+    }
+    
+    // Add getter for items that PaymentCompletionService expects
+    public List<OrderItem> getItems() {
+        return items;
+    }
+    
+    public void setItems(List<OrderItem> items) {
+        this.items = items;
+    }
+    
+    // Add missing getStatus method that PaymentCompletionService expects
+    public OrderStatus getStatus() {
+        return this.status;
+    }
+    
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
+    
+    // Add missing getUpdatedAt and setUpdatedAt methods
+    public LocalDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+    
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

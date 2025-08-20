@@ -15,6 +15,7 @@ interface GuestCartItem {
   productName: string;
   productImage?: string;
   variant?: string;
+  externalProductId?: string;
   addedAt: string;
 }
 
@@ -69,7 +70,8 @@ export class CartService {
       productId: it.productId ?? it.product?.id,
       productImage: it.productImage ?? it.product?.imageUrl,
       variant: it.variant,
-      variantId: it.variantId
+      variantId: it.variantId,
+      externalProductId: it.externalProductId ?? it.product?.externalProductId
     }));
     const normalized: Cart = {
       id: server.id,
@@ -178,7 +180,7 @@ export class CartService {
   }
 
   // Add item to cart (works for both guest and authenticated users)
-  addItem(item: { productId: number, variantId?: number, quantity: number, price: number, productName: string, productImage?: string, variant?: string }): Observable<Cart | null> {
+  addItem(item: { productId: number, variantId?: number, quantity: number, price: number, productName: string, productImage?: string, variant?: string, externalProductId?: string }): Observable<Cart | null> {
     return this.authService.isAuthenticated$.pipe(
       switchMap(isAuthenticated => {
         if (isAuthenticated) {
@@ -201,7 +203,8 @@ export class CartService {
       unitPrice: (item as any).unitPrice ?? (item as any).price,
       productName: (item as any).productName,
       productImage: (item as any).productImage,
-      variantId: (item as any).variantId
+      variantId: (item as any).variantId,
+      externalProductId: item.externalProductId
     }
     return this.http.post<any>(`${this.apiUrl}/items`, payload).pipe(
       switchMap(server => {
@@ -219,13 +222,14 @@ export class CartService {
           price: payload.unitPrice!,
           productName: payload.productName!,
           productImage: payload.productImage,
-          variant: (item as any).variant
+          variant: (item as any).variant,
+          externalProductId: item.externalProductId
         })
       })
     )
   }
 
-  private addItemToGuestCart(item: { productId: number, variantId?: number, quantity: number, price: number, productName: string, productImage?: string, variant?: string }): Observable<Cart | null> {
+  private addItemToGuestCart(item: { productId: number, variantId?: number, quantity: number, price: number, productName: string, productImage?: string, variant?: string, externalProductId?: string }): Observable<Cart | null> {
     const currentGuestCart = this.guestCartSubject.value || { items: [], total: 0, itemCount: 0, updatedAt: new Date().toISOString() };
     
     // Check if item already exists
@@ -446,6 +450,54 @@ export class CartService {
       const cart = this.convertGuestCartToCart(this.guestCartSubject.value)
       if (cart) this.cartSubject.next(cart)
     }
+  }
+
+  // Force refresh cart and notify all subscribers
+  forceRefreshCart(): void {
+    console.log('🔄 Force refreshing cart...');
+    this.refreshCart();
+    // Emit current state to ensure UI updates
+    const currentCart = this.cartSubject.value;
+    if (currentCart) {
+      this.cartSubject.next({ ...currentCart });
+    }
+  }
+
+  // Add item with smart quantity handling (increment if exists, add new if not)
+  addItemSmart(item: { productId: number, variantId?: number, quantity: number, price: number, productName: string, productImage?: string, variant?: string, externalProductId?: string }): Observable<Cart | null> {
+    return this.authService.isAuthenticated$.pipe(
+      switchMap(isAuthenticated => {
+        if (isAuthenticated) {
+          return this.addItemToUserCartSmart(item);
+        } else {
+          return this.addItemToGuestCart(item);
+        }
+      }),
+      tap(() => {
+        this.toastService.addedToCart(item.productName);
+        // Force refresh after adding item
+        setTimeout(() => this.forceRefreshCart(), 100);
+      })
+    );
+  }
+
+  private addItemToUserCartSmart(item: Partial<CartItem>): Observable<Cart | null> {
+    // First check if item already exists in current cart
+    const currentCart = this.cartSubject.value;
+    if (currentCart) {
+      const existingItem = currentCart.items.find(cartItem => 
+        cartItem.productId === item.productId && cartItem.variantId === item.variantId
+      );
+      
+      if (existingItem) {
+        // Item exists, update quantity instead of adding new
+        console.log(`🔄 Item ${item.productName} already exists, updating quantity from ${existingItem.quantity} to ${existingItem.quantity + (item.quantity || 1)}`);
+        return this.updateQuantity(existingItem.id, existingItem.quantity + (item.quantity || 1));
+      }
+    }
+    
+    // Item doesn't exist, add new
+    return this.addItemToUserCart(item);
   }
 
   // Legacy methods for compatibility

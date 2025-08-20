@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Success - Redirecting...</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .success-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .redirect-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Payment Successful!</h1>
+        <p>Your payment has been processed successfully.</p>
+        <p>Redirecting you to our platform... <span class="loading"></span></p>
+        
+        <div class="redirect-info">
+            <p><strong>Session ID:</strong> <span id="sessionId">Loading...</span></p>
+            <p><strong>Order ID:</strong> <span id="orderId">Loading...</span></p>
+            <p><strong>Status:</strong> <span id="status">Processing...</span></p>
+        </div>
+        
+        <div class="error" id="errorMessage">
+            <p><strong>Error:</strong> <span id="errorText"></span></p>
+            <p>Please contact customer support if this issue persists.</p>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id') || urlParams.get('sessionId');
+        const orderId = urlParams.get('order_id') || urlParams.get('orderId');
+        const supplierId = urlParams.get('supplier_id') || urlParams.get('supplierId');
+        const paymentId = urlParams.get('payment_id') || urlParams.get('paymentId');
+        const status = urlParams.get('status') || 'SUCCESS';
+
+        // Display session information
+        document.getElementById('sessionId').textContent = sessionId || 'N/A';
+        document.getElementById('orderId').textContent = orderId || 'N/A';
+        document.getElementById('status').textContent = status;
+
+        // Function to redirect to our platform
+        async function redirectToPlatform() {
+            try {
+                // First, notify our system about payment completion
+                const webhookUrl = '/api/webhooks/payment/redirect';
+                const params = new URLSearchParams({
+                    sessionId: sessionId || '',
+                    orderId: orderId || '',
+                    supplierId: supplierId || '',
+                    paymentId: paymentId || '',
+                    status: status
+                });
+
+                const response = await fetch(`${webhookUrl}?${params}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    // Redirect to our success page
+                    const redirectUrl = result.redirectUrl || '/payment/success';
+                    window.location.href = redirectUrl;
+                } else {
+                    // Show error and redirect to error page
+                    showError(result.error || 'Unknown error occurred');
+                    setTimeout(() => {
+                        window.location.href = '/payment/error?error=' + encodeURIComponent(result.error || 'Unknown error');
+                    }, 3000);
+                }
+
+            } catch (error) {
+                console.error('Error processing payment completion:', error);
+                showError('Failed to process payment completion. Please contact support.');
+                
+                // Fallback redirect after error
+                setTimeout(() => {
+                    window.location.href = '/payment/error?error=' + encodeURIComponent('Network error');
+                }, 5000);
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').style.display = 'block';
+            document.getElementById('status').textContent = 'Error';
+        }
+
+        // Start the redirect process after a short delay
+        setTimeout(redirectToPlatform, 2000);
+
+        // Fallback redirect after 10 seconds
+        setTimeout(() => {
+            if (window.location.href.includes('localhost')) {
+                // For local development, redirect to a simple success page
+                window.location.href = '/payment/success?sessionId=' + (sessionId || '') + '&orderId=' + (orderId || '');
+            } else {
+                // For production, redirect to error page
+                window.location.href = '/payment/error?error=' + encodeURIComponent('Redirect timeout');
+            }
+        }, 10000);
+    </script>
+</body>
+</html> 

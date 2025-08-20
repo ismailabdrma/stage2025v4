@@ -2,13 +2,13 @@
 <div class="product-detail-container">
   <div class="product-images">
     <ng-container *ngIf="imageUrls && imageUrls.length > 0; else noImage">
-      <img [src]="resolveImageUrl(imageUrls[0]) || '/assets/placeholder-product.jpg'" alt="Product Image" class="main-image">
+      <img [src]="resolveImageUrl(imageUrls[0]) || '/assets/logo.svg'" alt="Product Image" class="main-image">
       <div class="thumbnail-gallery">
-        <img *ngFor="let imageUrl of imageUrls" [src]="resolveImageUrl(imageUrl) || '/assets/placeholder-product.jpg'" alt="Thumbnail" class="thumbnail">
+        <img *ngFor="let imageUrl of imageUrls" [src]="resolveImageUrl(imageUrl) || '/assets/logo.svg'" alt="Thumbnail" class="thumbnail">
       </div>
     </ng-container>
     <ng-template #noImage>
-      <img src="/assets/placeholder-product.jpg" alt="No Image Available" class="main-image">
+      <img src="/assets/logo.svg" alt="No Image Available" class="main-image">
     </ng-template>
   </div>
 

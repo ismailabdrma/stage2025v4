@@ -83,6 +83,7 @@ public class OrderServiceImpl implements OrderService {
                 .comments("")
                 .totalSuppliers((int) supplierCount)
                 .completedSuppliers(0)
+                .currency("EUR") // Explicitly set currency
                 .build();
 
         List<OrderItem> orderItems = cart.getItems().stream()

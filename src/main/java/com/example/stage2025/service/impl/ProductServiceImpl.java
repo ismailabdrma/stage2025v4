@@ -4,6 +4,7 @@ import com.example.stage2025.dto.ProductDto;
 import com.example.stage2025.entity.Category;
 import com.example.stage2025.entity.Product;
 import com.example.stage2025.entity.Supplier;
+import com.example.stage2025.enums.ProductStatus;
 import com.example.stage2025.exception.ResourceNotFoundException;
 import com.example.stage2025.mapper.ProductMapper;
 import com.example.stage2025.repository.CategoryRepository;
@@ -62,7 +63,7 @@ public class ProductServiceImpl implements ProductService {
                 .imageUrls(dto.getImageUrls())
                 .category(category)
                 .supplier(supplier)
-                .active(true)
+                .active(false) // Set to inactive so they need admin approval
                 .externalProductId(dto.getExternalProductId())
                 .supplierRef(dto.getExternalProductId()) // Set supplierRef to the same value as externalProductId
                 .build();
@@ -150,11 +151,19 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public void deleteProduct(Long id) {
-        if (!productRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Produit non trouvé avec ID " + id);
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec ID " + id));
+        
+        // Clear imageUrls manually since ElementCollection doesn't support cascade delete
+        if (product.getImageUrls() != null) {
+            product.getImageUrls().clear();
+            productRepository.save(product);
         }
+        
         productRepository.deleteById(id);
+        log.info("Product {} deleted successfully", id);
     }
 
     @Override
@@ -250,7 +259,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public List<ProductDto> getPendingProducts() {
-        return productRepository.findByActiveFalse().stream()
+        return productRepository.findByActiveStatus(false).stream()
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -276,11 +285,13 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
         
-        // Instead of deleting, we mark as rejected (you could add a status field)
-        productRepository.delete(product);
+        // Instead of deleting, we mark as rejected (soft delete)
+        product.setActive(false);
+        product.setStatus(ProductStatus.REJECTED);
+        productRepository.save(product);
         
         // Log admin action
-        log.info("Product {} rejected and deleted by admin", id);
+        log.info("Product {} rejected and deactivated by admin", id);
     }
 
     @Override
@@ -376,5 +387,17 @@ public class ProductServiceImpl implements ProductService {
         return savedProducts.stream()
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDto> getAllProductsForAdmin(boolean includeInactive) {
+        if (includeInactive) {
+            List<Product> allProducts = productRepository.findAllWithDetails();
+            return allProducts.stream().map(ProductMapper::toDto).collect(Collectors.toList());
+        } else {
+            List<Product> activeProducts = productRepository.findByActiveStatus(false);
+            return activeProducts.stream().map(ProductMapper::toDto).collect(Collectors.toList());
+        }
     }
 }

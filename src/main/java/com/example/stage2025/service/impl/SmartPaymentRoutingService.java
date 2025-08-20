@@ -23,9 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import com.example.stage2025.entity.SoapSupplier;
-import com.example.stage2025.entity.ApiSupplier;
-import com.example.stage2025.entity.ExcelSupplier;
+
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +40,7 @@ public class SmartPaymentRoutingService {
 
     @Transactional(readOnly = true)
     public PaymentRoutingResult determinePaymentFlow(Long orderId) {
-        log.info("ROUTING DEBUG: determinePaymentFlow called for order {}", orderId);
+
         try {
             var orderDto = orderService.getOrderById(orderId);
             if (orderDto == null) {
@@ -56,23 +54,13 @@ public class SmartPaymentRoutingService {
 
             Map<Supplier, List<OrderItem>> itemsBySupplier = groupItemsBySupplier(orderId);
 
-            log.info("ROUTING DEBUG: Order {} has {} unique suppliers", orderId, itemsBySupplier.size());
+
 
             if (itemsBySupplier.size() == 1) {
                 Supplier singleSupplier = itemsBySupplier.keySet().iterator().next();
-                log.info("Single supplier detected: {} (type: {})", singleSupplier.getName(), singleSupplier.getClass().getSimpleName());
                 
-                // Force reload the supplier to ensure proper polymorphic type loading
-                if (singleSupplier instanceof SoapSupplier) {
-                    singleSupplier = em.find(SoapSupplier.class, singleSupplier.getId());
-                } else if (singleSupplier instanceof ApiSupplier) {
-                    singleSupplier = em.find(ApiSupplier.class, singleSupplier.getId());
-                } else if (singleSupplier instanceof ExcelSupplier) {
-                    singleSupplier = em.find(ExcelSupplier.class, singleSupplier.getId());
-                }
-
+                // Excel suppliers always use platform payment
                 if (singleSupplier instanceof ExcelSupplier) {
-                    log.info("Single ExcelSupplier {} -> platform payment", singleSupplier.getName());
                     return PaymentRoutingResult.builder()
                             .success(true)
                             .paymentFlow(PaymentFlow.PLATFORM_PAYMENT)
@@ -83,20 +71,17 @@ public class SmartPaymentRoutingService {
                             .build();
                 }
 
+                // Check if supplier has own payment system
                 if (hasOwnPaymentSystem(singleSupplier)) {
-                    log.info("Single supplier {} ({}) with own payment system -> direct payment",
-                            singleSupplier.getName(), singleSupplier.getClass().getSimpleName());
                     return PaymentRoutingResult.builder()
                             .success(true)
                             .paymentFlow(PaymentFlow.DIRECT_TO_SUPPLIER)
                             .primarySupplier(singleSupplier)
                             .orderId(orderId)
                             .totalAmount(orderDto.getTotal())
-                            .message("Direct payment to " + singleSupplier.getClass().getSimpleName())
+                            .message("Direct payment to supplier")
                             .build();
                 } else {
-                    log.info("Single supplier {} without own payment system -> platform",
-                            singleSupplier.getName());
                     return PaymentRoutingResult.builder()
                             .success(true)
                             .paymentFlow(PaymentFlow.PLATFORM_PAYMENT)
@@ -107,7 +92,7 @@ public class SmartPaymentRoutingService {
                             .build();
                 }
             } else {
-                log.info("Multiple suppliers ({}) -> platform payment", itemsBySupplier.size());
+                // Multiple suppliers always use platform payment
                 return PaymentRoutingResult.builder()
                         .success(true)
                         .paymentFlow(PaymentFlow.PLATFORM_PAYMENT)
@@ -130,70 +115,61 @@ public class SmartPaymentRoutingService {
     }
 
     private boolean hasOwnPaymentSystem(Supplier supplier) {
+        // If admin explicitly marked the supplier as owning their payment system, honor it
+        if (supplier.isHasOwnPaymentSystem()) {
+            return true;
+        }
+
         if (supplier instanceof ApiSupplier apiSupplier) {
-            boolean hasOwn = apiSupplier.isHasOwnPaymentSystem() && apiSupplier.isAutoPaymentEnabled();
-            log.info("ApiSupplier {} - hasOwnPaymentSystem: {}, autoPaymentEnabled: {}, result: {}", 
-                    apiSupplier.getName(), apiSupplier.isHasOwnPaymentSystem(), apiSupplier.isAutoPaymentEnabled(), hasOwn);
-            return hasOwn;
+            return apiSupplier.isHasOwnPaymentSystem() && apiSupplier.isAutoPaymentEnabled();
         } else if (supplier instanceof SoapSupplier soapSupplier) {
-            boolean hasOwn = soapSupplier.isHasOwnPaymentSystem() && soapSupplier.isAutoPaymentEnabled();
-            log.info("SoapSupplier {} - hasOwnPaymentSystem: {}, autoPaymentEnabled: {}, result: {}", 
-                    soapSupplier.getName(), soapSupplier.isHasOwnPaymentSystem(), soapSupplier.isAutoPaymentEnabled(), hasOwn);
-            return hasOwn;
+            return soapSupplier.isHasOwnPaymentSystem() && soapSupplier.isAutoPaymentEnabled();
         } else {
-            log.debug("Supplier type {} does not support direct payment systems",
-                    supplier.getClass().getSimpleName());
             return false;
         }
     }
 
     public PaymentIntentResponse createPaymentIntent(PaymentIntentRequest request) {
-        try {
-            log.info("Creating payment intent for order: {}", request.getOrderId());
-
-            PaymentRoutingResult routing = determinePaymentFlow(request.getOrderId());
-            if (!routing.isSuccess()) {
-                throw new RuntimeException(routing.getMessage());
-            }
-            if (routing.getPaymentFlow() == null) {
-                log.warn("Payment flow is null for order {}, defaulting to platform", request.getOrderId());
-                routing = PaymentRoutingResult.builder()
-                        .success(true)
-                        .paymentFlow(PaymentFlow.PLATFORM_PAYMENT)
-                        .orderId(request.getOrderId())
-                        .message("Defaulted to platform payment due to null flow")
-                        .build();
-            }
-
-            return switch (routing.getPaymentFlow()) {
-                case DIRECT_TO_SUPPLIER -> createDirectSupplierPaymentIntent(request, routing.getPrimarySupplier());
-                case PLATFORM_PAYMENT    -> createPlatformPaymentIntent(request, routing);
-            };
-
-        } catch (Exception e) {
-            log.error("Error creating payment intent for order {}: {}", request.getOrderId(), e.getMessage(), e);
-            throw new RuntimeException("Failed to create payment intent: " + e.getMessage());
+        if (request.getOrderId() == null) {
+            throw new IllegalArgumentException("Order ID is required");
         }
+
+        PaymentRoutingResult routing = determinePaymentFlow(request.getOrderId());
+        if (!routing.isSuccess()) {
+            throw new RuntimeException(routing.getMessage());
+        }
+
+        return switch (routing.getPaymentFlow()) {
+            case DIRECT_TO_SUPPLIER -> createDirectSupplierPaymentIntent(request, routing.getPrimarySupplier());
+            case PLATFORM_PAYMENT    -> createPlatformPaymentIntent(request, routing);
+        };
+    }
+
+    /**
+     * Create payment intent using existing routing result (avoids calling determinePaymentFlow again)
+     */
+    public PaymentIntentResponse createPaymentIntentWithRouting(PaymentIntentRequest request, PaymentRoutingResult routing) {
+        if (!routing.isSuccess()) {
+            throw new RuntimeException(routing.getMessage());
+        }
+
+        return switch (routing.getPaymentFlow()) {
+            case DIRECT_TO_SUPPLIER -> createDirectSupplierPaymentIntent(request, routing.getPrimarySupplier());
+            case PLATFORM_PAYMENT    -> createPlatformPaymentIntent(request, routing);
+        };
     }
 
     private PaymentIntentResponse createDirectSupplierPaymentIntent(PaymentIntentRequest request, Supplier supplier) {
         if (supplier == null) {
             throw new IllegalStateException("Primary supplier is null for DIRECT_TO_SUPPLIER flow");
         }
-        log.info("Direct payment intent for supplier: {} ({})",
-                supplier.getName(), supplier.getClass().getSimpleName());
         return directSupplierPaymentService.createSupplierPaymentIntent(request, supplier);
     }
 
     private PaymentIntentResponse createPlatformPaymentIntent(PaymentIntentRequest request, PaymentRoutingResult routing) {
-        log.info("Platform payment intent for order: {}", request.getOrderId());
         return platformPaymentService.createPlatformPaymentIntent(request, routing);
     }
 
-    /**
-     * IMPORTANT: avoid streaming the JPA result; materialize then pick first.
-     * This prevents "Operation not allowed after ResultSet closed" with MySQL/Hibernate 6.
-     */
     @Transactional(readOnly = true)
     private Map<Supplier, List<OrderItem>> groupItemsBySupplier(Long orderId) {
         List<Order> results = em.createQuery("""
@@ -212,7 +188,6 @@ public class SmartPaymentRoutingService {
         }
 
         Order order = results.get(0);
-
         return order.getItems().stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(item -> item.getProduct().getSupplier()));

@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import jakarta.persistence.DiscriminatorValue;
 
 @Entity
 @Data
@@ -29,7 +30,7 @@ public abstract class Supplier {
     @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL)
     private List<ImportLog> importLogs;
 
-    @OneToMany(mappedBy = "supplier")
+    @OneToMany(mappedBy = "supplier", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<Product> products;
 
     @Enumerated(EnumType.STRING)
@@ -50,4 +51,26 @@ public abstract class Supplier {
     // For batch payout tracking
     @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL)
     private List<SupplierPayment> payments;
+    
+    // SOAP operation for payment status notifications
+    @Column(name = "success_operation_name")
+    private String successOperationName;  // e.g., "notifyPaymentStatus"
+    
+    /**
+     * Get the supplier type from the discriminator column
+     * This is needed for proper payment routing
+     */
+    public String getSupplierType() {
+        // Get the discriminator value from the entity class
+        DiscriminatorValue discriminatorValue = this.getClass().getAnnotation(DiscriminatorValue.class);
+        if (discriminatorValue != null) {
+            return discriminatorValue.value();
+        }
+        // Fallback: check the class name
+        String className = this.getClass().getSimpleName();
+        if (className.endsWith("Supplier")) {
+            return className.substring(0, className.length() - 8).toUpperCase();
+        }
+        return "UNKNOWN";
+    }
 }

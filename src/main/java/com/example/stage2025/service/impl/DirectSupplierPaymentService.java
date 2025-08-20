@@ -12,14 +12,22 @@ import com.example.stage2025.repository.OrderRepository;
 import com.example.stage2025.repository.ProductRepository;
 import com.example.stage2025.service.EmailService;
 import com.example.stage2025.service.impl.SoapPaymentService;
+import com.example.stage2025.service.PaymentCompletionService;
+import com.example.stage2025.service.OrderSessionMappingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import com.example.stage2025.entity.OrderItem;
+import com.example.stage2025.service.OrderItemService;
+import com.example.stage2025.entity.ApiSupplier;
+import com.example.stage2025.repository.SupplierRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -50,32 +58,60 @@ public class DirectSupplierPaymentService {
 
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
+    private final OrderItemService orderItemService;
+    private final SupplierRepository supplierRepository;
 
     private final RestTemplate restTemplate;
     private final SoapPaymentService soapPaymentService;
     private final OrderService orderService;
     private final EmailService emailService;
+    private final PaymentCompletionService paymentCompletionService;
+    private final OrderSessionMappingService orderSessionMappingService;
 
     /**
      * Creates payment intent directly with supplier's payment system
-     * Client will pay directly to supplier, not to platform
+     * Customer pays supplier directly (full display price €130)
+     * Supplier receives €130, then owes platform €30 commission
      */
+    @Transactional
     public PaymentIntentResponse createSupplierPaymentIntent(PaymentIntentRequest request, Supplier supplier) {
         try {
             log.info("Creating direct payment intent with supplier: {} for order: {}",
                     supplier.getName(), request.getOrderId());
 
-            // Always load the order and its items/products from the DB, never from DTO
+            // Always load the order and its items/products from the DB
             var orderOpt = orderRepository.findWithItemsAndProductSupplierById(request.getOrderId());
             if (orderOpt.isEmpty()) {
                 throw new RuntimeException("Order not found: " + request.getOrderId());
             }
             var order = orderOpt.get();
 
+            // IMPORTANT: Customer pays supplier directly (full display price €130)
+            // Supplier receives €130, then owes platform €30 commission
+            // This ensures platform gets commission while keeping supplier payment system
+            
+            log.info("Customer will pay supplier directly: €{} (full display price)", request.getAmount() / 100.0);
+            log.info("Supplier will receive €{} and owe platform €{} commission", 
+                    request.getAmount() / 100.0, calculatePlatformCommission(order) / 100.0);
+
             // Route to appropriate supplier payment system based on supplier type
             if (supplier.isHasOwnPaymentSystem()) {
-                if (supplier instanceof SoapSupplier) {
+                // Check supplier type by discriminator value instead of instanceof
+                if ("SOAP".equals(supplier.getSupplierType()) || supplier instanceof SoapSupplier) {
                     log.info("Routing to SOAP payment for supplier: {}", supplier.getName());
+                    
+                    // If supplier is not a SoapSupplier instance, reload it from the repository
+                    if (!(supplier instanceof SoapSupplier)) {
+                        log.info("Reloading supplier {} as SoapSupplier for proper SOAP operations", supplier.getName());
+                        var reloadedSupplier = supplierRepository.findById(supplier.getId());
+                        if (reloadedSupplier.isPresent() && reloadedSupplier.get() instanceof SoapSupplier) {
+                            supplier = reloadedSupplier.get();
+                            log.info("Successfully reloaded supplier {} as SoapSupplier", supplier.getName());
+                        } else {
+                            throw new RuntimeException("Failed to reload supplier " + supplier.getName() + " as SoapSupplier");
+                        }
+                    }
+                    
                     return createSoapPaymentIntentFromOrder(request, supplier, order);
                 } else {
                     log.info("Routing to REST API payment for supplier: {}", supplier.getName());
@@ -89,6 +125,33 @@ public class DirectSupplierPaymentService {
             log.error("Error creating supplier payment intent: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create supplier payment intent: " + e.getMessage());
         }
+    }
+
+    /**
+     * Calculate platform commission (display price minus supplier price)
+     */
+    private long calculatePlatformCommission(Order order) {
+        // Calculate commission (display price - supplier price)
+        Double orderTotal = order.getTotal();
+        if (orderTotal == null) {
+            log.warn("Order total is null for order: {}", order.getId());
+            return 0;
+        }
+        
+        double totalDisplayPrice = orderTotal;
+        double totalSupplierPrice = order.getItems().stream()
+                .mapToDouble(item -> {
+                    if (item.getProduct() != null && item.getProduct().getSupplierPrice() != null) {
+                        return item.getProduct().getSupplierPrice() * item.getQuantity();
+                    }
+                    // Fallback to unit price if supplier price not available
+                    Double unitPrice = item.getUnitPrice();
+                    return (unitPrice != null ? unitPrice : 0.0) * item.getQuantity();
+                })
+                .sum();
+        
+        double commission = totalDisplayPrice - totalSupplierPrice;
+        return Math.round(commission * 100); // Convert to cents
     }
 
     private PaymentIntentResponse createRestApiPaymentIntent(PaymentIntentRequest request,
@@ -145,6 +208,7 @@ public class DirectSupplierPaymentService {
                         .paymentUrl((String) responseBody.get("paymentUrl")) // Direct payment URL
                         .paymentFlow("DIRECT_TO_SUPPLIER")
                         .supplierName(supplier.getName())
+                        .supplierId(supplier.getId())
                         .build();
             } else {
                 throw new RuntimeException("Invalid response from supplier payment API");
@@ -169,7 +233,15 @@ public class DirectSupplierPaymentService {
 
             // Call SOAP service to create payment session
             try {
-                Map<String, Object> soapResult = createSoapPaymentSession(supplier, order);
+                List<OrderItem> orderItems = order.getItems();
+                
+                // Fix: Cast Supplier to SoapSupplier for SOAP operations
+                if (!(supplier instanceof SoapSupplier)) {
+                    throw new RuntimeException("Supplier " + supplier.getName() + " is not a SOAP supplier");
+                }
+                SoapSupplier soapSupplier = (SoapSupplier) supplier;
+                
+                Map<String, Object> soapResult = createSoapPaymentSession(soapSupplier, order, orderItems);
                 if (soapResult.get("success").equals(true)) {
                     String paymentUrl = (String) soapResult.get("paymentUrl");
                     log.info("SOAP payment session created successfully. PaymentURL: {}", paymentUrl);
@@ -181,6 +253,7 @@ public class DirectSupplierPaymentService {
                             .paymentUrl(paymentUrl)
                             .paymentFlow("DIRECT_TO_SUPPLIER")
                             .supplierName(supplier.getName())
+                            .supplierId(supplier.getId())
                             .build();
                 } else {
                     throw new RuntimeException("SOAP payment session creation failed");
@@ -201,49 +274,173 @@ public class DirectSupplierPaymentService {
     private PaymentIntentResponse createRestApiPaymentIntentFromOrder(PaymentIntentRequest request,
                                                                      Supplier supplier,
                                                                      Order order) {
-        throw new UnsupportedOperationException("REST API payment from DB order not implemented");
+        try {
+            log.info("Creating REST API payment intent for supplier: {} with order: {}", supplier.getName(), order.getId());
+            
+            // Get order items for this supplier
+            List<OrderItem> orderItems = orderItemService.findByOrderIdAndSupplierId(order.getId(), supplier.getId());
+            
+            if (orderItems.isEmpty()) {
+                throw new RuntimeException("No order items found for supplier: " + supplier.getName());
+            }
+            
+            // Calculate supplier total
+            Double supplierTotal = orderItems.stream()
+                    .map(OrderItem::getSubtotal)
+                    .filter(subtotal -> subtotal != null)
+                    .reduce(0.0, Double::sum);
+            
+            log.info("Supplier {} will receive £{} (full display price)", supplier.getName(), supplierTotal);
+            
+            // Calculate commission (platform fee)
+            Double commission = 0.0; // For direct supplier payment, no commission
+            log.info("Supplier will receive £{} and owe platform £{} commission", supplierTotal, commission);
+            
+            // Create payment session for REST API supplier
+            Map<String, Object> paymentSession = createRestApiPaymentSession(supplier, order, orderItems);
+            
+            if ((Boolean) paymentSession.get("success")) {
+                // Create payment intent response
+                PaymentIntentResponse response = new PaymentIntentResponse();
+                response.setId("REST_" + supplier.getId() + "_" + order.getId() + "_" + System.currentTimeMillis());
+                response.setAmount(Math.round(supplierTotal * 100)); // Convert to cents
+                response.setCurrency(order.getCurrency());
+                response.setStatus("requires_payment_method");
+                response.setClientSecret("rest_" + supplier.getId() + "_" + order.getId());
+                
+                // Add supplier-specific payment details to response
+                // Note: PaymentIntentResponse doesn't have setPaymentMethodTypes or setMetadata methods
+                // We'll store the payment URL in the client secret for now
+                String paymentUrl = (String) paymentSession.get("paymentUrl");
+                String sessionId = (String) paymentSession.get("sessionId");
+                
+                log.info("REST API payment intent created successfully for supplier: {}", supplier.getName());
+                log.info("Payment URL: {}", paymentUrl);
+                log.info("Session ID: {}", sessionId);
+                
+                return response;
+                
+            } else {
+                String errorMessage = (String) paymentSession.get("error");
+                throw new RuntimeException("Failed to create REST API payment session: " + errorMessage);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error creating REST API payment intent: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to create REST API payment intent: " + e.getMessage());
+        }
     }
 
-    private Map<String, Object> createSoapPaymentSession(Supplier supplier, Order order) {
-        Map<String, Object> result = new HashMap<>();
+    /**
+     * Create SOAP payment session with supplier
+     * This ensures the customer is redirected back to our platform
+     */
+    private Map<String, Object> createSoapPaymentSession(SoapSupplier supplier, Order order, List<OrderItem> orderItems) {
         try {
-            // Actually call the SOAP payment service and get the full response
+            log.info("Creating SOAP payment session with supplier: {}", supplier.getName());
+            
+            // Call the SOAP service to process the payment
             Map<String, Object> soapResponse = soapPaymentService.processSoapPaymentWithResponse(supplier.getId(), order);
+            
             log.info("SOAP Response received: {}", soapResponse);
             
-            boolean success = (Boolean) soapResponse.getOrDefault("success", false);
-            
-            if (success) {
-                // Extract real data from SOAP response
-                String sessionId = (String) soapResponse.get("stripeSessionId");
+            if ((Boolean) soapResponse.get("success")) {
+                // SOAP payment was successful - create a session ID for tracking
+                String sessionId = "SOAP_" + supplier.getId() + "_" + order.getId() + "_" + System.currentTimeMillis();
+                
+                // Use the actual payment URL from the SOAP response instead of generating a WSDL URL
                 String paymentUrl = (String) soapResponse.get("url");
                 
-                log.info("Extracted from SOAP response - sessionId: {}, paymentUrl: {}", sessionId, paymentUrl);
-                
-                // Fallback to generated values if SOAP doesn't provide them
-                if (sessionId == null) {
-                    sessionId = "soap_session_" + order.getId() + "_" + System.currentTimeMillis();
-                    log.info("Generated fallback sessionId: {}", sessionId);
-                }
-                if (paymentUrl == null) {
-                    paymentUrl = supplier.getPaymentApiEndpoint() + "/pay?session=" + sessionId;
-                    log.info("Generated fallback paymentUrl: {}", paymentUrl);
+                if (paymentUrl == null || paymentUrl.isEmpty()) {
+                    log.warn("No payment URL received from SOAP response, falling back to WSDL URL");
+                    // Fallback to WSDL URL if no payment URL in response
+                    paymentUrl = supplier.getEffectivePaymentWsdlUrl() + "?orderId=" + order.getId() + 
+                                   "&amount=" + order.getTotal() + 
+                                   "&currency=" + order.getCurrency() + 
+                                   "&sessionId=" + sessionId;
                 }
                 
+                log.info("Created supplier payment URL: {}", paymentUrl);
+                
+                // Store session mapping for payment completion with Stripe session ID
+                String stripeSessionId = (String) soapResponse.get("stripeSessionId");
+                orderSessionMappingService.storeSessionMapping(sessionId, order.getId(), supplier.getId(), "SOAP", stripeSessionId);
+                log.info("Stored session mapping for session: {} -> order: {}, supplier: {} with Stripe ID: {}", sessionId, order.getId(), supplier.getId(), stripeSessionId);
+                
+                // Return the payment URL for the customer to be redirected
+                Map<String, Object> result = new HashMap<>();
                 result.put("success", true);
                 result.put("sessionId", sessionId);
                 result.put("paymentUrl", paymentUrl);
-                log.info("Final result: sessionId={}, paymentUrl={}", sessionId, paymentUrl);
+                result.put("message", "Payment session created. Redirecting to supplier payment system.");
+                
+                log.info("SOAP payment session created successfully. Customer redirected to: {}", paymentUrl);
+                return result;
+                
             } else {
-                result.put("success", false);
-                result.put("error", (String) soapResponse.getOrDefault("error", "SOAP payment failed"));
+                String errorMessage = (String) soapResponse.get("error");
+                log.error("SOAP payment failed: {}", errorMessage);
+                return Map.of("success", false, "error", "SOAP payment failed: " + errorMessage);
             }
-            return result;
+            
         } catch (Exception e) {
-            log.error("Error creating SOAP payment session: {}", e.getMessage());
-            result.put("success", false);
-            result.put("error", e.getMessage());
+            log.error("Error creating SOAP payment session: {}", e.getMessage(), e);
+            return Map.of("success", false, "error", "Failed to create SOAP payment session: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Create REST API payment session with supplier
+     * This ensures the customer is redirected back to our platform
+     */
+    private Map<String, Object> createRestApiPaymentSession(Supplier supplier, Order order, List<OrderItem> orderItems) {
+        try {
+            log.info("Creating REST API payment session with supplier: {}", supplier.getName());
+            
+            // Generate session ID for tracking
+            String sessionId = "REST_" + supplier.getId() + "_" + order.getId() + "_" + System.currentTimeMillis();
+            
+            // For REST API suppliers with their own payment system, we need to redirect to their payment page
+            // Since they handle payment directly, we'll create a payment URL that goes to their system
+            String supplierPaymentUrl = supplier.getPaymentApiEndpoint();
+            
+            if (supplierPaymentUrl == null || supplierPaymentUrl.isEmpty()) {
+                // Fallback to API URL if payment endpoint not specified
+                if (supplier instanceof ApiSupplier) {
+                    supplierPaymentUrl = ((ApiSupplier) supplier).getApiUrl();
+                }
+            }
+            
+            if (supplierPaymentUrl == null || supplierPaymentUrl.isEmpty()) {
+                throw new RuntimeException("Supplier does not have payment endpoint configured");
+            }
+            
+            // Create a payment URL that includes our order information
+            // This will be a POST request to the supplier's payment system
+            String paymentUrl = supplierPaymentUrl + "?orderId=" + order.getId() + 
+                               "&amount=" + order.getTotal() + 
+                               "&currency=" + order.getCurrency() + 
+                               "&sessionId=" + sessionId;
+            
+            log.info("Created supplier payment URL: {}", paymentUrl);
+            
+            // Store session mapping for payment completion (REST API suppliers may not have Stripe session ID)
+            orderSessionMappingService.storeSessionMapping(sessionId, order.getId(), supplier.getId(), "REST", null);
+            log.info("Stored session mapping for session: {} -> order: {}, supplier: {}", sessionId, order.getId(), supplier.getId());
+            
+            // Return the payment URL for the customer to be redirected
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("sessionId", sessionId);
+            result.put("paymentUrl", paymentUrl);
+            result.put("message", "Payment session created. Redirecting to supplier payment system.");
+            
+            log.info("REST API payment session created successfully. Customer redirected to: {}", paymentUrl);
             return result;
+            
+        } catch (Exception e) {
+            log.error("Error creating REST API payment session: {}", e.getMessage(), e);
+            return Map.of("success", false, "error", "Failed to create REST API payment session: " + e.getMessage());
         }
     }
 

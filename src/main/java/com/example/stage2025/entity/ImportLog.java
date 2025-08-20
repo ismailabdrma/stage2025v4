@@ -25,7 +25,7 @@ public class ImportLog {
     private Integer errorCount;
     private String errorMessage;
 
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.REMOVE)
     @JoinColumn(name = "supplier_id")
     private Supplier supplier;
 }

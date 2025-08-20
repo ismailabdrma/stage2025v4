@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 import java.util.List;
 
@@ -30,11 +31,40 @@ public class SupplierController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<SupplierDto> createSupplier(@RequestBody SupplierDto dto) {
-        // Minimal validation to prevent UI being blocked unnecessarily
+    public ResponseEntity<?> createSupplier(@RequestBody SupplierDto dto) {
+        // Smart validation based on supplier type and payment system
         if (dto.getType() == null || dto.getType().isBlank()) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Supplier type is required"
+            ));
         }
+        
+        // If supplier has own payment system, validate required fields
+        if (dto.isHasOwnPaymentSystem()) {
+            if ("SOAP".equals(dto.getType())) {
+                if (dto.getPaymentWsdlUrl() == null || dto.getPaymentWsdlUrl().isBlank()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Payment WSDL URL is required for SOAP suppliers with own payment system"
+                    ));
+                }
+                if (dto.getPaymentOperationNameConfig() == null || dto.getPaymentOperationNameConfig().isBlank()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Payment operation name is required for SOAP suppliers with own payment system"
+                    ));
+                }
+            } else if ("API".equals(dto.getType())) {
+                if (dto.getPaymentApiEndpoint() == null || dto.getPaymentApiEndpoint().isBlank()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Payment API endpoint is required for API suppliers with own payment system"
+                    ));
+                }
+            }
+        }
+        
         return ResponseEntity.ok(supplierService.createSupplier(dto));
     }
 

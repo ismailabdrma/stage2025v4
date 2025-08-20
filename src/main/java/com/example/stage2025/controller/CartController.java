@@ -12,11 +12,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/cart")
 @RequiredArgsConstructor
 public class CartController {
+
+    private static final Logger log = LoggerFactory.getLogger(CartController.class);
 
     private final CartService cartService;
     private final ShippingService shippingService;
@@ -98,9 +102,20 @@ public class CartController {
         // Convert guest cart items to CartItemDto
         for (Map<String, Object> guestItem : guestCartItems) {
             CartItemDto itemDto = new CartItemDto();
-            itemDto.setProductId(((Number) guestItem.get("productId")).longValue());
-            itemDto.setQuantity(((Number) guestItem.get("quantity")).intValue());
-            itemDto.setUnitPrice(((Number) guestItem.get("price")).doubleValue());
+            
+            // Fix: Add null checks for all fields
+            Object productIdObj = guestItem.get("productId");
+            Object quantityObj = guestItem.get("quantity");
+            Object priceObj = guestItem.get("price");
+            
+            if (productIdObj == null || quantityObj == null || priceObj == null) {
+                log.warn("Skipping invalid guest cart item: {}", guestItem);
+                continue; // Skip invalid items
+            }
+            
+            itemDto.setProductId(((Number) productIdObj).longValue());
+            itemDto.setQuantity(((Number) quantityObj).intValue());
+            itemDto.setUnitPrice(((Number) priceObj).doubleValue());
             
             // Add to cart (will merge if item already exists)
             cartService.addItemToCart(clientId, itemDto);
@@ -133,7 +148,14 @@ public class CartController {
     @PostMapping("/shipping-quote")
     public ResponseEntity<Map<String, Object>> getShippingQuote(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> payload) {
         Long clientId = resolveClientId(auth, userIdAttr);
-        Long addressId = ((Number) payload.get("addressId")).longValue();
+        
+        // Fix: Add null check for addressId
+        Object addressIdObj = payload.get("addressId");
+        if (addressIdObj == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "addressId is required"));
+        }
+        
+        Long addressId = ((Number) addressIdObj).longValue();
         return ResponseEntity.ok(shippingService.getQuote(clientId, addressId));
     }
 }

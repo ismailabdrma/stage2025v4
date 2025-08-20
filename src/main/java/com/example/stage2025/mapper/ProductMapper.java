@@ -23,12 +23,18 @@ public class ProductMapper {
         dto.setDynamicPrice(p.getDynamicPrice());
         dto.setLastFetched(p.getLastFetched());
 
-        // Convert image URLs to use our proxy endpoint
-        List<String> processedImageUrls = p.getImageUrls() != null ? 
-            p.getImageUrls().stream()
-                .map(ProductMapper::processImageUrl)
-                .collect(Collectors.toList()) 
-            : List.of();
+        // Convert image URLs to use our proxy endpoint - handle lazy loading safely
+        List<String> processedImageUrls = List.of();
+        try {
+            if (p.getImageUrls() != null && !p.getImageUrls().isEmpty()) {
+                processedImageUrls = p.getImageUrls().stream()
+                    .map(ProductMapper::processImageUrl)
+                    .collect(Collectors.toList());
+            }
+        } catch (Exception e) {
+            // If there's a lazy loading issue, just use empty list
+            processedImageUrls = List.of();
+        }
         dto.setImageUrls(processedImageUrls);
         // Guard against LazyInitialization if category is proxy and session closed
         try {

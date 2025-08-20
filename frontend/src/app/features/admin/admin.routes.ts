@@ -58,6 +58,11 @@ export const adminRoutes: Routes = [
         path: "system-status",
         loadComponent: () =>
             import("./components/system-status/system-status.component").then((m) => m.SystemStatusComponent),
+      },
+      {
+        path: "payment-completion",
+        loadComponent: () =>
+            import("./components/admin-payment-completion/admin-payment-completion.component").then((m) => m.AdminPaymentCompletionComponent),
       }
     ]
   }

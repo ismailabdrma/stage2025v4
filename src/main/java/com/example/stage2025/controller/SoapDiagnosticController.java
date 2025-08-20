@@ -16,6 +16,10 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.example.stage2025.entity.Order;
+import com.example.stage2025.entity.OrderItem;
+import com.example.stage2025.entity.Product;
+import com.example.stage2025.service.impl.SoapPaymentService;
 
 @RestController
 @RequestMapping("/api/admin/soap-diagnostic")
@@ -26,6 +30,7 @@ public class SoapDiagnosticController {
 
     private final SupplierRepository supplierRepository;
     private final SoapMetadataRefreshService metadataRefreshService;
+    private final SoapPaymentService soapPaymentService;
 
     @GetMapping("/test-wsdl-url")
     public ResponseEntity<Map<String, Object>> testWsdlUrl(@RequestParam String wsdlUrl) {
@@ -236,6 +241,130 @@ public class SoapDiagnosticController {
             log.error("Force refresh failed: {}", e.getMessage());
             result.put("success", false);
             result.put("error", e.getMessage());
+        }
+        
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/test-payment-config/{supplierId}")
+    public ResponseEntity<Map<String, Object>> testPaymentConfiguration(@PathVariable Long supplierId) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            SoapSupplier soapSupplier = (SoapSupplier) supplierRepository.findById(supplierId)
+                .orElseThrow(() -> new RuntimeException("Supplier not found"));
+            
+            result.put("supplierName", soapSupplier.getName());
+            result.put("supplierType", "SOAP"); // SOAP suppliers are always of type "SOAP"
+            
+            // Check payment system configuration
+            result.put("hasOwnPaymentSystem", soapSupplier.isHasOwnPaymentSystem());
+            result.put("autoPaymentEnabled", soapSupplier.isAutoPaymentEnabled());
+            result.put("paymentIntegrationType", soapSupplier.getPaymentIntegrationType());
+            
+            // Check WSDL configuration
+            result.put("wsdlUrl", soapSupplier.getWsdlUrl());
+            result.put("paymentWsdlUrl", soapSupplier.getPaymentWsdlUrl());
+            result.put("effectivePaymentWsdlUrl", soapSupplier.getEffectivePaymentWsdlUrl());
+            
+            // Check operation configuration
+            result.put("paymentOperationName", soapSupplier.getPaymentOperationName());
+            result.put("paymentOperationNameConfig", soapSupplier.getPaymentOperationNameConfig());
+            result.put("effectivePaymentOperationName", soapSupplier.getEffectivePaymentOperationName());
+            
+            // Check stored operations
+            List<com.example.stage2025.entity.SoapSupplierOperationMeta> storedOps = soapSupplier.getOperations();
+            result.put("storedOperationsCount", storedOps.size());
+            result.put("storedOperations", storedOps.stream().map(op -> {
+                Map<String, Object> opInfo = new HashMap<>();
+                opInfo.put("name", op.getOperationName());
+                opInfo.put("inputElement", op.getInputElement());
+                opInfo.put("outputElement", op.getOutputElement());
+                opInfo.put("soapAction", op.getSoapAction());
+                opInfo.put("isPaymentOperation", op.getOperationName().equals(soapSupplier.getEffectivePaymentOperationName()));
+                return opInfo;
+            }).toList());
+            
+            // Test payment system detection
+            result.put("paymentSystemTest", Map.of(
+                "hasStoredOperations", storedOps != null && !storedOps.isEmpty(),
+                "hasPaymentOperation", soapSupplier.getEffectivePaymentOperationName() != null,
+                "hasWsdlUrl", soapSupplier.getEffectivePaymentWsdlUrl() != null,
+                "autoPaymentEnabled", soapSupplier.isAutoPaymentEnabled()
+            ));
+            
+            result.put("success", true);
+            result.put("message", "Payment configuration test completed");
+            
+        } catch (Exception e) {
+            log.error("Payment configuration test failed: {}", e.getMessage());
+            result.put("success", false);
+            result.put("error", e.getMessage());
+        }
+        
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/test-payment-call/{supplierId}")
+    public ResponseEntity<Map<String, Object>> testPaymentCall(@PathVariable Long supplierId) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            SoapSupplier soapSupplier = (SoapSupplier) supplierRepository.findById(supplierId)
+                .orElseThrow(() -> new RuntimeException("Supplier not found"));
+            
+            // Check if supplier has payment system
+            if (!soapSupplier.isHasOwnPaymentSystem()) {
+                result.put("success", false);
+                result.put("error", "Supplier does not have own payment system configured");
+                result.put("details", Map.of(
+                    "hasStoredOperations", soapSupplier.getOperations() != null && !soapSupplier.getOperations().isEmpty(),
+                    "hasPaymentOperation", soapSupplier.getEffectivePaymentOperationName() != null,
+                    "hasWsdlUrl", soapSupplier.getEffectivePaymentWsdlUrl() != null,
+                    "autoPaymentEnabled", soapSupplier.isAutoPaymentEnabled()
+                ));
+                return ResponseEntity.ok(result);
+            }
+            
+            // Create a test order for testing
+            Order testOrder = new Order();
+            testOrder.setId(999999L); // Test ID
+            testOrder.setTotal(130.0); // Test amount
+            testOrder.setCurrency("EUR");
+            
+            // Create test order item
+            OrderItem testItem = new OrderItem();
+            testItem.setQuantity(1);
+            
+            // Create test product
+            Product testProduct = new Product();
+            testProduct.setSupplierRef("TEST_PRODUCT_001");
+            testProduct.setExternalProductId("EXT_001");
+            testItem.setProduct(testProduct);
+            
+            testOrder.setItems(List.of(testItem));
+            
+            log.info("Testing SOAP payment call for supplier: {} with test order: {}", 
+                    soapSupplier.getName(), testOrder.getId());
+            
+            // Call the SOAP payment service
+            Map<String, Object> paymentResult = soapPaymentService.processSoapPaymentWithResponse(supplierId, testOrder);
+            
+            result.put("success", true);
+            result.put("paymentResult", paymentResult);
+            result.put("testOrder", Map.of(
+                "id", testOrder.getId(),
+                "total", testOrder.getTotal(),
+                "currency", testOrder.getCurrency(),
+                "itemsCount", testOrder.getItems().size()
+            ));
+            result.put("message", "SOAP payment test completed successfully");
+            
+        } catch (Exception e) {
+            log.error("SOAP payment test failed: {}", e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            result.put("errorType", e.getClass().getSimpleName());
         }
         
         return ResponseEntity.ok(result);

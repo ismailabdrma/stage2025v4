@@ -83,7 +83,8 @@ export class ProductDetailComponent implements OnInit {
         quantity: 1,
         price: this.product.displayedPrice,
         productName: this.product.name,
-        productImage: (this.product.imageUrl ?? (this.product.imageUrls && this.product.imageUrls.length ? this.product.imageUrls[0] : undefined))
+        productImage: (this.product.imageUrl ?? (this.product.imageUrls && this.product.imageUrls.length ? this.product.imageUrls[0] : undefined)),
+        externalProductId: this.product.externalProductId
       };
       this.cartService.addItem(cartItem).subscribe(
         (response) => {

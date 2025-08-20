@@ -10,6 +10,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -28,6 +30,23 @@ public class EmailServiceImpl implements EmailService {
         // Prefer the SMTP username to avoid provider rejection on 'From'
         if (mailUsername != null && !mailUsername.isBlank()) return mailUsername;
         return fromEmail;
+    }
+    
+    @Override
+    public void sendEmail(String toEmail, String subject, String content) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(resolveFrom());
+            message.setTo(toEmail);
+            message.setSubject(subject);
+            message.setText(content);
+            
+            mailSender.send(message);
+            log.info("Email sent successfully to: {} with subject: {}", toEmail, subject);
+        } catch (Exception e) {
+            log.error("Failed to send email to {}: {}", toEmail, e.getMessage());
+            throw new RuntimeException("Failed to send email", e);
+        }
     }
 
     @Override
@@ -380,4 +399,247 @@ public class EmailServiceImpl implements EmailService {
         mailSender.send(message);
         log.info("Supplier order summary sent successfully to: {}", supplierEmail);
     }
+
+    @Override
+    public void sendCommissionReminder(Supplier supplier, SupplierCommission commission) {
+        try {
+            String subject = "Commission Payment Reminder - Order #" + commission.getOrder().getId();
+            String content = String.format("""
+                Dear %s,
+                
+                This is a friendly reminder that you owe the platform a commission payment.
+                
+                Order Details:
+                - Order ID: #%s
+                - Commission Amount: €%.2f
+                - Due Date: %s
+                - Display Price: €%.2f
+                - Supplier Price: €%.2f
+                
+                Please process this payment within the next 7 days to avoid late fees.
+                
+                If you have any questions, please contact our support team.
+                
+                Best regards,
+                Platform Team
+                """,
+                supplier.getName(),
+                commission.getOrder().getId(),
+                commission.getCommissionAmount(),
+                commission.getDueDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                commission.getDisplayPrice(),
+                commission.getSupplierPrice()
+            );
+            
+            sendEmail(supplier.getContactEmail(), subject, content);
+            log.info("Commission reminder sent to supplier: {} for commission: {}", supplier.getName(), commission.getId());
+            
+        } catch (Exception e) {
+            log.error("Error sending commission reminder to supplier {}: {}", supplier.getName(), e.getMessage());
+        }
+    }
+    
+    @Override
+    public void sendCommissionOverdueReminder(Supplier supplier, SupplierCommission commission) {
+        try {
+            String subject = "URGENT: Commission Payment Overdue - Order #" + commission.getOrder().getId();
+            String content = String.format("""
+                Dear %s,
+                
+                Your commission payment is now OVERDUE and requires immediate attention.
+                
+                Order Details:
+                - Order ID: #%s
+                - Commission Amount: €%.2f
+                - Due Date: %s (OVERDUE)
+                - Days Late: %d
+                
+                This overdue payment may affect your account status and future orders.
+                Please process payment immediately to avoid account suspension.
+                
+                If you have any questions, please contact our support team urgently.
+                
+                Best regards,
+                Platform Team
+                """,
+                supplier.getName(),
+                commission.getOrder().getId(),
+                commission.getCommissionAmount(),
+                commission.getDueDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                java.time.Duration.between(commission.getDueDate(), LocalDateTime.now()).toDays()
+            );
+            
+            sendEmail(supplier.getContactEmail(), subject, content);
+            log.info("Commission overdue reminder sent to supplier: {} for commission: {}", supplier.getName(), commission.getId());
+            
+        } catch (Exception e) {
+            log.error("Error sending commission overdue reminder to supplier {}: {}", supplier.getName(), e.getMessage());
+        }
+    }
+    
+    @Override
+    public void sendCommissionPaidConfirmation(Supplier supplier, SupplierCommission commission) {
+        try {
+            String subject = "Commission Payment Confirmed - Order #" + commission.getOrder().getId();
+            String content = String.format("""
+                Dear %s,
+                
+                Thank you! Your commission payment has been received and confirmed.
+                
+                Payment Details:
+                - Order ID: #%s
+                - Commission Amount: €%.2f
+                - Payment Date: %s
+                - Payment Reference: %s
+                
+                Your account is now up to date. Thank you for your prompt payment.
+                
+                Best regards,
+                Platform Team
+                """,
+                supplier.getName(),
+                commission.getOrder().getId(),
+                commission.getCommissionAmount(),
+                commission.getPaidDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                commission.getPaymentReference() != null ? commission.getPaymentReference() : "N/A"
+            );
+            
+            sendEmail(supplier.getContactEmail(), subject, content);
+            log.info("Commission paid confirmation sent to supplier: {} for commission: {}", supplier.getName(), commission.getId());
+            
+        } catch (Exception e) {
+            log.error("Error sending commission paid confirmation to supplier {}: {}", supplier.getName(), e.getMessage());
+        }
+    }
+    
+    @Override
+    public void sendOrderSummaryToClient(Client client, Order order, String paymentMethod) {
+        try {
+            String subject = "Order Confirmation - Order #" + order.getId();
+            String content = String.format("""
+                Dear %s %s,
+                
+                Thank you for your order! Here's your order summary:
+                
+                Order Details:
+                - Order ID: #%s
+                - Order Date: %s
+                - Payment Method: %s
+                - Total Amount: €%.2f
+                
+                Order Items:
+                %s
+                
+                Payment Status: CONFIRMED
+                Your order is being processed and will be shipped soon.
+                
+                If you have any questions, please contact our support team.
+                
+                Best regards,
+                Platform Team
+                """,
+                client.getFirstName(),
+                client.getLastName(),
+                order.getId(),
+                order.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
+                paymentMethod,
+                order.getTotal(),
+                formatOrderItems(order)
+            );
+            
+            sendEmail(client.getEmail(), subject, content);
+            log.info("Order summary sent to client: {} for order: {}", client.getEmail(), order.getId());
+            
+        } catch (Exception e) {
+            log.error("Error sending order summary to client {}: {}", client.getEmail(), e.getMessage());
+        }
+    }
+    
+    @Override
+    public void sendOrderSummaryToSupplier(Supplier supplier, Order order, boolean isSupplierPayment, Double commissionAmount) {
+        try {
+            String subject = "Order Notification - Order #" + order.getId();
+            String content;
+            
+            if (isSupplierPayment) {
+                // Supplier handled payment - they owe us commission
+                content = String.format("""
+                    Dear %s,
+                    
+                    A new order has been placed through your supplier payment system.
+                    
+                    Order Details:
+                    - Order ID: #%s
+                    - Order Date: %s
+                    - Customer Paid: €%.2f (directly to you)
+                    - Commission Owed: €%.2f (to platform)
+                    
+                    Order Items:
+                    %s
+                    
+                    IMPORTANT: You owe the platform €%.2f commission for this order.
+                    Please process this payment within 30 days.
+                    
+                    Best regards,
+                    Platform Team
+                    """,
+                    supplier.getName(),
+                    order.getId(),
+                    order.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
+                    order.getTotal(),
+                    commissionAmount,
+                    formatOrderItems(order),
+                    commissionAmount
+                );
+            } else {
+                // Platform handled payment - we owe them
+                content = String.format("""
+                    Dear %s,
+                    
+                    A new order has been placed and paid through our platform.
+                    
+                    Order Details:
+                    - Order ID: #%s
+                    - Order Date: %s
+                    - Customer Paid: €%.2f (to platform)
+                    - Amount Owed to You: €%.2f
+                    
+                    Order Items:
+                    %s
+                    
+                    We will process your payment within 7 business days.
+                    
+                    Best regards,
+                    Platform Team
+                    """,
+                    supplier.getName(),
+                    order.getId(),
+                    order.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
+                    order.getTotal(),
+                    order.getTotal() - commissionAmount,
+                    formatOrderItems(order)
+                );
+            }
+            
+            sendEmail(supplier.getContactEmail(), subject, content);
+            log.info("Order summary sent to supplier: {} for order: {}", supplier.getName(), order.getId());
+            
+        } catch (Exception e) {
+            log.error("Error sending order summary to supplier {}: {}", supplier.getName(), e.getMessage());
+        }
+    }
+    
+    private String formatOrderItems(Order order) {
+        StringBuilder items = new StringBuilder();
+        for (var item : order.getItems()) {
+            items.append(String.format("- %s x%d @ €%.2f each = €%.2f\n",
+                item.getProduct().getName(),
+                item.getQuantity(),
+                item.getUnitPrice(),
+                item.getUnitPrice() * item.getQuantity()
+            ));
+        }
+        return items.toString();
+    }
+    
 }

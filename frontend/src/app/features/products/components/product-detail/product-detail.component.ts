@@ -83,7 +83,7 @@ export class ProductDetailComponent implements OnInit {
   }
 
   selectImage(image: string): void {
-    this.selectedImage = this.resolveImageUrl(image) || '/assets/placeholder-product.jpg'
+    this.selectedImage = this.resolveImageUrl(image) || '/assets/logo.svg'
   }
 
   addToCart(): void {
@@ -97,6 +97,7 @@ export class ProductDetailComponent implements OnInit {
         price: this.product.displayedPrice,
         productName: this.product.name,
         productImage: (this.product.imageUrls && this.product.imageUrls.length ? this.product.imageUrls[0] : undefined),
+        externalProductId: this.product.externalProductId
       })
       .subscribe({
         next: () => {

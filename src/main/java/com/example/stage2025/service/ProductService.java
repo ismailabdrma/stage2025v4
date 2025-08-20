@@ -42,4 +42,7 @@ public interface ProductService {
     ProductDto activateProduct(Long id);
     void permanentDeleteProduct(Long id);
     List<ProductDto> bulkUpdateProducts(List<Long> productIds, ProductDto updateData);
+    
+    // Admin: Get all products for admin panel
+    List<ProductDto> getAllProductsForAdmin(boolean includeInactive);
 }

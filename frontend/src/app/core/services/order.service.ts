@@ -23,6 +23,11 @@ export class OrderService {
     return this.http.post<Order>(this.apiUrl, request)
   }
 
+  // Create order and determine payment method (platform vs supplier)
+  createOrderWithPayment(payload: { addressId: number; shippingFee: number }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/create-with-payment`, payload)
+  }
+
   updateOrderStatus(id: number, status: string): Observable<Order> {
     return this.http.put<Order>(`${this.apiUrl}/${id}/status`, { status })
   }

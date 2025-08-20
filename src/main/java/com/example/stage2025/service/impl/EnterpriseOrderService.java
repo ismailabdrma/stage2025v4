@@ -102,6 +102,7 @@ public class EnterpriseOrderService implements OrderService {
                 .lockToken(UUID.randomUUID().toString())
                 .lockExpiry(LocalDateTime.now().plusMinutes(30))
                 .version(0L)
+                .currency("EUR") // Explicitly set currency
                 .build();
 
             // Create order items grouped by supplier

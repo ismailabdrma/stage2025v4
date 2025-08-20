@@ -29,4 +29,19 @@ public interface EmailService {
     
     // Supplier payment emails
     void sendSupplierPaymentRequest(Supplier supplier, Order order, String message);
+    
+    // Commission reminder emails
+    void sendCommissionReminder(Supplier supplier, SupplierCommission commission);
+    void sendCommissionOverdueReminder(Supplier supplier, SupplierCommission commission);
+    void sendCommissionPaidConfirmation(Supplier supplier, SupplierCommission commission);
+    
+    // Order summary emails
+    void sendOrderSummaryToClient(Client client, Order order, String paymentMethod);
+    void sendOrderSummaryToSupplier(Supplier supplier, Order order, boolean isSupplierPayment, Double commissionAmount);
+    
+    // Generic email method
+    void sendEmail(String toEmail, String subject, String content);
+    
+    // Order confirmation method
+    void sendOrderConfirmation(Client client, Order order);
 }

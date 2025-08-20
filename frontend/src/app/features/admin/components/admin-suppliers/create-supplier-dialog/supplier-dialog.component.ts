@@ -66,13 +66,13 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                         <mat-error *ngIf="supplierForm.get('email')?.hasError('email')">
                                             Please enter a valid email address
                                         </mat-error>
-                </mat-form-field>
+                                    </mat-form-field>
                                 </div>
                                 
                                 <!-- Supplier Type -->
                                 <mat-form-field appearance="outline" class="full-width">
                                     <mat-label>Supplier Type</mat-label>
-                    <mat-select formControlName="type" required (selectionChange)="onTypeChange()">
+                                    <mat-select formControlName="type" required (selectionChange)="onTypeChange()">
                                         <mat-option value="API">
                                             <mat-icon>api</mat-icon>
                                             REST API Integration
@@ -141,8 +141,8 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                                 <mat-option value="API_KEY">API Key</mat-option>
                                                 <mat-option value="BEARER_TOKEN">Bearer Token</mat-option>
                                                 <mat-option value="BASIC_AUTH">Basic Auth</mat-option>
-                    </mat-select>
-                </mat-form-field>
+                                            </mat-select>
+                                        </mat-form-field>
                                     </div>
 
                                     <div class="form-row">
@@ -168,14 +168,14 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                 </ng-container>
 
                                 <!-- SOAP Configuration -->
-                <ng-container *ngIf="supplierForm.get('type')?.value === 'SOAP'">
+                                <ng-container *ngIf="supplierForm.get('type')?.value === 'SOAP'">
                                     <h3 class="section-title">
                                         <mat-icon>soap</mat-icon>
                                         SOAP Web Service Configuration
                                     </h3>
                                     
                                     <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>WSDL URL</mat-label>
+                                        <mat-label>WSDL URL</mat-label>
                                         <input matInput formControlName="wsdlUrl" (blur)="loadSoapOperations()" required
                                                placeholder="https://supplier.com/service.wsdl">
                                         <mat-icon matSuffix>description</mat-icon>
@@ -183,7 +183,7 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                         <mat-error *ngIf="supplierForm.get('wsdlUrl')?.hasError('required')">
                                             WSDL URL is required
                                         </mat-error>
-                    </mat-form-field>
+                                    </mat-form-field>
                                     
                                     <mat-form-field appearance="outline" class="full-width">
                                         <mat-label>Service Namespace</mat-label>
@@ -191,22 +191,22 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                                placeholder="http://supplier.com/ws">
                                         <mat-icon matSuffix>schema</mat-icon>
                                         <mat-hint>Optional: only if your SOAP service requires it</mat-hint>
-                    </mat-form-field>
+                                    </mat-form-field>
                                     
                                     <div class="form-row">
                                         <mat-form-field appearance="outline" class="half-width">
-                        <mat-label>Username (optional)</mat-label>
+                                            <mat-label>Username (optional)</mat-label>
                                             <input matInput formControlName="username" placeholder="Username">
                                             <mat-icon matSuffix>person</mat-icon>
-                    </mat-form-field>
+                                        </mat-form-field>
                                         
                                         <mat-form-field appearance="outline" class="half-width">
-                        <mat-label>Password (optional)</mat-label>
+                                            <mat-label>Password (optional)</mat-label>
                                             <input matInput type="password" formControlName="password" placeholder="Password">
                                             <mat-icon matSuffix>lock</mat-icon>
-                    </mat-form-field>
+                                        </mat-form-field>
                                     </div>
-                                    
+
                                     <mat-form-field appearance="outline" class="full-width">
                                         <mat-label>SOAP Payment Operation (optional)</mat-label>
                                         <mat-select formControlName="paymentOperationName" [disabled]="soapOperations.length === 0">
@@ -224,44 +224,133 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                         </mat-select>
                                     </mat-form-field>
 
-                                    <!-- Checkbox for payment operation ownership -->
-                                    <mat-checkbox formControlName="hasOwnPaymentSystem">
-                                        Supplier handles customer payment directly (own payment operation)
-                                    </mat-checkbox>
-                                    <!-- Payment panel only if supplier does NOT own payment operation -->
-                                    <div *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
-                                        <mat-form-field appearance="outline" class="full-width">
-                                            <mat-label>Platform Payment Settings</mat-label>
-                                            <input matInput formControlName="paymentApiEndpoint" placeholder="Platform payment API endpoint">
-                                        </mat-form-field>
-                                        <!-- Add more platform payment fields as needed -->
-                                    </div>
-                </ng-container>
+                                    <mat-form-field appearance="outline" class="full-width">
+                                        <mat-label>SOAP Success Operation (optional)</mat-label>
+                                        <input matInput formControlName="successOperationName" 
+                                               placeholder="notifyPaymentStatus">
+                                        <mat-icon matSuffix>check_circle</mat-icon>
+                                        <mat-hint>Operation to notify payment status (default: notifyPaymentStatus)</mat-hint>
+                                    </mat-form-field>
 
-                                <!-- Excel/CSV Configuration -->
-                                <ng-container *ngIf="supplierForm.get('type')?.value === 'EXCEL' || supplierForm.get('type')?.value === 'CSV'">
-                                    <h3 class="section-title">
-                                        <mat-icon>{{ supplierForm.get('type')?.value === 'EXCEL' ? 'table_view' : 'insert_drive_file' }}</mat-icon>
-                                        {{ supplierForm.get('type')?.value === 'EXCEL' ? 'Excel' : 'CSV' }} File Configuration
-                                    </h3>
+                                    <!-- Payment System Configuration Section -->
+                                    <h4 class="subsection-title">
+                                        <mat-icon>payment</mat-icon>
+                                        Payment System Configuration
+                                    </h4>
                                     
-                                    <div class="file-upload-section">
-                                        <p class="upload-description">
-                                            <mat-icon>info</mat-icon>
-                                            You can upload {{ supplierForm.get('type')?.value === 'EXCEL' ? 'Excel (.xlsx, .xls)' : 'CSV (.csv)' }} files 
-                                            containing product data after creating the supplier.
-                                        </p>
-                                        
-                                        <mat-form-field appearance="outline" class="full-width">
-                                            <mat-label>File URL (optional)</mat-label>
-                                            <input matInput formControlName="url" 
-                                                   placeholder="https://supplier.com/products.{{ supplierForm.get('type')?.value === 'EXCEL' ? 'xlsx' : 'csv' }}">
-                                            <mat-icon matSuffix>link</mat-icon>
-                                            <mat-hint>Optional: Direct URL to download the file automatically</mat-hint>
-                                        </mat-form-field>
+                                    <div class="form-row">
+                                        <mat-checkbox formControlName="hasOwnPaymentSystem" 
+                                                     (change)="updatePaymentValidators()">
+                                            Supplier handles customer payment directly
+                                        </mat-checkbox>
+                                        <mat-checkbox formControlName="autoPaymentEnabled">
+                                            Enable automatic payment processing
+                                        </mat-checkbox>
+                                    </div>
+
+                                    <!-- SOAP Payment Configuration -->
+                                    <div *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value && supplierForm.get('type')?.value === 'SOAP'">
+                                        <div class="payment-config-section">
+                                            <h5 class="payment-section-title">
+                                                <mat-icon>soap</mat-icon>
+                                                SOAP Payment Configuration
+                                            </h5>
+                                            
+                                            <mat-form-field appearance="outline" class="full-width">
+                                                <mat-label>Payment WSDL URL *</mat-label>
+                                                <input matInput formControlName="paymentWsdlUrl" 
+                                                       [placeholder]="supplierForm.get('wsdlUrl')?.value || 'https://supplier.com/payment.wsdl'"
+                                                       (blur)="loadPaymentSoapOperations()"
+                                                       required>
+                                                <mat-icon matSuffix>payment</mat-icon>
+                                                <mat-hint>Separate WSDL for payment operations (defaults to main WSDL if empty)</mat-hint>
+                                                <mat-error *ngIf="supplierForm.get('paymentWsdlUrl')?.hasError('required')">
+                                                    Payment WSDL URL is required for SOAP payment system
+                                                </mat-error>
+                                            </mat-form-field>
+
+                                            <mat-form-field appearance="outline" class="full-width">
+                                                <mat-label>Payment Operation Name *</mat-label>
+                                                <mat-select formControlName="paymentOperationNameConfig" 
+                                                           [disabled]="paymentSoapOperations.length === 0"
+                                                           required>
+                                                    <mat-option value="">Select payment operation</mat-option>
+                                                    <mat-option *ngFor="let op of paymentSoapOperations" [value]="op">{{ op }}</mat-option>
+                                                </mat-select>
+                                                <mat-icon matSuffix>settings</mat-icon>
+                                                <mat-hint>Select the operation for payment processing from payment WSDL</mat-hint>
+                                                <mat-error *ngIf="supplierForm.get('paymentOperationNameConfig')?.hasError('required')">
+                                                    Payment operation is required for SOAP payment system
+                                                </mat-error>
+                                            </mat-form-field>
+
+                                            <mat-form-field appearance="outline" class="full-width">
+                                                <mat-label>SOAP Action for Payment *</mat-label>
+                                                <input matInput formControlName="soapAction" 
+                                                       placeholder="http://tempuri.org/ProcessPayment"
+                                                       required>
+                                                <mat-icon matSuffix>code</mat-icon>
+                                                <mat-hint>SOAP action header for payment operations</mat-hint>
+                                                <mat-error *ngIf="supplierForm.get('soapAction')?.hasError('required')">
+                                                    SOAP action is required for SOAP payment system
+                                                </mat-error>
+                                            </mat-form-field>
+                                        </div>
+                                    </div>
+
+                                    <!-- API Payment Configuration -->
+                                    <div *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value && supplierForm.get('type')?.value === 'API'">
+                                        <div class="payment-config-section">
+                                            <h5 class="payment-section-title">
+                                                <mat-icon>api</mat-icon>
+                                                API Payment Configuration
+                                            </h5>
+                                            
+                                            <mat-form-field appearance="outline" class="full-width">
+                                                <mat-label>Payment API Endpoint *</mat-label>
+                                                <input matInput formControlName="paymentApiEndpoint" 
+                                                       placeholder="https://supplier.com/payments"
+                                                       required>
+                                                <mat-icon matSuffix>link</mat-icon>
+                                                <mat-hint>API endpoint for payment processing</mat-hint>
+                                                <mat-error *ngIf="supplierForm.get('paymentApiEndpoint')?.hasError('required')">
+                                                    Payment API endpoint is required for API payment system
+                                                </mat-error>
+                                            </mat-form-field>
+
+                                            <mat-form-field appearance="outline" class="full-width">
+                                                <mat-label>Commission API Endpoint *</mat-label>
+                                                <input matInput formControlName="commissionApiEndpoint" 
+                                                       placeholder="https://supplier.com/commission"
+                                                       required>
+                                                <mat-icon matSuffix>account_balance</mat-icon>
+                                                <mat-hint>API endpoint for commission handling</mat-hint>
+                                                <mat-error *ngIf="supplierForm.get('commissionApiEndpoint')?.hasError('required')">
+                                                    Commission API endpoint is required for API payment system
+                                                </mat-error>
+                                            </mat-form-field>
+                                        </div>
+                                    </div>
+
+                                    <!-- Platform payment configuration when supplier doesn't handle payments -->
+                                    <div *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
+                                        <div class="payment-config-section">
+                                            <h5 class="payment-section-title">
+                                                <mat-icon>account_balance</mat-icon>
+                                                Platform Payment Configuration
+                                            </h5>
+                                            
+                                            <mat-form-field appearance="outline" class="full-width">
+                                                <mat-label>Platform Payment API Endpoint</mat-label>
+                                                <input matInput formControlName="paymentApiEndpoint" 
+                                                       placeholder="https://platform.com/payments">
+                                                <mat-icon matSuffix>link</mat-icon>
+                                                <mat-hint>Platform endpoint for handling payments to this supplier</mat-hint>
+                                            </mat-form-field>
+                                        </div>
                                     </div>
                                 </ng-container>
-            </form>
+                            </form>
                         </div>
                     </mat-tab>
 
@@ -441,6 +530,54 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
             color: #1976d2;
         }
 
+        .subsection-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 20px 0 12px 0;
+            color: #424242;
+            border-left: 3px solid #1976d2;
+            padding-left: 12px;
+        }
+
+        .payment-config-section {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            border: 1px solid #e9ecef;
+        }
+
+        .payment-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0 0 16px 0;
+            color: #1976d2;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+        }
+
+        .payment-config-section .mat-form-field {
+            margin-bottom: 16px;
+        }
+
+        .payment-config-section .mat-form-field:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-row .mat-checkbox {
+            margin-right: 24px;
+        }
+
+        .form-row .mat-checkbox:last-child {
+            margin-right: 0;
+        }
+
         .type-description {
             display: flex;
             align-items: center;
@@ -590,6 +727,9 @@ export class CreateSupplierDialogComponent {
     selectedFile: File | null = null;
     isDragOver = false;
     uploadProgress = 0;
+    
+    // SOAP operations for payment system
+    paymentSoapOperations: string[] = [];
 
     private fb = inject(FormBuilder);
     private dialogRef = inject(MatDialogRef<CreateSupplierDialogComponent>);
@@ -599,44 +739,74 @@ export class CreateSupplierDialogComponent {
 
     constructor(@Inject(MAT_DIALOG_DATA) public data: any) {
         this.supplierForm = this.fb.group({
-            name: [data?.name || '', Validators.required],
-            email: [data?.email || '', [Validators.email]],
+            // Basic Information
+            name: [data?.name || '', [Validators.required, Validators.minLength(2)]],
+            email: [data?.contactEmail || '', [Validators.email]],
             type: [data?.type || 'API', Validators.required],
+            
+            // API Configuration
             url: [data?.url || ''],
-            apiUrl: [data?.apiUrl || ''],
             apiKey: [data?.apiKey || ''],
             authMethod: [data?.authMethod || ''],
-            productsEndpoint: [data?.productsEndpoint || '/products'],
-            singleEndpoint: [data?.singleEndpoint || '/product/{id}'],
-            dataFormat: [data?.dataFormat || 'JSON'],
-            wsdlUrl: [data?.wsdlUrl || '', Validators.required],
+            dataFormat: [data?.dataFormat || ''],
+            productsEndpoint: [data?.productsEndpoint || ''],
+            singleEndpoint: [data?.singleEndpoint || ''],
+            
+            // File Configuration
+            fileName: [data?.fileName || ''],
+            filePath: [data?.filePath || ''],
+            
+            // SOAP Configuration
+            wsdlUrl: [data?.wsdlUrl || ''],
             namespace: [data?.namespace || ''],
             username: [data?.username || ''],
             password: [data?.password || ''],
             operation: [data?.operation || ''],
+            
+            // SOAP Operation Configuration
             paymentOperationName: [data?.paymentOperationName || ''],
             refundOperationName: [data?.refundOperationName || ''],
-            // Payment configuration
+            successOperationName: [data?.successOperationName || 'notifyPaymentStatus'],
+            
+            // Payment System Configuration
             hasOwnPaymentSystem: [data?.hasOwnPaymentSystem || false],
+            autoPaymentEnabled: [data?.autoPaymentEnabled !== false],
+            paymentIntegrationType: [data?.paymentIntegrationType || 'MANUAL'],
+            
+            // SOAP Payment Configuration
+            paymentWsdlUrl: [data?.paymentWsdlUrl || ''],
+            paymentOperationNameConfig: [data?.paymentOperationNameConfig || ''],
+            soapAction: [data?.soapAction || 'http://tempuri.org/ProcessPayment'],
+            
+            // API Payment Configuration
             paymentApiEndpoint: [data?.paymentApiEndpoint || ''],
             commissionApiEndpoint: [data?.commissionApiEndpoint || ''],
+            
+            // Payment Schedule Configuration
             payoutFrequency: [data?.payoutFrequency || 'WEEKLY'],
             customPaymentSchedule: [data?.customPaymentSchedule || ''],
             customPaymentDays: [data?.customPaymentDays || ''],
-            customPaymentHour: [data?.customPaymentHour ?? 18],
-            minimumPaymentAmount: [data?.minimumPaymentAmount ?? 50],
-            maximumPaymentDelay: [data?.maximumPaymentDelay ?? 30],
+            customPaymentHour: [data?.customPaymentHour || 18],
+            minimumPaymentAmount: [data?.minimumPaymentAmount || 50],
+            maximumPaymentDelay: [data?.maximumPaymentDelay || 30]
         });
         
         // Update validators based on initial type
         this.updateValidators();
+        this.setupPaymentSystemListener();
+        
+        // Initialize payment SOAP operations if editing
+        if (data?.paymentWsdlUrl) {
+            this.loadPaymentSoapOperations();
+        }
     }
 
     onTypeChange(): void {
+        console.log('Type changed to:', this.supplierForm.get('type')?.value);
+        
         // Clear type-specific fields
         this.supplierForm.patchValue({ 
             url: '', 
-            apiUrl: '',
             apiKey: '', 
             authMethod: '',
             productsEndpoint: '/products',
@@ -646,19 +816,42 @@ export class CreateSupplierDialogComponent {
             namespace: '',
             username: '',
             password: '',
-            operation: '' 
+            operation: '',
+            paymentOperationName: '',
+            refundOperationName: '',
+            successOperationName: '',
+            // Clear payment-specific fields
+            paymentWsdlUrl: '',
+            paymentOperationNameConfig: '',
+            soapAction: 'http://tempuri.org/ProcessPayment',
+            paymentApiEndpoint: '',
+            commissionApiEndpoint: '',
+            // Reset payment system settings
+            hasOwnPaymentSystem: false,
+            autoPaymentEnabled: true,
+            paymentIntegrationType: 'MANUAL'
         });
-            this.soapOperations = [];
+        
+        this.soapOperations = [];
+        this.paymentSoapOperations = [];
         this.selectedFile = null;
+        
+        // Update validators after clearing fields
         this.updateValidators();
+        this.updatePaymentValidators();
+        
+        console.log('Validators updated. Form valid:', this.supplierForm.valid);
     }
 
     updateValidators(): void {
         const type = this.supplierForm.get('type')?.value;
+        const hasOwnPayment = this.supplierForm.get('hasOwnPaymentSystem')?.value;
         const urlControl = this.supplierForm.get('url');
         const wsdlUrlControl = this.supplierForm.get('wsdlUrl');
         const namespaceControl = this.supplierForm.get('namespace');
         const operationControl = this.supplierForm.get('operation');
+
+        console.log('updateValidators called - Type:', type, 'HasOwnPayment:', hasOwnPayment);
 
         // Clear all validators first
         urlControl?.clearValidators();
@@ -669,8 +862,20 @@ export class CreateSupplierDialogComponent {
         // Set validators based on type
         if (type === 'API') {
             urlControl?.setValidators([Validators.required]);
+            console.log('API type: URL field is now required');
         } else if (type === 'SOAP') {
-            wsdlUrlControl?.setValidators([Validators.required]);
+            // For SOAP, URL field is NOT required (only WSDL URL might be)
+            urlControl?.clearValidators(); // Remove any required validators
+            console.log('SOAP type: URL field is NOT required');
+            
+            // For SOAP, WSDL URL is only required if they have their own payment system
+            // Otherwise, it's optional since we handle payments through our platform
+            if (hasOwnPayment) {
+                wsdlUrlControl?.setValidators([Validators.required]);
+                console.log('SOAP type with own payment: WSDL URL is now required');
+            } else {
+                console.log('SOAP type without own payment: WSDL URL is optional');
+            }
             // Namespace is optional; operation optional and auto-fetched
         }
 
@@ -679,6 +884,70 @@ export class CreateSupplierDialogComponent {
         wsdlUrlControl?.updateValueAndValidity();
         namespaceControl?.updateValueAndValidity();
         operationControl?.updateValueAndValidity();
+        
+        console.log('Validators updated. Form valid:', this.supplierForm.valid);
+        console.log('URL field validators:', urlControl?.hasValidator(Validators.required));
+        console.log('WSDL URL field validators:', wsdlUrlControl?.hasValidator(Validators.required));
+    }
+
+    setupPaymentSystemListener(): void {
+        // Listen for changes in hasOwnPaymentSystem to update validators
+        this.supplierForm.get('hasOwnPaymentSystem')?.valueChanges.subscribe(hasOwnPayment => {
+            this.updatePaymentValidators();
+        });
+        
+        // Listen for type changes to update payment integration type
+        this.supplierForm.get('type')?.valueChanges.subscribe(type => {
+            if (type === 'SOAP') {
+                this.supplierForm.patchValue({ paymentIntegrationType: 'SOAP' });
+            } else if (type === 'API') {
+                this.supplierForm.patchValue({ paymentIntegrationType: 'REST_API' });
+            } else {
+                this.supplierForm.patchValue({ paymentIntegrationType: 'MANUAL' });
+            }
+        });
+    }
+
+    updatePaymentValidators(): void {
+        const hasOwnPayment = this.supplierForm.get('hasOwnPaymentSystem')?.value;
+        const type = this.supplierForm.get('type')?.value;
+        
+        // Get payment-related controls
+        const paymentWsdlUrlControl = this.supplierForm.get('paymentWsdlUrl');
+        const paymentOperationNameConfigControl = this.supplierForm.get('paymentOperationNameConfig');
+        const soapActionControl = this.supplierForm.get('soapAction');
+        const paymentApiEndpointControl = this.supplierForm.get('paymentApiEndpoint');
+        const commissionApiEndpointControl = this.supplierForm.get('commissionApiEndpoint');
+        
+        // Clear all payment validators first
+        paymentWsdlUrlControl?.clearValidators();
+        paymentOperationNameConfigControl?.clearValidators();
+        soapActionControl?.clearValidators();
+        paymentApiEndpointControl?.clearValidators();
+        commissionApiEndpointControl?.clearValidators();
+        
+        if (hasOwnPayment) {
+            if (type === 'SOAP') {
+                // SOAP supplier with own payment system
+                paymentWsdlUrlControl?.setValidators([Validators.required]);
+                paymentOperationNameConfigControl?.setValidators([Validators.required]);
+                soapActionControl?.setValidators([Validators.required]);
+            } else if (type === 'API') {
+                // API supplier with own payment system
+                paymentApiEndpointControl?.setValidators([Validators.required]);
+                commissionApiEndpointControl?.setValidators([Validators.required]);
+            }
+        }
+        
+        // Update validity
+        paymentWsdlUrlControl?.updateValueAndValidity();
+        paymentOperationNameConfigControl?.updateValueAndValidity();
+        soapActionControl?.updateValueAndValidity();
+        paymentApiEndpointControl?.updateValueAndValidity();
+        commissionApiEndpointControl?.updateValueAndValidity();
+        
+        // Also update main validators since hasOwnPayment affects WSDL URL requirement
+        this.updateValidators();
     }
 
     getTypeDescription(): string {
@@ -771,75 +1040,209 @@ export class CreateSupplierDialogComponent {
 
     loadSoapOperations(): void {
         const wsdlUrl = this.supplierForm.get('wsdlUrl')?.value;
-        if (!wsdlUrl) return;
+        if (!wsdlUrl) {
+            this.soapOperations = [];
+            return;
+        }
+        
+        console.log('Loading SOAP operations from:', wsdlUrl);
         this.loadingOps = true;
+        
         // Use backend proxy to avoid CORS and do robust parsing
         this.supplierService.getWsdlOperations(wsdlUrl).subscribe({
             next: (ops) => {
                 // Filter out error sentinel
                 this.soapOperations = (ops || []).filter(op => !String(op).startsWith('ERROR:'));
+                console.log('Loaded SOAP operations:', this.soapOperations);
                 this.loadingOps = false;
             },
-            error: () => {
+            error: (error) => {
+                console.error('Error loading SOAP operations:', error);
                 this.soapOperations = [];
                 this.loadingOps = false;
+                this.snackBar.open('Failed to load SOAP operations. Please check the WSDL URL.', 'Close', { duration: 3000 });
+            }
+        });
+    }
+
+    loadPaymentSoapOperations(): void {
+        const paymentWsdlUrl = this.supplierForm.get('paymentWsdlUrl')?.value;
+        if (!paymentWsdlUrl) {
+            this.paymentSoapOperations = [];
+            return;
+        }
+        
+        console.log('Loading payment SOAP operations from:', paymentWsdlUrl);
+        
+        this.supplierService.getWsdlOperations(paymentWsdlUrl).subscribe({
+            next: (ops) => {
+                // Filter out error sentinel
+                this.paymentSoapOperations = (ops || []).filter(op => !String(op).startsWith('ERROR:'));
+                console.log('Loaded payment SOAP operations:', this.paymentSoapOperations);
+            },
+            error: (error) => {
+                console.error('Error loading payment SOAP operations:', error);
+                this.paymentSoapOperations = [];
+                this.snackBar.open('Failed to load payment SOAP operations. Please check the payment WSDL URL.', 'Close', { duration: 3000 });
             }
         });
     }
 
     onSave(): void {
-        // Allow submission even if some optional fields are missing; backend validates essentials
-        if (this.supplierForm.invalid) {
-            this.supplierForm.markAllAsTouched();
-        }
+        console.log('Form validity:', this.supplierForm.valid);
+        console.log('Form errors:', this.supplierForm.errors);
+        console.log('Form value:', this.supplierForm.value);
         
-        this.saving = true;
-        const supplier = this.supplierForm.value;
-        if (!supplier.name || !String(supplier.name).trim()) {
-            supplier.name = `SOAP Supplier ${new Date().toISOString().slice(0,19).replace('T',' ')}`;
-        }
+        // Debug each form control validity
+        Object.keys(this.supplierForm.controls).forEach(key => {
+            const control = this.supplierForm.get(key);
+            if (control && !control.valid) {
+                console.log(`Field ${key} is invalid:`, control.errors, 'Value:', control.value);
+            }
+        });
         
-        // Clean up data based on type
-        const cleanedSupplier = this.cleanSupplierData(supplier);
-        
-        if (this.data) {
-            // Update existing supplier
-            this.supplierService.updateSupplier(this.data.id, cleanedSupplier).subscribe({
-                next: (updatedSupplier) => {
-                    this.snackBar.open('Supplier updated successfully!', 'Close', { duration: 3000 });
-                    this.handleFileUpload(updatedSupplier.id);
-                },
-                error: (error) => {
- console.error('Error updating supplier:', error);
-                    this.snackBar.open('Failed to update supplier.', 'Close', { duration: 3000 });
-                    this.saving = false;
-                }
-            });
-        } else {
-            // Create new supplier
-            const req$ = supplier.type === 'SOAP'
-                ? this.supplierService.createSupplierAutoSoap(cleanedSupplier)
-                : this.supplierService.createSupplier(cleanedSupplier);
+        if (this.supplierForm.valid) {
+            this.saving = true;
+            
+            // Validate payment configuration
+            const paymentValidation = this.validatePaymentConfiguration();
+            if (!paymentValidation.isValid) {
+                this.snackBar.open(paymentValidation.message, 'Close', { duration: 5000 });
+                this.saving = false;
+                return;
+            }
+            
+            const formData = this.supplierForm.value;
+            
+            // Prepare supplier data
+            const supplierData = {
+                name: formData.name,
+                contactEmail: formData.email,
+                active: true,
+                type: formData.type,
                 
-            req$.subscribe({
-                next: (newSupplier) => {
-                    this.snackBar.open('Supplier created successfully!', 'Close', { duration: 3000 });
-                    this.handleFileUpload(newSupplier.id);
-                },
-                error: (error) => {
- console.error('Error creating supplier:', error);
- const message = error?.error?.message || error?.message || 'Failed to create supplier.';
- this.snackBar.open(message, 'Close', { duration: 4000 });
-                    this.saving = false;
-                }
-            });
+                // API Configuration
+                apiUrl: formData.url, // Use url field for apiUrl
+                apiKey: formData.apiKey,
+                authMethod: formData.authMethod,
+                dataFormat: formData.dataFormat,
+                productsEndpoint: formData.productsEndpoint,
+                singleEndpoint: formData.singleEndpoint,
+                
+                // File Configuration
+                fileName: formData.fileName,
+                filePath: formData.filePath,
+                
+                // SOAP Configuration
+                wsdlUrl: formData.wsdlUrl,
+                namespace: formData.namespace,
+                username: formData.username,
+                password: formData.password,
+                operation: formData.operation,
+                
+                // SOAP Operation Configuration
+                paymentOperationName: formData.paymentOperationName,
+                refundOperationName: formData.refundOperationName,
+                successOperationName: formData.successOperationName,
+                
+                // Payment System Configuration
+                hasOwnPaymentSystem: formData.hasOwnPaymentSystem,
+                autoPaymentEnabled: formData.autoPaymentEnabled,
+                paymentIntegrationType: formData.paymentIntegrationType,
+                
+                // SOAP Payment Configuration
+                paymentWsdlUrl: formData.paymentWsdlUrl,
+                paymentOperationNameConfig: formData.paymentOperationNameConfig,
+                soapAction: formData.soapAction,
+                
+                // API Payment Configuration
+                paymentApiEndpoint: formData.paymentApiEndpoint,
+                commissionApiEndpoint: formData.commissionApiEndpoint,
+                
+                // Payment Schedule Configuration
+                payoutFrequency: formData.payoutFrequency,
+                customPaymentSchedule: formData.customPaymentSchedule,
+                customPaymentDays: formData.customPaymentDays,
+                customPaymentHour: formData.customPaymentHour,
+                minimumPaymentAmount: formData.minimumPaymentAmount,
+                maximumPaymentDelay: formData.maximumPaymentDelay
+            };
+            
+            if (this.data) {
+                // Update existing supplier
+                this.supplierService.updateSupplier(this.data.id, supplierData).subscribe({
+                    next: (response) => {
+                        this.snackBar.open('Supplier updated successfully!', 'Close', { duration: 3000 });
+                        this.dialogRef.close(response);
+                    },
+                    error: (error) => {
+                        console.error('Error updating supplier:', error);
+                        this.snackBar.open('Error updating supplier: ' + (error.error?.message || error.message), 'Close', { duration: 5000 });
+                        this.saving = false;
+                    }
+                });
+            } else {
+                // Create new supplier
+                this.supplierService.createSupplier(supplierData).subscribe({
+                    next: (response) => {
+                        this.snackBar.open('Supplier created successfully!', 'Close', { duration: 3000 });
+                        this.dialogRef.close(response);
+                    },
+                    error: (error) => {
+                        console.error('Error creating supplier:', error);
+                        this.snackBar.open('Error creating supplier: ' + (error.error?.message || error.message), 'Close', { duration: 5000 });
+                        this.saving = false;
+                    }
+                });
+            }
+        } else {
+            this.markFormGroupTouched();
+            this.snackBar.open('Please fill in all required fields correctly.', 'Close', { duration: 3000 });
         }
+    }
+
+    validatePaymentConfiguration(): { isValid: boolean; message: string } {
+        const formData = this.supplierForm.value;
+        const hasOwnPayment = formData.hasOwnPaymentSystem;
+        const type = formData.type;
+        
+        if (!hasOwnPayment) {
+            return { isValid: true, message: '' }; // No payment system required
+        }
+        
+        if (type === 'SOAP') {
+            if (!formData.paymentWsdlUrl) {
+                return { isValid: false, message: 'Payment WSDL URL is required for SOAP suppliers with own payment system.' };
+            }
+            if (!formData.paymentOperationNameConfig) {
+                return { isValid: false, message: 'Payment operation name is required for SOAP suppliers with own payment system.' };
+            }
+            if (!formData.soapAction) {
+                return { isValid: false, message: 'SOAP action is required for SOAP suppliers with own payment system.' };
+            }
+        } else if (type === 'API') {
+            if (!formData.paymentApiEndpoint) {
+                return { isValid: false, message: 'Payment API endpoint is required for API suppliers with own payment system.' };
+            }
+            if (!formData.commissionApiEndpoint) {
+                return { isValid: false, message: 'Commission API endpoint is required for API suppliers with own payment system.' };
+            }
+        }
+        
+        return { isValid: true, message: '' };
+    }
+
+    markFormGroupTouched(): void {
+        Object.keys(this.supplierForm.controls).forEach(key => {
+            const control = this.supplierForm.get(key);
+            control?.markAsTouched();
+        });
     }
 
     private cleanSupplierData(supplier: any): any {
         const cleaned: any = {
             name: supplier.name,
-            email: supplier.email || undefined,
+            contactEmail: supplier.email || undefined,
             type: supplier.type
         };
 
@@ -860,6 +1263,14 @@ export class CreateSupplierDialogComponent {
                 if (supplier.password) cleaned.password = supplier.password;
                 if (supplier.paymentOperationName) cleaned.paymentOperationName = supplier.paymentOperationName;
                 if (supplier.refundOperationName) cleaned.refundOperationName = supplier.refundOperationName;
+                if (supplier.successOperationName) cleaned.successOperationName = supplier.successOperationName;
+                
+                // New payment system configuration fields
+                cleaned.paymentIntegrationType = 'SOAP'; // Always SOAP for SOAP suppliers
+                cleaned.autoPaymentEnabled = supplier.autoPaymentEnabled !== false; // Default to true
+                if (supplier.paymentWsdlUrl) cleaned.paymentWsdlUrl = supplier.paymentWsdlUrl;
+                if (supplier.paymentOperationNameConfig) cleaned.paymentOperationNameConfig = supplier.paymentOperationNameConfig;
+                if (supplier.soapAction) cleaned.soapAction = supplier.soapAction;
                 break;
             case 'EXCEL':
             case 'CSV':

@@ -25,6 +25,19 @@ public class SupplierMapper {
         dto.setCustomPaymentHour(supplier.getCustomPaymentHour());
         dto.setMinimumPaymentAmount(supplier.getMinimumPaymentAmount());
         dto.setMaximumPaymentDelay(supplier.getMaximumPaymentDelay());
+        
+        // Map SOAP-specific payment configuration fields
+        if (supplier instanceof SoapSupplier soapSupplier) {
+            dto.setPaymentIntegrationType(soapSupplier.getPaymentIntegrationType());
+            dto.setPaymentWsdlUrl(soapSupplier.getPaymentWsdlUrl());
+            dto.setPaymentOperationNameConfig(soapSupplier.getPaymentOperationNameConfig());
+            dto.setSoapAction(soapSupplier.getSoapAction());
+            dto.setAutoPaymentEnabled(soapSupplier.isAutoPaymentEnabled());
+        } else if (supplier instanceof ApiSupplier apiSupplier) {
+            dto.setPaymentIntegrationType(apiSupplier.getPaymentIntegrationType());
+            dto.setPaymentWsdlUrl(apiSupplier.getPaymentApiUrl()); // Map to existing field
+            dto.setAutoPaymentEnabled(apiSupplier.isAutoPaymentEnabled());
+        }
 
         if (supplier instanceof ApiSupplier api) {
             dto.setType("API");
@@ -46,6 +59,7 @@ public class SupplierMapper {
             dto.setPassword(soap.getPassword());
             dto.setPaymentOperationName(soap.getPaymentOperationName());
             dto.setRefundOperationName(soap.getRefundOperationName());
+            dto.setSuccessOperationName(soap.getSuccessOperationName());
             // Map dynamic SOAP ops
             if (soap.getOperations() != null) {
                 dto.setOperationsMeta(

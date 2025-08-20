@@ -118,6 +118,7 @@ public class SoapDynamicInvoker {
     ) {
         Map<String, Object> result = new LinkedHashMap<>();
 
+        // First, extract all predefined fields from metadata
         for (SoapFieldDto field : outputFields) {
             // Find elements ignoring namespace
             List<Element> elements = findElementsByLocalName(responseRoot, field.getName());
@@ -155,7 +156,64 @@ public class SoapDynamicInvoker {
                 result.put(field.getName(), parseElementValue(elements.get(0), field, complexTypes));
             }
         }
+
+        // Then, extract ALL other available fields that weren't predefined
+        extractAllAvailableFields(responseRoot, result, complexTypes);
+
+        // Debug: log all extracted fields
+        System.out.println("All extracted SOAP response fields: " + result.keySet());
+        System.out.println("SOAP response values: " + result);
+
         return result;
+    }
+
+    private static void extractAllAvailableFields(
+            Element responseRoot,
+            Map<String, Object> result,
+            Map<String, List<SoapFieldDto>> complexTypes
+    ) {
+        NodeList children = responseRoot.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element element = (Element) node;
+                String fieldName = element.getLocalName();
+                
+                // Debug: log what field we're processing
+                System.out.println("Processing field: " + fieldName + " (namespace: " + element.getNamespaceURI() + ")");
+                
+                // Skip fields that were already extracted
+                if (result.containsKey(fieldName)) {
+                    System.out.println("Skipping field " + fieldName + " (already extracted)");
+                    continue;
+                }
+                
+                // Extract the field value
+                if (element.hasChildNodes()) {
+                    NodeList childNodes = element.getChildNodes();
+                    if (childNodes.getLength() == 1 && childNodes.item(0).getNodeType() == Node.TEXT_NODE) {
+                        // Simple text field
+                        String value = element.getTextContent().trim();
+                        if (!value.isEmpty()) {
+                            result.put(fieldName, value);
+                            System.out.println("Extracted simple field " + fieldName + " = " + value);
+                        }
+                    } else {
+                        // Complex field - extract recursively
+                        Map<String, Object> complexValue = new HashMap<>();
+                        extractAllAvailableFields(element, complexValue, complexTypes);
+                        if (!complexValue.isEmpty()) {
+                            result.put(fieldName, complexValue);
+                            System.out.println("Extracted complex field " + fieldName + " = " + complexValue);
+                        }
+                    }
+                } else {
+                    // Empty element
+                    result.put(fieldName, "");
+                    System.out.println("Extracted empty field " + fieldName);
+                }
+            }
+        }
     }
 
     private static Object parseElementValue(

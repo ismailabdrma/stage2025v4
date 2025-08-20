@@ -65,9 +65,10 @@ public class CreateSupplierDto {
     
     private Boolean hasOwnPaymentSystem = false;
     
-    private String paymentApiEndpoint; // Validated conditionally if hasOwnPaymentSystem is true
+    // These fields are only required if hasOwnPaymentSystem = true
+    private String paymentApiEndpoint;
     
-    private String commissionApiEndpoint; // Validated conditionally if hasOwnPaymentSystem is true
+    private String commissionApiEndpoint;
     
     @Size(max = 50, message = "Custom payment schedule cannot exceed 50 characters")
     private String customPaymentSchedule;

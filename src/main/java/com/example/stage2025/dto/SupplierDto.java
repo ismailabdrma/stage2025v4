@@ -31,12 +31,14 @@ public class SupplierDto {
     // SOAP-specific selected operations for payments
     private String paymentOperationName;
     private String refundOperationName;
+    private String successOperationName;  // For payment status notifications
     private LocalDateTime created;
     private LocalDateTime lastImport;
     private PayoutFrequency payoutFrequency;
     
     // Payment system configuration
     private boolean hasOwnPaymentSystem = false;
+    private Boolean autoPaymentEnabled = true;
     private String paymentApiEndpoint;
     private String commissionApiEndpoint;
     private String customPaymentSchedule;
@@ -44,4 +46,10 @@ public class SupplierDto {
     private Integer customPaymentHour = 18;
     private Integer minimumPaymentAmount = 50;
     private Integer maximumPaymentDelay = 30;
+    
+    // SOAP-specific payment configuration fields
+    private String paymentIntegrationType;  // "SOAP", "REST_API", or "MANUAL"
+    private String paymentWsdlUrl;          // Separate from data import wsdlUrl
+    private String paymentOperationNameConfig; // Separate from data import operation
+    private String soapAction;              // SOAP action for payment operations
 }

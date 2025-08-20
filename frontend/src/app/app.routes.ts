@@ -38,6 +38,11 @@ export const routes: Routes = [
     loadChildren: () => import("./features/admin/admin.routes").then((m) => m.adminRoutes),
     canActivate: [authGuard, adminGuard],
   },
+  // Public success route - no authentication required
+  {
+    path: "success",
+    loadComponent: () => import("./features/orders/components/order-success/order-success.component").then((m) => m.OrderSuccessComponent),
+  },
   {
     path: "**",
     redirectTo: "/products",

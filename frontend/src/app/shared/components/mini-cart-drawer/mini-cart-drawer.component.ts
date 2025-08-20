@@ -34,7 +34,7 @@ import { Observable } from 'rxjs'
           <div class="cart-items">
             <div class="cart-item" *ngFor="let item of cart.items; trackBy: trackByItemId">
               <div class="item-image">
-                <img [src]="item.productImage || '/assets/placeholder-product.jpg'" 
+                <img [src]="item.productImage || '/assets/logo.svg'" 
                      [alt]="item.productName" 
                      loading="lazy">
               </div>

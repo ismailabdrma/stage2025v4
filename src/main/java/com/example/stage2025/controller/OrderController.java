@@ -5,10 +5,13 @@ import com.example.stage2025.dto.PaymentIntentRequest;
 import com.example.stage2025.dto.PaymentIntentResponse;
 import com.example.stage2025.enums.DeliveryStatus;
 import com.example.stage2025.enums.OrderStatus;
+import com.example.stage2025.entity.Order;
 import com.example.stage2025.service.OrderService;
 import com.example.stage2025.service.PaymentService;
 import com.example.stage2025.service.impl.SmartPaymentRoutingService;
+import com.example.stage2025.service.impl.SoapPaymentService;
 import com.example.stage2025.dto.PaymentDto;
+import com.example.stage2025.repository.OrderRepository;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
@@ -33,6 +36,8 @@ public class OrderController {
     private final OrderService orderService;
     private final PaymentService paymentService;
     private final SmartPaymentRoutingService smartPaymentRoutingService;
+    private final SoapPaymentService soapPaymentService;
+    private final OrderRepository orderRepository;
 
     // Helper to get client ID from authentication
     private Long resolveClientId(Authentication auth, Long userIdAttr) {
@@ -171,7 +176,8 @@ public class OrderController {
                             .currency("eur")
                             .build();
 
-                    PaymentIntentResponse paymentIntent = smartPaymentRoutingService.createPaymentIntent(paymentRequest);
+                    // IMPORTANT: Use the existing routing result instead of calling determinePaymentFlow again
+                    PaymentIntentResponse paymentIntent = smartPaymentRoutingService.createPaymentIntentWithRouting(paymentRequest, routing);
                     response.put("clientSecret", paymentIntent.getClientSecret());
                     response.put("paymentIntentId", paymentIntent.getId());
                 } catch (Exception e) {
@@ -180,9 +186,27 @@ public class OrderController {
                     response.put("error", "Failed to create payment intent: " + e.getMessage());
                 }
             } else {
-                // For direct supplier payments, client will handle redirect
-                response.put("supplierName", routing.getPrimarySupplier().getName());
-                response.put("redirectRequired", true);
+                // For direct supplier payments, also create payment intent to get paymentUrl
+                try {
+                    PaymentIntentRequest paymentRequest = PaymentIntentRequest.builder()
+                            .orderId(orderDto.getId())
+                            .amount((long) (routing.getTotalAmount() * 100)) // Convert to cents
+                            .currency("eur")
+                            .build();
+
+                    // IMPORTANT: Use the existing routing result instead of calling determinePaymentFlow again
+                    PaymentIntentResponse paymentIntent = smartPaymentRoutingService.createPaymentIntentWithRouting(paymentRequest, routing);
+                    response.put("paymentIntentId", paymentIntent.getId());
+                    response.put("paymentUrl", paymentIntent.getPaymentUrl());
+                    response.put("supplierName", routing.getPrimarySupplier().getName());
+                    response.put("supplierId", routing.getPrimarySupplier().getId());
+                    
+                    log.info("Direct supplier payment intent created for order {}: paymentUrl={}, supplier={}", 
+                            orderDto.getId(), paymentIntent.getPaymentUrl(), routing.getPrimarySupplier().getName());
+                } catch (Exception e) {
+                    log.error("Error creating direct supplier payment intent for order {}: {}", orderDto.getId(), e.getMessage());
+                    response.put("error", "Failed to create supplier payment intent: " + e.getMessage());
+                }
             }
 
             log.info("Order created successfully: {}", response);
@@ -202,8 +226,20 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Map<String, Object>> createOrderFromJson(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> orderRequest) {
         Long clientId = resolveClientId(auth, userIdAttr);
-        Long addressId = ((Number) orderRequest.get("addressId")).longValue();
-        double shippingFee = ((Number) orderRequest.get("shippingFee")).doubleValue();
+        
+        // Fix: Add null checks for required fields
+        Object addressIdObj = orderRequest.get("addressId");
+        if (addressIdObj == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "addressId is required"));
+        }
+        Long addressId = ((Number) addressIdObj).longValue();
+        
+        // Fix: Add null check for shippingFee
+        Object shippingFeeObj = orderRequest.get("shippingFee");
+        double shippingFee = 0.0; // Default value
+        if (shippingFeeObj != null) {
+            shippingFee = ((Number) shippingFeeObj).doubleValue();
+        }
 
         // Create order from cart
         OrderDto order = orderService.createOrderFromCart(clientId, addressId, shippingFee);
@@ -257,8 +293,20 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Map<String, Object>> createBuyNowOrder(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> buyNowRequest) {
         Long clientId = resolveClientId(auth, userIdAttr);
-        Long addressId = ((Number) buyNowRequest.get("addressId")).longValue();
-        double shippingFee = ((Number) buyNowRequest.get("shippingFee")).doubleValue();
+        
+        // Fix: Add null checks for required fields
+        Object addressIdObj = buyNowRequest.get("addressId");
+        if (addressIdObj == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "addressId is required"));
+        }
+        Long addressId = ((Number) addressIdObj).longValue();
+        
+        // Fix: Add null check for shippingFee
+        Object shippingFeeObj = buyNowRequest.get("shippingFee");
+        double shippingFee = 0.0; // Default value
+        if (shippingFeeObj != null) {
+            shippingFee = ((Number) shippingFeeObj).doubleValue();
+        }
 
         if (buyNowRequest.containsKey("variantId") && buyNowRequest.get("variantId") != null) {
             // Handle variant if needed
@@ -313,15 +361,87 @@ public class OrderController {
     /** 8. Confirm payment for order */
     @PostMapping("/{orderId}/confirm-payment")
     @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<Map<String, String>> confirmPayment(@PathVariable Long orderId, @RequestBody Map<String, Object> paymentData) {
-        // TODO: Implement payment confirmation logic
-        // For now, just update order status
-        orderService.updateOrderStatus(orderId, OrderStatus.PAID);
-
-        return ResponseEntity.ok(Map.of(
-                "status", "confirmed",
-                "message", "Payment confirmed successfully"
-        ));
+    public ResponseEntity<Map<String, Object>> confirmPayment(@PathVariable Long orderId, @RequestBody Map<String, Object> paymentData) {
+        try {
+            log.info("Confirming payment for order: {} with data: {}", orderId, paymentData);
+            
+            // Get the order entity
+            Order order = orderRepository.findById(orderId).orElse(null);
+            if (order == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Order not found"
+                ));
+            }
+            
+            // Determine payment flow and process payment
+            SmartPaymentRoutingService.PaymentRoutingResult routing = 
+                smartPaymentRoutingService.determinePaymentFlow(orderId);
+            
+            log.info("Payment routing determined for order {}: {}", orderId, routing.getPaymentFlow());
+            
+            if (routing.getPaymentFlow() == SmartPaymentRoutingService.PaymentFlow.DIRECT_TO_SUPPLIER) {
+                // Process SOAP payment through supplier
+                try {
+                    var supplier = routing.getPrimarySupplier();
+                    log.info("Processing SOAP payment for order {} through supplier: {}", orderId, supplier.getName());
+                    
+                    // Call SOAP payment service
+                    var soapResult = soapPaymentService.processSoapPaymentWithResponse(supplier.getId(), order);
+                    
+                    if ((Boolean) soapResult.get("success")) {
+                        log.info("SOAP payment successful for order {}: {}", orderId, soapResult);
+                        
+                        // Update order status
+                        orderService.updateOrderStatus(orderId, OrderStatus.PAID);
+                        
+                        return ResponseEntity.ok(Map.of(
+                            "success", true,
+                            "status", "confirmed",
+                            "message", "Payment confirmed successfully",
+                            "paymentFlow", "SOAP_SUPPLIER",
+                            "supplierName", supplier.getName(),
+                            "paymentDetails", soapResult
+                        ));
+                    } else {
+                        log.error("SOAP payment failed for order {}: {}", orderId, soapResult);
+                        return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "status", "failed",
+                            "message", "Payment failed: " + soapResult.get("error"),
+                            "paymentFlow", "SOAP_SUPPLIER"
+                        ));
+                    }
+                } catch (Exception e) {
+                    log.error("Error processing SOAP payment for order {}: {}", orderId, e.getMessage(), e);
+                    return ResponseEntity.internalServerError().body(Map.of(
+                        "success", false,
+                        "status", "error",
+                        "message", "Payment processing error: " + e.getMessage(),
+                        "paymentFlow", "SOAP_SUPPLIER"
+                    ));
+                }
+            } else {
+                // Platform payment - just confirm the order
+                log.info("Platform payment confirmed for order {}: {}", orderId, routing.getPaymentFlow());
+                orderService.updateOrderStatus(orderId, OrderStatus.PAID);
+                
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "status", "confirmed",
+                    "message", "Payment confirmed successfully",
+                    "paymentFlow", "PLATFORM"
+                ));
+            }
+            
+        } catch (Exception e) {
+            log.error("Error confirming payment for order {}: {}", orderId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "status", "error",
+                "message", "Internal server error: " + e.getMessage()
+            ));
+        }
     }
 
     /** 9. Cancel order (if not shipped) */

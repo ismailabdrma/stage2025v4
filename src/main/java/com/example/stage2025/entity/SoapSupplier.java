@@ -2,6 +2,7 @@ package com.example.stage2025.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.Objects;
 @DiscriminatorValue("SOAP")
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 public class SoapSupplier extends Supplier {
 
     // EXISTING FIELDS
@@ -22,6 +24,7 @@ public class SoapSupplier extends Supplier {
     private String password;
     private String paymentOperationName;
     private String refundOperationName;
+    private String successOperationName;  // For payment status notifications
     private LocalDateTime lastMetadataRefresh;
 
     @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
@@ -50,14 +53,33 @@ public class SoapSupplier extends Supplier {
     // LOGIC HELPERS
 
     /**
-     * Supplier is considered to have its own payment system if:
-     * - integration type is "SOAP" (case-insensitive) AND
-     * - effective WSDL and operation name are present (non-blank)
+     * Enhanced check: SOAP supplier has own payment system if:
+     * 1. Has stored operations from WSDL metadata
+     * 2. Has a payment operation configured (either specific or from main operations)
+     * 3. Has auto payment enabled
      */
     public boolean isHasOwnPaymentSystem() {
-        return "SOAP".equalsIgnoreCase(Objects.toString(paymentIntegrationType, ""))
-                && notBlank(getEffectivePaymentWsdlUrl())
-                && notBlank(getEffectivePaymentOperationName());
+        // Honor admin toggle on the base Supplier first
+        if (super.isHasOwnPaymentSystem()) {
+            log.debug("SOAP Supplier {} payment system check: base flag is true (admin override)", getName());
+            return true;
+        }
+        // Check if we have stored operations from WSDL
+        boolean hasStoredOperations = operations != null && !operations.isEmpty();
+        
+        // Check if we have a payment operation configured
+        boolean hasPaymentOperation = notBlank(getEffectivePaymentOperationName());
+        
+        // Check if auto payment is enabled
+        boolean autoPaymentEnabled = isAutoPaymentEnabled();
+        
+        // Check if we have a WSDL URL (either payment-specific or main)
+        boolean hasWsdlUrl = notBlank(getEffectivePaymentWsdlUrl());
+        
+        log.debug("SOAP Supplier {} payment system check: hasStoredOperations={}, hasPaymentOperation={}, autoPaymentEnabled={}, hasWsdlUrl={}", 
+                getName(), hasStoredOperations, hasPaymentOperation, autoPaymentEnabled, hasWsdlUrl);
+        
+        return hasStoredOperations && hasPaymentOperation && autoPaymentEnabled && hasWsdlUrl;
     }
 
     /**
@@ -74,7 +96,35 @@ public class SoapSupplier extends Supplier {
 
     // Effective payment operation (payment-specific or fallback to data import)
     public String getEffectivePaymentOperationName() {
-        return notBlank(paymentOperationNameConfig) ? paymentOperationNameConfig : paymentOperationName;
+        // First try payment-specific configuration
+        if (notBlank(paymentOperationNameConfig)) {
+            return paymentOperationNameConfig;
+        }
+        
+        // Fallback to main payment operation name
+        if (notBlank(paymentOperationName)) {
+            return paymentOperationName;
+        }
+        
+        // If no payment operation configured, try to find one in stored operations
+        if (operations != null && !operations.isEmpty()) {
+            // Look for common payment operation names in stored operations
+            String paymentOp = operations.stream()
+                .map(op -> op.getOperationName().toLowerCase())
+                .filter(opName -> opName.contains("payment") || 
+                                 opName.contains("pay") || 
+                                 opName.contains("process") ||
+                                 opName.contains("order"))
+                .findFirst()
+                .orElse(null);
+            
+            if (paymentOp != null) {
+                log.info("Auto-detected payment operation '{}' for supplier {}", paymentOp, getName());
+                return paymentOp;
+            }
+        }
+        
+        return null;
     }
 
     private static boolean notBlank(String s) {

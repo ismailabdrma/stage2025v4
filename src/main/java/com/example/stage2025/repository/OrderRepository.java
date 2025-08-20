@@ -5,6 +5,7 @@ import com.example.stage2025.enums.OrderStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,8 +36,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   
   @Query("SELECT COUNT(o) FROM Order o WHERE o.orderDate BETWEEN :start AND :end")
   long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
-  @EntityGraph(attributePaths = {"items", "items.product", "items.product.supplier"})
-  Optional<Order> findWithItemsAndProductSupplierById(Long id);
+  @Query("SELECT DISTINCT o FROM Order o " +
+         "LEFT JOIN FETCH o.items i " +
+         "LEFT JOIN FETCH i.product p " +
+         "LEFT JOIN FETCH p.supplier s " +
+         "WHERE o.id = :id")
+  Optional<Order> findWithItemsAndProductSupplierById(@Param("id") Long id);
   
   // Payment confirmation methods
   Optional<Order> findBySessionId(String sessionId);

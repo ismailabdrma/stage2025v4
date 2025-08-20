@@ -104,16 +104,34 @@ public class SupplierServiceImpl implements SupplierService {
             soapSupplier.setPassword(dto.getPassword());
             soapSupplier.setPaymentOperationName(dto.getPaymentOperationName());
             soapSupplier.setRefundOperationName(dto.getRefundOperationName());
+            soapSupplier.setSuccessOperationName(dto.getSuccessOperationName());
+            
             // Set payment system fields from DTO (admin can choose)
             soapSupplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+            
             // Explicitly set payment integration type for SOAP suppliers
             soapSupplier.setPaymentIntegrationType("SOAP");
+            
             // Set autoPaymentEnabled from DTO if present, else default to TRUE
             if (dto.getAutoPaymentEnabled() != null) {
                 soapSupplier.setAutoPaymentEnabled(dto.getAutoPaymentEnabled());
             } else {
                 soapSupplier.setAutoPaymentEnabled(Boolean.TRUE);
             }
+            
+            // Set payment-specific configuration fields
+            // Use existing wsdlUrl and operation names for payment if not specified separately
+            if (dto.getWsdlUrl() != null && !dto.getWsdlUrl().trim().isEmpty()) {
+                soapSupplier.setPaymentWsdlUrl(dto.getWsdlUrl()); // Use main wsdlUrl for payment
+            }
+            
+            if (dto.getPaymentOperationName() != null && !dto.getPaymentOperationName().trim().isEmpty()) {
+                soapSupplier.setPaymentOperationNameConfig(dto.getPaymentOperationName()); // Use main operation for payment
+            }
+            
+            // Set default SOAP action if not provided
+            soapSupplier.setSoapAction("http://tempuri.org/ProcessPayment");
+            
             soapSupplier.setOperations(new ArrayList<>());
             supplier = soapSupplier;
 
@@ -213,6 +231,27 @@ public class SupplierServiceImpl implements SupplierService {
             soap.setPassword(dto.getPassword());
             soap.setPaymentOperationName(dto.getPaymentOperationName());
             soap.setRefundOperationName(dto.getRefundOperationName());
+            soap.setSuccessOperationName(dto.getSuccessOperationName());
+            
+            // Update payment system configuration
+            soap.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+            soap.setPaymentIntegrationType("SOAP"); // Always SOAP for SOAP suppliers
+            soap.setAutoPaymentEnabled(dto.getAutoPaymentEnabled() != null ? dto.getAutoPaymentEnabled() : Boolean.TRUE);
+            
+            // Update payment-specific configuration fields
+            // Use existing wsdlUrl and operation names for payment if not specified separately
+            if (dto.getWsdlUrl() != null && !dto.getWsdlUrl().trim().isEmpty()) {
+                soap.setPaymentWsdlUrl(dto.getWsdlUrl()); // Use main wsdlUrl for payment
+            }
+            
+            if (dto.getPaymentOperationName() != null && !dto.getPaymentOperationName().trim().isEmpty()) {
+                soap.setPaymentOperationNameConfig(dto.getPaymentOperationName()); // Use main operation for payment
+            }
+            
+            // Set default SOAP action if not provided
+            if (soap.getSoapAction() == null || soap.getSoapAction().trim().isEmpty()) {
+                soap.setSoapAction("http://tempuri.org/ProcessPayment");
+            }
 
             // (Optional) Update operations meta as well
             if (dto.getOperationsMeta() != null) {
@@ -220,19 +259,19 @@ public class SupplierServiceImpl implements SupplierService {
                 operationMetaRepository.deleteAll(soap.getOperations());
                 // Add new
                 List<SoapSupplierOperationMeta> ops = dto.getOperationsMeta().stream()
-                        .map(metaDto -> {
-                            SoapSupplierOperationMeta op = new SoapSupplierOperationMeta();
-                            op.setOperationName(metaDto.getOperationName());
-                            op.setInputElement(metaDto.getInputElement());
-                            op.setOutputElement(metaDto.getOutputElement());
-                            op.setSoapAction(metaDto.getSoapAction());
-                            op.setInputFieldsJson(JsonUtils.toJson(metaDto.getInputFields()));
-                            op.setOutputFieldsJson(JsonUtils.toJson(metaDto.getOutputFields()));
+                    .map(metaDto -> {
+                        SoapSupplierOperationMeta op = new SoapSupplierOperationMeta();
+                        op.setOperationName(metaDto.getOperationName());
+                        op.setInputElement(metaDto.getInputElement());
+                        op.setOutputElement(metaDto.getOutputElement());
+                        op.setSoapAction(metaDto.getSoapAction());
+                        op.setInputFieldsJson(JsonUtils.toJson(metaDto.getInputFields()));
+                        op.setOutputFieldsJson(JsonUtils.toJson(metaDto.getOutputFields()));
 
-                            op.setSupplier(soap);
-                            return op;
-                        })
-                        .collect(Collectors.toList());
+                        op.setSupplier(soap);
+                        return op;
+                    })
+                    .collect(Collectors.toList());
                 operationMetaRepository.saveAll(ops);
                 soap.setOperations(ops);
             }
@@ -303,16 +342,34 @@ public class SupplierServiceImpl implements SupplierService {
         // Optional payment-related selections
         soapSupplier.setPaymentOperationName(dto.getPaymentOperationName());
         soapSupplier.setRefundOperationName(dto.getRefundOperationName());
+        soapSupplier.setSuccessOperationName(dto.getSuccessOperationName());
+        
         // Common payment configuration
         soapSupplier.setHasOwnPaymentSystem(dto.isHasOwnPaymentSystem());
+        
         // Explicitly set payment integration type for SOAP suppliers
         soapSupplier.setPaymentIntegrationType("SOAP");
+        
         // Set autoPaymentEnabled from DTO if present, else default to TRUE
         if (dto.getAutoPaymentEnabled() != null) {
             soapSupplier.setAutoPaymentEnabled(dto.getAutoPaymentEnabled());
         } else {
             soapSupplier.setAutoPaymentEnabled(Boolean.TRUE);
         }
+        
+        // Set payment-specific configuration fields
+        // Use existing wsdlUrl and operation names for payment if not specified separately
+        if (dto.getWsdlUrl() != null && !dto.getWsdlUrl().trim().isEmpty()) {
+            soapSupplier.setPaymentWsdlUrl(dto.getWsdlUrl()); // Use main wsdlUrl for payment
+        }
+        
+        if (dto.getPaymentOperationName() != null && !dto.getPaymentOperationName().trim().isEmpty()) {
+            soapSupplier.setPaymentOperationNameConfig(dto.getPaymentOperationName()); // Use main operation for payment
+        }
+        
+        // Set default SOAP action if not provided
+        soapSupplier.setSoapAction("http://tempuri.org/ProcessPayment");
+        
         soapSupplier.setPaymentApiEndpoint(dto.getPaymentApiEndpoint());
         soapSupplier.setCommissionApiEndpoint(dto.getCommissionApiEndpoint());
         soapSupplier.setPayoutFrequency(dto.getPayoutFrequency());
@@ -441,7 +498,7 @@ public class SupplierServiceImpl implements SupplierService {
                     product.setSupplierRef(supplierProduct.getExternalProductId());
                     product.setSupplier(supplier);
                     product.setCategory(defaultCategory);
-                    product.setActive(true); // Set to active so they appear in the product list
+                    product.setActive(false); // Set to inactive so they need admin approval
                     
                     // Handle image data (base64 or URL)
                     if (supplierProduct.getImageUrls() != null && !supplierProduct.getImageUrls().isEmpty()) {

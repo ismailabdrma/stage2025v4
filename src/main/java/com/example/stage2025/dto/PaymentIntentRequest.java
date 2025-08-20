@@ -11,7 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PaymentIntentRequest {
     private Long amount;
-    private String currency;
+    @Builder.Default
+    private String currency = "EUR"; // Default to EUR
     private Long orderId;
     private String paymentMethodId;
 }
