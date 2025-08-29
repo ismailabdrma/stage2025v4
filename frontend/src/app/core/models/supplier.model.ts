@@ -2,6 +2,9 @@ export interface Supplier {
     id: number
     name: string
     email?: string
+    phone?: string
+    config?: string
+    description?: string
     type: "API" | "EXCEL" | "SOAP" | "CSV"
     apiUrl?: string
     apiKey?: string

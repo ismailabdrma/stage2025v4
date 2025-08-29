@@ -83,7 +83,7 @@ export class ProductDetailComponent implements OnInit {
   }
 
   selectImage(image: string): void {
-    this.selectedImage = this.resolveImageUrl(image) || '/assets/logo.svg'
+    this.selectedImage = this.resolveImageUrl(image) || '/assets/placeholder-product.jpg'
   }
 
   addToCart(): void {

@@ -1,11 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of } from 'rxjs';
-import { tap, switchMap, catchError } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
-import { Cart, CartItem } from '../models/cart.model';
+import { BehaviorSubject, Observable, of, switchMap, tap, catchError } from 'rxjs';
+import { Store } from '@ngrx/store';
+import { selectUser } from '../store/auth/auth.selectors';
 import { AuthService } from './auth.service';
 import { ToastService } from '../../shared/components/toast-notification/toast-notification.component';
+import { environment } from '../../../environments/environment';
+import { Cart, CartItem } from '../models/cart.model';
+import { take } from 'rxjs/operators';
 
 interface GuestCartItem {
   productId: number;
@@ -36,6 +38,7 @@ export class CartService {
   private http = inject(HttpClient);
   private authService = inject(AuthService);
   private toastService = inject(ToastService);
+  private store = inject(Store);
 
   private cartSubject = new BehaviorSubject<Cart | null>(null);
   private guestCartSubject = new BehaviorSubject<GuestCart | null>(null);
@@ -100,6 +103,26 @@ export class CartService {
   }
 
   private getUserCart(): Observable<Cart | null> {
+    // Check if current user is admin - admins don't have carts
+    let currentUser: any = null;
+    this.store.select(selectUser).pipe(take(1)).subscribe(user => {
+      currentUser = user;
+    });
+    
+    if (currentUser?.role === 'ADMIN') {
+      console.log('Admin user detected, returning empty cart');
+      const emptyCart: Cart = {
+        id: 0,
+        createdDate: new Date().toISOString(),
+        updatedDate: new Date().toISOString(),
+        items: [],
+        itemCount: 0,
+        total: 0
+      };
+      this.cartSubject.next(emptyCart);
+      return of(emptyCart);
+    }
+
     return this.http.get<any>(this.apiUrl).pipe(
       switchMap(server => {
         const normalized = this.normalizeServerCart(server);
@@ -393,6 +416,19 @@ export class CartService {
 
   // Merge guest cart with user cart after login
   private mergeGuestCartWithUserCart() {
+    // Check if current user is admin - admins don't have carts
+    let currentUser: any = null;
+    this.store.select(selectUser).pipe(take(1)).subscribe(user => {
+      currentUser = user;
+    });
+    
+    if (currentUser?.role === 'ADMIN') {
+      console.log('Admin user detected, skipping cart operations');
+      // Clear any guest cart for admin users
+      this.clearGuestCart();
+      return;
+    }
+
     const guestCart = this.guestCartSubject.value;
     if (!guestCart || guestCart.items.length === 0) {
       // No guest cart to merge, just load user cart
@@ -430,8 +466,33 @@ export class CartService {
   // Get cart item count for badge (reactive)
   getCartItemCount(): Observable<number> {
     return this.authService.isAuthenticated$.pipe(
-      switchMap(isAuthenticated => isAuthenticated ? this.cart$ : this.guestCart$.pipe(switchMap(g => of(this.convertGuestCartToCart(g))))),
-      switchMap(cart => of(cart?.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0))
+      switchMap(isAuthenticated => {
+        if (!isAuthenticated) {
+          return this.guestCart$.pipe(switchMap(g => of(this.convertGuestCartToCart(g))));
+        }
+        
+        // Check if user is admin
+        let currentUser: any = null;
+        this.store.select(selectUser).pipe(take(1)).subscribe(user => {
+          currentUser = user;
+        });
+        
+        if (currentUser?.role === 'ADMIN') {
+          // Return empty cart for admin users
+          const emptyCart: Cart = {
+            id: 0,
+            createdDate: new Date().toISOString(),
+            updatedDate: new Date().toISOString(),
+            items: [],
+            itemCount: 0,
+            total: 0
+          };
+          return of(emptyCart);
+        }
+        
+        return this.cart$;
+      }),
+      switchMap(cart => of(cart?.items?.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0) || 0))
     );
   }
 

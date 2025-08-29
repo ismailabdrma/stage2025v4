@@ -28,13 +28,22 @@ public class OrderMapper {
             if (order.getDeliveryAddress() != null) {
                 var a = order.getDeliveryAddress();
                 com.example.stage2025.dto.ShippingAddressDto s = new com.example.stage2025.dto.ShippingAddressDto();
+                
+                // Set client information
                 s.setFirstName(order.getClient() != null ? order.getClient().getFirstName() : null);
                 s.setLastName(order.getClient() != null ? order.getClient().getLastName() : null);
                 s.setPhone(order.getClient() != null ? order.getClient().getPhone() : null);
+                
+                // Set complete address information
                 s.setAddress(a.getStreet());
                 s.setCity(a.getCity());
+                s.setState(a.getState());  // Set state field
                 s.setPostalCode(a.getZipCode());
                 s.setCountry(a.getCountry());
+                
+                // Remove the old logic that was concatenating state to address
+                // s.setAddress(a.getStreet() + (a.getState() != null ? ", " + a.getState() : ""));
+                
                 dto.setShippingAddress(s);
             }
         } catch (Exception ignored) {}

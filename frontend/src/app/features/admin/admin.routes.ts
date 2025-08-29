@@ -63,6 +63,11 @@ export const adminRoutes: Routes = [
         path: "payment-completion",
         loadComponent: () =>
             import("./components/admin-payment-completion/admin-payment-completion.component").then((m) => m.AdminPaymentCompletionComponent),
+      },
+      {
+        path: 'shipping-fees',
+        loadComponent: () =>
+          import("./components/shipping-fees/shipping-fees.component").then((m) => m.ShippingFeesComponent),
       }
     ]
   }

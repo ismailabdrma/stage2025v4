@@ -22,6 +22,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import com.example.stage2025.dto.AddressDto;
+import com.example.stage2025.service.AddressService;
 
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +40,7 @@ public class OrderController {
     private final SmartPaymentRoutingService smartPaymentRoutingService;
     private final SoapPaymentService soapPaymentService;
     private final OrderRepository orderRepository;
+    private final AddressService addressService;
 
     // Helper to get client ID from authentication
     private Long resolveClientId(Authentication auth, Long userIdAttr) {
@@ -140,26 +143,167 @@ public class OrderController {
             @RequestAttribute(name = "userId", required = false) Long userIdAttr,
             @RequestBody Map<String, Object> request) {
         try {
+            log.info("Received createOrderWithPayment request: {}", request);
+            
             Long clientId = resolveClientId(auth, userIdAttr);
-            Long addressId = Long.valueOf(request.get("addressId").toString());
-            Double shippingFee = Double.valueOf(request.get("shippingFee").toString());
+            log.info("Resolved client ID: {}", clientId);
+            
+            // Check if this is a new address or existing address scenario
+            Boolean useNewAddress = (Boolean) request.get("useNewAddress");
+            if (useNewAddress == null) {
+                log.warn("Missing useNewAddress flag in request: {}", request);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "useNewAddress flag is required"
+                ));
+            }
+            
+            Long addressId = null;
+            Map<String, Object> newAddress = null;
+            Double shippingFee;
+            
+            if (useNewAddress) {
+                log.info("Processing new address creation for client: {}", clientId);
+                // Handle new address scenario
+                newAddress = (Map<String, Object>) request.get("newAddress");
+                if (newAddress == null) {
+                    log.warn("Missing newAddress in request when useNewAddress=true: {}", request);
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "newAddress is required when useNewAddress=true"
+                    ));
+                }
+                
+                // Validate new address fields
+                String firstName = (String) newAddress.get("fullName");
+                if (firstName == null || firstName.trim().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "fullName is required for new address"
+                    ));
+                }
+                
+                String street = (String) newAddress.get("address");
+                if (street == null || street.trim().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "address is required for new address"
+                    ));
+                }
+                
+                String city = (String) newAddress.get("city");
+                if (city == null || city.trim().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "city is required for new address"
+                    ));
+                }
+                
+                String postalCode = (String) newAddress.get("postalCode");
+                if (postalCode == null || postalCode.trim().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "postalCode is required for new address"
+                    ));
+                }
+                
+                String country = (String) newAddress.get("country");
+                if (country == null || country.trim().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "country is required for new address"
+                    ));
+                }
+                
+                String phone = (String) newAddress.get("phone");
+                if (phone == null || phone.trim().isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "phone is required for new address"
+                    ));
+                }
+                
+                log.info("New address validated for: {} {}, {}, {}, {}", firstName, street, city, postalCode, country);
+                
+            } else {
+                log.info("Processing existing address for client: {}", clientId);
+                // Handle existing address scenario
+                if (!request.containsKey("addressId")) {
+                    log.error("Missing addressId in request: {}", request);
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "addressId is required when useNewAddress=false"
+                    ));
+                }
+                
+                try {
+                    Object addressIdObj = request.get("addressId");
+                    if (addressIdObj == null) {
+                        throw new IllegalArgumentException("addressId cannot be null");
+                    }
+                    addressId = Long.valueOf(addressIdObj.toString());
+                    log.info("Parsed addressId: {}", addressId);
+                } catch (NumberFormatException e) {
+                    log.error("Failed to parse addressId: {}", e.getMessage());
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "Invalid addressId format: " + e.getMessage()
+                    ));
+                }
+            }
+            
+            // Validate shipping fee
+            if (!request.containsKey("shippingFee")) {
+                log.error("Missing shippingFee in request: {}", request);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "shippingFee is required"
+                ));
+            }
+            
+            try {
+                Object shippingFeeObj = request.get("shippingFee");
+                if (shippingFeeObj == null) {
+                    throw new IllegalArgumentException("shippingFee cannot be null");
+                }
+                shippingFee = Double.valueOf(shippingFeeObj.toString());
+                log.info("Parsed shippingFee: {}", shippingFee);
+            } catch (NumberFormatException e) {
+                log.error("Failed to parse shippingFee: {}", e.getMessage());
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Invalid shippingFee format: " + e.getMessage()
+                ));
+            }
 
-            log.info("Creating order with payment for client: {}, addressId: {}, shippingFee: {}",
-                    clientId, addressId, shippingFee);
+            log.info("Creating order with payment for client: {}, useNewAddress: {}, addressId: {}, shippingFee: {}",
+                    clientId, useNewAddress, addressId, shippingFee);
 
             // Step 1: Create the order
-            OrderDto orderDto = orderService.createOrderFromCart(clientId, addressId, shippingFee);
+            OrderDto orderDto;
+            if (useNewAddress) {
+                // Create order with new address
+                orderDto = orderService.createOrderFromJson(clientId, newAddress, shippingFee);
+            } else {
+                // Create order with existing address
+                orderDto = orderService.createOrderFromCart(clientId, addressId, shippingFee);
+            }
 
             if (orderDto == null) {
+                log.error("OrderService returned null for client: {}", clientId);
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
                         "message", "Failed to create order"
                 ));
             }
 
+            log.info("Order created successfully with ID: {}", orderDto.getId());
+
             // Step 2: Check payment routing
             SmartPaymentRoutingService.PaymentRoutingResult routing =
                     smartPaymentRoutingService.determinePaymentFlow(orderDto.getId());
+
+            log.info("Payment routing determined: {}", routing.getPaymentFlow());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -186,7 +330,8 @@ public class OrderController {
                     response.put("error", "Failed to create payment intent: " + e.getMessage());
                 }
             } else {
-                // For direct supplier payments, also create payment intent to get paymentUrl
+                // For direct supplier payments, ALWAYS create Stripe payment intent
+                // This provides a fallback payment method for suppliers without payment systems
                 try {
                     PaymentIntentRequest paymentRequest = PaymentIntentRequest.builder()
                             .orderId(orderDto.getId())
@@ -197,12 +342,28 @@ public class OrderController {
                     // IMPORTANT: Use the existing routing result instead of calling determinePaymentFlow again
                     PaymentIntentResponse paymentIntent = smartPaymentRoutingService.createPaymentIntentWithRouting(paymentRequest, routing);
                     response.put("paymentIntentId", paymentIntent.getId());
+                    
+                    // Check if supplier has payment system
+                    if (routing.getPrimarySupplier() != null && routing.getPrimarySupplier().isHasOwnPaymentSystem()) {
+                        // Supplier has payment system, include payment URL
                     response.put("paymentUrl", paymentIntent.getPaymentUrl());
                     response.put("supplierName", routing.getPrimarySupplier().getName());
                     response.put("supplierId", routing.getPrimarySupplier().getId());
+                        response.put("hasPaymentSystem", true);
                     
                     log.info("Direct supplier payment intent created for order {}: paymentUrl={}, supplier={}", 
                             orderDto.getId(), paymentIntent.getPaymentUrl(), routing.getPrimarySupplier().getName());
+                    } else {
+                        // Supplier has no payment system, use Stripe as fallback
+                        response.put("paymentUrl", null);
+                        response.put("supplierName", routing.getPrimarySupplier() != null ? routing.getPrimarySupplier().getName() : "Unknown");
+                        response.put("supplierId", routing.getPrimarySupplier() != null ? routing.getPrimarySupplier().getId() : null);
+                        response.put("hasPaymentSystem", false);
+                        response.put("stripeFallback", true);
+                        
+                        log.info("Supplier has no payment system, using Stripe fallback for order {}: supplier={}", 
+                                orderDto.getId(), routing.getPrimarySupplier() != null ? routing.getPrimarySupplier().getName() : "Unknown");
+                    }
                 } catch (Exception e) {
                     log.error("Error creating direct supplier payment intent for order {}: {}", orderDto.getId(), e.getMessage());
                     response.put("error", "Failed to create supplier payment intent: " + e.getMessage());
@@ -214,9 +375,12 @@ public class OrderController {
 
         } catch (Exception e) {
             log.error("Error creating order with payment: {}", e.getMessage(), e);
+            log.error("Stack trace: ", e);
+            log.error("Request data: {}", request);
             return ResponseEntity.internalServerError().body(Map.of(
                     "success", false,
-                    "message", "Internal server error: " + e.getMessage()
+                    "message", "Internal server error: " + e.getMessage(),
+                    "errorType", e.getClass().getSimpleName()
             ));
         }
     }
@@ -226,27 +390,91 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Map<String, Object>> createOrderFromJson(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> orderRequest) {
         Long clientId = resolveClientId(auth, userIdAttr);
+        log.info("Creating order from JSON for client: {} with request: {}", clientId, orderRequest);
         
-        // Fix: Add null checks for required fields
-        Object addressIdObj = orderRequest.get("addressId");
-        if (addressIdObj == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "addressId is required"));
+        // Check if this is a new address or existing address scenario
+        Boolean useNewAddress = (Boolean) orderRequest.get("useNewAddress");
+        if (useNewAddress == null) {
+            log.warn("Missing useNewAddress flag in request: {}", orderRequest);
+            return ResponseEntity.badRequest().body(Map.of("error", "useNewAddress flag is required"));
         }
-        Long addressId = ((Number) addressIdObj).longValue();
         
-        // Fix: Add null check for shippingFee
+        Long addressId = null;
+        Map<String, Object> newAddress = null;
+        
+        if (useNewAddress) {
+            log.info("Processing new address creation for client: {}", clientId);
+            // Handle new address scenario
+            newAddress = (Map<String, Object>) orderRequest.get("newAddress");
+            if (newAddress == null) {
+                log.warn("Missing newAddress in request when useNewAddress=true: {}", orderRequest);
+                return ResponseEntity.badRequest().body(Map.of("error", "newAddress is required when useNewAddress=true"));
+            }
+            
+            // Validate new address fields
+            if (newAddress.get("fullName") == null || newAddress.get("address") == null || 
+                newAddress.get("city") == null || newAddress.get("postalCode") == null || 
+                newAddress.get("country") == null || newAddress.get("phone") == null) {
+                log.warn("Missing required address fields in newAddress: {}", newAddress);
+                return ResponseEntity.badRequest().body(Map.of("error", "All address fields are required for new address"));
+            }
+            
+            // Create the new address first
+            try {
+                // Parse fullName into firstName and lastName
+                String fullName = (String) newAddress.get("fullName");
+                String[] nameParts = fullName.split(" ", 2);
+                String firstName = nameParts[0];
+                String lastName = nameParts.length > 1 ? nameParts[1] : "";
+                
+                AddressDto addressDto = AddressDto.builder()
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .street((String) newAddress.get("address"))
+                    .city((String) newAddress.get("city"))
+                    .state((String) newAddress.get("state"))  // Added state field
+                    .zipCode((String) newAddress.get("postalCode"))
+                    .country((String) newAddress.get("country"))
+                    .phone((String) newAddress.get("phone"))
+                    .build();
+                
+                log.info("Creating address DTO: {}", addressDto);
+                AddressDto createdAddress = addressService.createAddress(clientId, addressDto);
+                addressId = createdAddress.getId();
+                log.info("Created new address with ID: {} for client: {}", addressId, clientId);
+            } catch (Exception e) {
+                log.error("Failed to create new address: {}", e.getMessage(), e);
+                return ResponseEntity.badRequest().body(Map.of("error", "Failed to create new address: " + e.getMessage()));
+            }
+        } else {
+            log.info("Processing existing address for client: {}", clientId);
+            // Handle existing address scenario
+            Object addressIdObj = orderRequest.get("addressId");
+            if (addressIdObj == null) {
+                log.warn("Missing addressId in request when useNewAddress=false: {}", orderRequest);
+                return ResponseEntity.badRequest().body(Map.of("error", "addressId is required when useNewAddress=false"));
+            }
+            addressId = ((Number) addressIdObj).longValue();
+            log.info("Using existing address ID: {} for client: {}", addressId, clientId);
+        }
+        
+        // Get shipping fee
         Object shippingFeeObj = orderRequest.get("shippingFee");
         double shippingFee = 0.0; // Default value
         if (shippingFeeObj != null) {
             shippingFee = ((Number) shippingFeeObj).doubleValue();
         }
+        log.info("Processing order with addressId: {} and shippingFee: {} for client: {}", addressId, shippingFee, clientId);
 
         // Create order from cart
         OrderDto order = orderService.createOrderFromCart(clientId, addressId, shippingFee);
+        log.info("Order created successfully with ID: {} for client: {}", order.getId(), clientId);
 
         // Create a real Stripe PaymentIntent and return clientSecret
         try {
             long amountInCents = Math.round(order.getTotal() * 100);
+            log.info("Creating Stripe payment intent for order: {} with amount: {} cents", order.getId(), amountInCents);
+            
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(amountInCents)
                     .setCurrency("EUR")
@@ -256,6 +484,7 @@ public class OrderController {
                     .putMetadata("orderId", String.valueOf(order.getId()))
                     .build();
             PaymentIntent intent = PaymentIntent.create(params);
+            log.info("Stripe payment intent created successfully: {} for order: {}", intent.getId(), order.getId());
 
             // Persist a Payment record linked to the order using Stripe intent id as transactionRef
             try {
@@ -266,8 +495,10 @@ public class OrderController {
                         .amount(intent.getAmount() != null ? intent.getAmount() / 100.0 : order.getTotal())
                         .build();
                 paymentService.createPayment(paymentDto);
+                log.info("Payment record persisted successfully for order: {}", order.getId());
             } catch (Exception persistEx) {
                 // Non-blocking: log and continue
+                log.warn("Failed to persist payment record: {}", persistEx.getMessage());
             }
 
             Map<String, Object> response = Map.of(
@@ -277,13 +508,15 @@ public class OrderController {
                     "clientSecret", intent.getClientSecret(),
                     "paymentProvider", "stripe"
             );
+            log.info("Order creation completed successfully for client: {} with order ID: {}", clientId, order.getId());
             return ResponseEntity.ok(response);
         } catch (StripeException e) {
+            log.error("Stripe payment intent creation failed: {}", e.getMessage(), e);
             return ResponseEntity.ok(Map.of(
                     "orderId", order.getId(),
                     "total", order.getTotal(),
                     "currency", "EUR",
-                    "error", "Failed to create payment intent"
+                    "error", "Failed to create payment intent: " + e.getMessage()
             ));
         }
     }
@@ -293,30 +526,95 @@ public class OrderController {
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<Map<String, Object>> createBuyNowOrder(Authentication auth, @RequestAttribute(name = "userId", required = false) Long userIdAttr, @RequestBody Map<String, Object> buyNowRequest) {
         Long clientId = resolveClientId(auth, userIdAttr);
+        log.info("Creating buy-now order for client: {} with request: {}", clientId, buyNowRequest);
         
-        // Fix: Add null checks for required fields
-        Object addressIdObj = buyNowRequest.get("addressId");
-        if (addressIdObj == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "addressId is required"));
+        // Check if this is a new address or existing address scenario
+        Boolean useNewAddress = (Boolean) buyNowRequest.get("useNewAddress");
+        if (useNewAddress == null) {
+            log.warn("Missing useNewAddress flag in buy-now request: {}", buyNowRequest);
+            return ResponseEntity.badRequest().body(Map.of("error", "useNewAddress flag is required"));
         }
-        Long addressId = ((Number) addressIdObj).longValue();
         
-        // Fix: Add null check for shippingFee
+        Long addressId = null;
+        Map<String, Object> newAddress = null;
+        
+        if (useNewAddress) {
+            log.info("Processing new address creation for buy-now order, client: {}", clientId);
+            // Handle new address scenario
+            newAddress = (Map<String, Object>) buyNowRequest.get("newAddress");
+            if (newAddress == null) {
+                log.warn("Missing newAddress in buy-now request when useNewAddress=true: {}", buyNowRequest);
+                return ResponseEntity.badRequest().body(Map.of("error", "newAddress is required when useNewAddress=true"));
+            }
+            
+            // Validate new address fields
+            if (newAddress.get("fullName") == null || newAddress.get("address") == null || 
+                newAddress.get("city") == null || newAddress.get("postalCode") == null || 
+                newAddress.get("country") == null || newAddress.get("phone") == null) {
+                log.warn("Missing required address fields in buy-now newAddress: {}", newAddress);
+                return ResponseEntity.badRequest().body(Map.of("error", "All address fields are required for new address"));
+            }
+            
+            // Create the new address first
+            try {
+                // Parse fullName into firstName and lastName
+                String fullName = (String) newAddress.get("fullName");
+                String[] nameParts = fullName.split(" ", 2);
+                String firstName = nameParts[0];
+                String lastName = nameParts.length > 1 ? nameParts[1] : "";
+                
+                AddressDto addressDto = AddressDto.builder()
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .street((String) newAddress.get("address"))
+                    .city((String) newAddress.get("city"))
+                    .state((String) newAddress.get("state"))  // Added state field
+                    .zipCode((String) newAddress.get("postalCode"))
+                    .country((String) newAddress.get("country"))
+                    .phone((String) newAddress.get("phone"))
+                    .build();
+                
+                log.info("Creating address DTO for buy-now: {}", addressDto);
+                AddressDto createdAddress = addressService.createAddress(clientId, addressDto);
+                addressId = createdAddress.getId();
+                log.info("Created new address with ID: {} for client: {} (buy-now)", addressId, clientId);
+            } catch (Exception e) {
+                log.error("Failed to create new address for buy-now: {}", e.getMessage(), e);
+                return ResponseEntity.badRequest().body(Map.of("error", "Failed to create new address: " + e.getMessage()));
+            }
+        } else {
+            log.info("Processing existing address for buy-now order, client: {}", clientId);
+            // Handle existing address scenario
+            Object addressIdObj = buyNowRequest.get("addressId");
+            if (addressIdObj == null) {
+                log.warn("Missing addressId in buy-now request when useNewAddress=false: {}", buyNowRequest);
+                return ResponseEntity.badRequest().body(Map.of("error", "addressId is required when useNewAddress=false"));
+            }
+            addressId = ((Number) addressIdObj).longValue();
+            log.info("Using existing address ID: {} for buy-now order, client: {}", addressId, clientId);
+        }
+        
+        // Get shipping fee
         Object shippingFeeObj = buyNowRequest.get("shippingFee");
         double shippingFee = 0.0; // Default value
         if (shippingFeeObj != null) {
             shippingFee = ((Number) shippingFeeObj).doubleValue();
         }
+        log.info("Processing buy-now order with addressId: {} and shippingFee: {} for client: {}", addressId, shippingFee, clientId);
 
         if (buyNowRequest.containsKey("variantId") && buyNowRequest.get("variantId") != null) {
             // Handle variant if needed
+            log.info("Variant ID found in buy-now request: {}", buyNowRequest.get("variantId"));
         }
 
         // For now, create a regular order and a PaymentIntent
         OrderDto order = orderService.createOrderFromCart(clientId, addressId, shippingFee);
+        log.info("Buy-now order created successfully with ID: {} for client: {}", order.getId(), clientId);
 
         try {
             long amountInCents = Math.round(order.getTotal() * 100);
+            log.info("Creating Stripe payment intent for buy-now order: {} with amount: {} cents", order.getId(), amountInCents);
+            
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(amountInCents)
                     .setCurrency("EUR")
@@ -326,6 +624,7 @@ public class OrderController {
                     .putMetadata("orderId", String.valueOf(order.getId()))
                     .build();
             PaymentIntent intent = PaymentIntent.create(params);
+            log.info("Stripe payment intent created successfully for buy-now: {} for order: {}", intent.getId(), order.getId());
 
             // Persist a Payment record linked to the order using Stripe intent id as transactionRef
             try {
@@ -336,8 +635,10 @@ public class OrderController {
                         .amount(intent.getAmount() != null ? intent.getAmount() / 100.0 : order.getTotal())
                         .build();
                 paymentService.createPayment(paymentDto);
+                log.info("Payment record persisted successfully for buy-now order: {}", order.getId());
             } catch (Exception persistEx) {
-                // Non-blocking
+                // Non-blocking: log and continue
+                log.warn("Failed to persist payment record for buy-now: {}", persistEx.getMessage());
             }
 
             Map<String, Object> response = Map.of(
@@ -347,13 +648,15 @@ public class OrderController {
                     "clientSecret", intent.getClientSecret(),
                     "paymentProvider", "stripe"
             );
+            log.info("Buy-now order creation completed successfully for client: {} with order ID: {}", clientId, order.getId());
             return ResponseEntity.ok(response);
         } catch (StripeException e) {
+            log.error("Stripe payment intent creation failed for buy-now: {}", e.getMessage(), e);
             return ResponseEntity.ok(Map.of(
                     "orderId", order.getId(),
                     "total", order.getTotal(),
                     "currency", "EUR",
-                    "error", "Failed to create payment intent"
+                    "error", "Failed to create payment intent: " + e.getMessage()
             ));
         }
     }
@@ -484,5 +787,16 @@ public class OrderController {
         );
 
         return ResponseEntity.ok(timeline);
+    }
+
+    // Test endpoint to verify backend is working
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> testEndpoint() {
+        log.info("Test endpoint called successfully");
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Backend is working correctly",
+                "timestamp", System.currentTimeMillis()
+        ));
     }
 }

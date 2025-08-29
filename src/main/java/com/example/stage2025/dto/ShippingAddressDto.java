@@ -12,6 +12,7 @@ public class ShippingAddressDto {
     private String lastName;
     private String address;
     private String city;
+    private String state;
     private String postalCode;
     private String country;
     private String phone;

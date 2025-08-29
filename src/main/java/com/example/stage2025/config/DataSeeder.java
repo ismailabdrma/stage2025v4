@@ -59,4 +59,6 @@ public class DataSeeder implements CommandLineRunner {
             log.info("ℹ️  Admin user already exists, skipping creation");
         }
     }
+
+
 }

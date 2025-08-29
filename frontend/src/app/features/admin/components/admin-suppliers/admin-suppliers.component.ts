@@ -12,6 +12,8 @@ import { SupplierService } from "@core/services/supplier.service";
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CreateSupplierDialogComponent } from "./create-supplier-dialog/supplier-dialog.component";
 import { Supplier } from "@core/models/supplier.model";
+import { AuthService } from "@core/services/auth.service";
+import { Router } from "@angular/router";
 
 @Component({
     selector: "app-admin-suppliers",
@@ -35,6 +37,8 @@ export class AdminSuppliersComponent implements OnInit {
     private supplierService = inject(SupplierService);
     private snackBar = inject(MatSnackBar);
     private dialog = inject(MatDialog);
+    private authService = inject(AuthService);
+    private router = inject(Router);
 
     @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -43,6 +47,19 @@ export class AdminSuppliersComponent implements OnInit {
     loading = false;
 
     ngOnInit(): void {
+        // Check if user is authenticated and has ADMIN role
+        if (!this.authService.isAuthenticated()) {
+            this.snackBar.open('Please log in to access admin panel', 'Close', { duration: 3000 });
+            this.router.navigate(['/auth/login']);
+            return;
+        }
+
+        if (!this.authService.hasRole('ADMIN')) {
+            this.snackBar.open('Access denied. ADMIN role required.', 'Close', { duration: 3000 });
+            this.router.navigate(['/']);
+            return;
+        }
+
         this.loadSuppliers();
     }
 

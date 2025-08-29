@@ -22,7 +22,7 @@ import com.example.stage2025.entity.Product;
 import com.example.stage2025.service.impl.SoapPaymentService;
 
 @RestController
-@RequestMapping("/api/admin/soap-diagnostic")
+@RequestMapping("/api/soap-diagnostic")
 @RequiredArgsConstructor
 @Slf4j
 @PreAuthorize("hasRole('ADMIN')")

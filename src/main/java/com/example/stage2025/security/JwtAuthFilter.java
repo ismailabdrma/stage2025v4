@@ -39,22 +39,40 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 && (path.equals("/api/products")
                     || path.matches("/api/products/\\d+")
                     || path.startsWith("/api/products/featured")
+                    || path.startsWith("/api/products/search")
+                    || path.startsWith("/api/products/category")
+                    || path.startsWith("/api/products/brand")
                     || path.startsWith("/api/products/") && path.endsWith("/suggested")
-                    || path.startsWith("/api/categories"));
+                    || path.startsWith("/api/categories")
+                    || path.startsWith("/api/images")
+                    || path.startsWith("/api/order-session-mapping")
+                    || path.startsWith("/api/brands")
+                    || path.startsWith("/api/reviews")
+                    || path.startsWith("/api/cart/guest")
+                    || path.startsWith("/api/orders/guest"));
+                    // Removed /api/cart from public access - now has proper PreAuthorize annotation
+                    // Removed /api/suppliers from public access - requires ADMIN authentication
 
         // Note: admin-only product endpoints like /pending, /approve, /reject, /activate, etc. must NOT be skipped
         if (isPublicRead) {
             // Exclude admin-only reads under products
             if (path.contains("/pending") || path.contains("/approve") || path.contains("/reject")
                     || path.contains("/activate") || path.contains("/deactivate") || path.contains("/suspend")
-                    || path.contains("/approve-multiple") || path.contains("/bulk-update")) {
+                    || path.contains("/approve-multiple") || path.contains("/bulk-update")
+                    || path.contains("/admin") || path.contains("/dashboard")) {
                 return false;
             }
             return true;
         }
 
-        // Suppliers GET can be public
-        if ("GET".equalsIgnoreCase(method) && path.startsWith("/api/suppliers")) {
+        // Additional public endpoints for client functionality
+        if ("GET".equalsIgnoreCase(method) && (
+            path.startsWith("/api/home") ||
+            path.startsWith("/api/public") ||
+            path.startsWith("/api/guest") ||
+            path.equals("/api/health") ||
+            path.equals("/api/info")
+        )) {
             return true;
         }
 

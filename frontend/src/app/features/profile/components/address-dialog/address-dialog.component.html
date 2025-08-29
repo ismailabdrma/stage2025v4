@@ -27,9 +27,9 @@
     </div>
 
     <mat-form-field appearance="outline" class="full-width">
-      <mat-label>Address Line 1</mat-label>
-      <input matInput formControlName="address" required>
-      <mat-error *ngIf="addressForm.get('address')?.hasError('required')">
+      <mat-label>Address</mat-label>
+      <input matInput formControlName="street" required>
+      <mat-error *ngIf="addressForm.get('street')?.hasError('required')">
         Address is required
       </mat-error>
     </mat-form-field>
@@ -43,17 +43,30 @@
         </mat-error>
       </mat-form-field>
       <mat-form-field appearance="outline" class="half-width">
-        <mat-label>Postal Code</mat-label>
-        <input matInput formControlName="postalCode" required>
-        <mat-error *ngIf="addressForm.get('postalCode')?.hasError('required')">
-          Postal Code is required
-        </mat-error>
+        <mat-label>State/Region</mat-label>
+        <input matInput formControlName="state">
       </mat-form-field>
     </div>
 
     <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Postal Code</mat-label>
+      <input matInput formControlName="zipCode" required>
+      <mat-error *ngIf="addressForm.get('zipCode')?.hasError('required')">
+        Postal Code is required
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
       <mat-label>Country</mat-label>
-      <input matInput formControlName="country" required>
+      <mat-select formControlName="country" required>
+        <mat-option value="MA">Maroc</mat-option>
+        <mat-option value="FR">France</mat-option>
+        <mat-option value="ES">Espagne</mat-option>
+        <mat-option value="DE">Allemagne</mat-option>
+        <mat-option value="IT">Italie</mat-option>
+        <mat-option value="BE">Belgique</mat-option>
+        <mat-option value="NL">Pays-Bas</mat-option>
+      </mat-select>
       <mat-error *ngIf="addressForm.get('country')?.hasError('required')">
         Country is required
       </mat-error>

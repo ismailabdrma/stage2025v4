@@ -24,7 +24,12 @@ export class OrderService {
   }
 
   // Create order and determine payment method (platform vs supplier)
-  createOrderWithPayment(payload: { addressId: number; shippingFee: number }): Observable<any> {
+  createOrderWithPayment(payload: { 
+    useNewAddress?: boolean; 
+    newAddress?: any; 
+    addressId?: number; 
+    shippingFee: number 
+  }): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/create-with-payment`, payload)
   }
 

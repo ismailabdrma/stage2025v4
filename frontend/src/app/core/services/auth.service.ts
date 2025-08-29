@@ -126,6 +126,59 @@ export class AuthService {
     return isValid
   }
 
+  // Method to check if user has a specific role
+  hasRole(role: string): boolean {
+    const token = this.getToken()
+    if (!token) {
+      console.log('🔐 hasRole: No token found')
+      return false
+    }
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]))
+      console.log('🔐 JWT Payload:', payload)
+      
+      // Check if token is still valid
+      if (payload.exp <= Date.now() / 1000) {
+        console.log('🔐 Token expired')
+        return false
+      }
+
+      // Check for role in different possible JWT payload structures
+      // Common structures: roles array, role string, authorities array
+      if (payload.roles && Array.isArray(payload.roles)) {
+        const hasRole = payload.roles.includes(role) || payload.roles.includes(`ROLE_${role}`)
+        console.log('🔐 Checking roles array:', payload.roles, 'for role:', role, 'Result:', hasRole)
+        return hasRole
+      }
+      
+      if (payload.role && typeof payload.role === 'string') {
+        const hasRole = payload.role === role || payload.role === `ROLE_${role}`
+        console.log('🔐 Checking role string:', payload.role, 'for role:', role, 'Result:', hasRole)
+        return hasRole
+      }
+      
+      if (payload.authorities && Array.isArray(payload.authorities)) {
+        const hasRole = payload.authorities.includes(role) || payload.authorities.includes(`ROLE_${role}`)
+        console.log('🔐 Checking authorities array:', payload.authorities, 'for role:', role, 'Result:', hasRole)
+        return hasRole
+      }
+
+      // Check for authority field (Spring Security style)
+      if (payload.authority && typeof payload.authority === 'string') {
+        const hasRole = payload.authority === role || payload.authority === `ROLE_${role}`
+        console.log('🔐 Checking authority string:', payload.authority, 'for role:', role, 'Result:', hasRole)
+        return hasRole
+      }
+
+      console.log('🔐 No role found in payload')
+      return false
+    } catch (error) {
+      console.error('🔐 Error parsing JWT token:', error)
+      return false
+    }
+  }
+
   // Admin User Management Methods
   getAllUsers(): Observable<User[]> {
     return this.http.get<User[]>(`${environment.apiUrl}/api/users`);

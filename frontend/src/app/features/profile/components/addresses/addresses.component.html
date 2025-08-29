@@ -7,53 +7,64 @@
     </button>
   </div>
 
-  <div *ngIf="loading" class="loading-container">
-    <mat-spinner></mat-spinner>
-    <p>Loading addresses...</p>
+  <div *ngIf="isLoading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement des adresses...</p>
   </div>
 
-  <div class="addresses-grid" *ngIf="!loading && addresses && addresses.length > 0">
-    <mat-card *ngFor="let address of addresses" class="address-card">
+  <div class="addresses-grid" *ngIf="!isLoading && addresses && addresses.length > 0">
+    <mat-card *ngFor="let address of addresses" class="address-card" [class.default-address]="address.isDefault">
       <mat-card-header>
-        <mat-card-title>{{ address.label }}</mat-card-title>
+        <mat-card-title>
+          <div class="address-header">
+            <span class="country-flag">{{ getCountryFlag(address.country) }}</span>
+            <span class="address-name">{{ address.firstName }} {{ address.lastName }}</span>
+            <mat-chip *ngIf="address.isDefault" color="primary" selected class="default-chip">
+              <mat-icon>star</mat-icon>
+              Par défaut
+            </mat-chip>
+          </div>
+        </mat-card-title>
         <mat-card-subtitle *ngIf="address.isDefault">Default Address</mat-card-subtitle>
+        <mat-card-subtitle>
+          <div class="address-details">
+            <p><mat-icon>location_on</mat-icon> {{ address.street }}</p>
+            <p><mat-icon>city</mat-icon> {{ address.city }}, {{ address.zipCode }}</p>
+            <p><mat-icon>flag</mat-icon> {{ getCountryName(address.country) }}</p>
+            <p *ngIf="address.phone"><mat-icon>phone</mat-icon> {{ address.phone }}</p>
+            <p class="shipping-fee">
+              <mat-icon>local_shipping</mat-icon> 
+              <span class="fee-label">Frais de livraison:</span>
+              <span class="fee-amount">{{ getShippingFee(address.country) }}</span>
+            </p>
+          </div>
+        </mat-card-subtitle>
       </mat-card-header>
-
-      <mat-card-content>
-        <p>
-          {{ address.firstName }} {{ address.lastName }}<br>
-          {{ address.address }}<br>
-          {{ address.city }}, {{ address.postalCode }}<br>
-          {{ address.country }}
-        </p>
-        <p *ngIf="address.phone">
-          <strong>Phone:</strong> {{ address.phone }}
-        </p>
-      </mat-card-content>
-
-      <mat-card-actions>
-        <button mat-button (click)="editAddress(address)">
+      
+      <mat-card-actions class="address-actions">
+        <button mat-button color="primary" (click)="editAddress(address)">
           <mat-icon>edit</mat-icon>
-          Edit
+          Modifier
         </button>
-        <button mat-button color="warn" (click)="deleteAddress(address.id)">
+        <button mat-button color="warn" (click)="deleteAddress(address)">
           <mat-icon>delete</mat-icon>
-          Delete
+          Supprimer
         </button>
-        <button mat-button *ngIf="!address.isDefault" (click)="setDefault(address.id)">
+        <button mat-button *ngIf="!address.isDefault" (click)="setDefault(address.id!)">
           <mat-icon>star</mat-icon>
-          Set Default
+          Définir par défaut
         </button>
       </mat-card-actions>
     </mat-card>
   </div>
 
-  <div *ngIf="!loading && (!addresses || addresses.length === 0)" class="no-addresses">
+  <div *ngIf="!isLoading && (!addresses || addresses.length === 0)" class="no-addresses">
     <mat-icon>location_off</mat-icon>
-    <h3>No addresses found</h3>
-    <p>Add your first address to get started.</p>
+    <h3>Aucune adresse enregistrée</h3>
+    <p>Ajoutez votre première adresse pour faciliter vos commandes</p>
     <button mat-raised-button color="primary" (click)="openAddressDialog()">
-      Add Address
+      <mat-icon>add_location</mat-icon>
+      Ajouter une adresse
     </button>
   </div>
 </div>

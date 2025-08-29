@@ -363,13 +363,21 @@ public class PaymentCompletionServiceImpl implements PaymentCompletionService {
             BigDecimal totalAmount = BigDecimal.valueOf(order.getTotal());
             log.info("Order total: {}", totalAmount);
             
-            // Calculate commission (5% default)
-            BigDecimal commissionRate = new BigDecimal("0.05");
-            BigDecimal commissionAmount = totalAmount.multiply(commissionRate).setScale(2, RoundingMode.HALF_UP);
-            log.info("Commission amount: {}", commissionAmount);
+            // Calculate commission (display price - supplier price)
+            BigDecimal supplierCost = order.getItems().stream()
+                .map(item -> {
+                    Double supplierPrice = item.getProduct() != null && item.getProduct().getSupplierPrice() != null 
+                        ? item.getProduct().getSupplierPrice() 
+                        : item.getUnitPrice(); // Fallback to unit price
+                    return BigDecimal.valueOf(supplierPrice * item.getQuantity());
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
             
-            // Calculate supplier amount
-            BigDecimal supplierAmount = totalAmount.subtract(commissionAmount);
+            BigDecimal commissionAmount = totalAmount.subtract(supplierCost).setScale(2, RoundingMode.HALF_UP);
+            log.info("Commission amount (display price - supplier cost): {}", commissionAmount);
+            
+            // Supplier amount is their cost
+            BigDecimal supplierAmount = supplierCost;
             log.info("Supplier amount: {}", supplierAmount);
             
             // Calculate transaction fee (2.9% + £0.30)

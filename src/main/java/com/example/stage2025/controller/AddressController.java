@@ -67,4 +67,15 @@ public class AddressController {
         addressService.deleteAddress(addressId);
         return ResponseEntity.noContent().build();
     }
+
+    /** 5. Set default address */
+    @PostMapping("/{addressId}/default")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<AddressDto> setDefaultAddress(Authentication auth,
+                                                       @RequestAttribute(name = "userId", required = false) Long userIdAttr,
+                                                       @PathVariable Long addressId) {
+        Long clientId = resolveClientId(auth, userIdAttr);
+        AddressDto updated = addressService.setDefaultAddress(clientId, addressId);
+        return ResponseEntity.ok(updated);
+    }
 }

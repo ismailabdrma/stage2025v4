@@ -109,3 +109,5 @@ Sending to supplier: amount=100.0 (price per piece), quantity=6, totalAmount=600
 **This fix ensures that suppliers receive the correct price per piece and calculate totals properly, eliminating the 6x overcharging issue.** 🎉
 
 
+
+

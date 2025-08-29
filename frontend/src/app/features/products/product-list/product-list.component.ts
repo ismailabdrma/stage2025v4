@@ -2,8 +2,12 @@ import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule, Router } from '@angular/router';
 import { ProductService } from '@core/services/product.service';
-import { ProductCardComponent, ProductCard } from '@shared/components/product-card/product-card.component'; // Assuming this path
-import { FormsModule } from '@angular/forms'; // Import FormsModule for ngModel
+import { ProductCardComponent, ProductCard } from '@shared/components/product-card/product-card.component';
+import { SearchFiltersComponent, FilterOptions, AppliedFilters } from '@shared/components/search-filters/search-filters.component';
+import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/loading-spinner.component';
+import { ErrorBoundaryComponent } from '@shared/components/error-boundary/error-boundary.component';
+import { EmptyStateComponent } from '@shared/components/empty-state/empty-state.component';
+import { FormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent, MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -14,76 +18,143 @@ import { SupplierService } from '@core/services/supplier.service';
 import { MatInputModule } from '@angular/material/input';
 import { Subject, debounceTime, distinctUntilChanged, Subscription } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
-@Component({ // Added OnDestroy
+@Component({
   selector: 'app-product-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, ProductCardComponent, FormsModule, MatProgressSpinnerModule, MatPaginatorModule, MatSelectModule, MatOptionModule, MatFormFieldModule, MatInputModule], // Add FormsModule
+  imports: [
+    CommonModule, 
+    RouterModule, 
+    ProductCardComponent, 
+    SearchFiltersComponent,
+    LoadingSpinnerComponent,
+    ErrorBoundaryComponent,
+    EmptyStateComponent,
+    FormsModule, 
+    MatProgressSpinnerModule, 
+    MatPaginatorModule, 
+    MatSelectModule, 
+    MatOptionModule, 
+    MatFormFieldModule, 
+    MatInputModule,
+    MatIconModule,
+    MatButtonModule,
+    MatChipsModule
+  ],
   templateUrl: './product-list.component.html',
   styleUrls: ['./product-list.component.scss'],
 })
-export class ProductListComponent implements OnInit {
+export class ProductListComponent implements OnInit, OnDestroy {
   private snackBar = inject(MatSnackBar);
   private productService = inject(ProductService);
   private route = inject(ActivatedRoute);
-  private router = inject(Router); // Inject Router
+  private router = inject(Router);
   private supplierService = inject(SupplierService);
 
-  private searchTerms = new Subject<string>(); // Subject for search terms
-  private subscriptions: Subscription[] = []; // Array to hold subscriptions
+  private subscriptions: Subscription[] = [];
 
+  // Data
   products: any[] = [];
   categories: any[] = [];
-  suppliers: any[] = []; // Added suppliers array
-  selectedCategory: string | null = null;
-  selectedSupplier: string | null = null;
-  searchTerm: string | null = null;
-  sortBy: string = 'name'; // Default sort
-  sortDirection: string = 'asc'; // Default sort direction
+  suppliers: any[] = [];
+  
+  // Filter options for search component
+  filterOptions: FilterOptions = {
+    categories: [],
+    suppliers: [],
+    priceRange: { min: 0, max: 1000 },
+    sortOptions: [
+      { value: 'name', label: 'Nom' },
+      { value: 'price', label: 'Prix' },
+      { value: 'createdAt', label: 'Date de création' },
+      { value: 'popularity', label: 'Popularité' }
+    ]
+  };
 
-
+  // State
+  loadingProducts = true;
+  loadingSuppliers = true;
+  loadingCategories = true;
+  error: { message: string; details?: string } | null = null;
+  
+  // Pagination
   currentPage: number = 1;
-  pageSize: number = 12; // Default page size
+  pageSize: number = 12;
   totalProducts: number = 0;
   totalPages: number = 0;
- loadingProducts = true;
- loadingSuppliers = true;
- // Removed loadingCategories as it's not used
 
-  ngOnInit(): void { // Implemented debouncing for search
-    // Subscribe to query params to load initial state and products
-    this.subscriptions.push(this.route.queryParams.subscribe(params => {
-      this.searchTerm = params['search'] || ''; // Initialize searchTerm
-      this.selectedCategory = params['category'] || null;
-      this.selectedSupplier = params['supplier'] || null;
-      this.sortBy = params['sortBy'] || 'name';
-      this.sortDirection = params['sortDirection'] || 'asc';
-      this.currentPage = +params['page'] || 1; // Convert to number
-      this.pageSize = +params['size'] || 12; // Convert to number
+  // View options
+  viewMode: 'grid' | 'list' = 'grid';
+  showFilters = true;
 
-      this.loadProducts();
-      this.loadSuppliers();
-    }));
+  ngOnInit(): void {
+    this.loadInitialData();
+    this.setupRouteSubscriptions();
+  }
 
-    // Debounce search terms and trigger product loading
-    this.subscriptions.push(this.searchTerms.pipe(
-      debounceTime(300), // wait 300ms after the last event before emitting
-      distinctUntilChanged(), // only emit if value has changed
-    ).subscribe(() => this.applyFilters())); // Apply filters when search term changes
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private loadInitialData(): void {
+    this.loadCategories();
+    this.loadSuppliers();
+    this.loadProducts();
+  }
+
+  private setupRouteSubscriptions(): void {
+    // Subscribe to query params for initial state
+    this.subscriptions.push(
+      this.route.queryParams.subscribe(params => {
+        this.currentPage = +params['page'] || 1;
+        this.pageSize = +params['size'] || 12;
+        this.loadProducts();
+      })
+    );
+  }
+
+  loadCategories(): void {
+    this.loadingCategories = true;
+    this.productService.getAllCategories().subscribe({
+      next: (data) => {
+        this.categories = data;
+        this.filterOptions.categories = data.map(cat => ({ id: cat.id, name: cat.name }));
+        this.loadingCategories = false;
+      },
+      error: (error) => {
+        console.error('Error fetching categories:', error);
+        this.snackBar.open('Erreur lors du chargement des catégories', 'Fermer', { duration: 3000 });
+        this.loadingCategories = false;
+      }
+    });
+  }
+
+  loadSuppliers(): void {
+    this.loadingSuppliers = true;
+    this.supplierService.getAllSuppliers().subscribe({
+      next: (data) => {
+        this.suppliers = data;
+        this.filterOptions.suppliers = data.map(sup => ({ id: sup.id, name: sup.name }));
+        this.loadingSuppliers = false;
+      },
+      error: (error) => {
+        console.error('Error fetching suppliers:', error);
+        this.snackBar.open('Erreur lors du chargement des fournisseurs', 'Fermer', { duration: 3000 });
+        this.loadingSuppliers = false;
+      }
+    });
   }
 
   loadProducts(): void {
     this.loadingProducts = true;
+    this.error = null;
+    
     const params: any = {
-      page: this.currentPage - 1, // Backend usually expects 0-based page index
-      size: this.pageSize,
-      sortBy: this.sortBy
-      // sortDirection: this.sortDirection // Uncomment if backend supports sort direction
-     };
-
-    if (this.selectedCategory) params['category'] = this.selectedCategory;
-    if (this.selectedSupplier) params['supplier'] = this.selectedSupplier;
-    if (this.searchTerm) params['search'] = this.searchTerm;
+      page: this.currentPage - 1,
+      size: this.pageSize
+    };
 
     this.productService.getAllProducts(params).subscribe({
       next: (data: any) => {
@@ -99,107 +170,84 @@ export class ProductListComponent implements OnInit {
         this.updateQueryParams();
       },
       error: (error) => {
+        console.error('Error fetching products:', error);
+        this.error = {
+          message: 'Erreur lors du chargement des produits',
+          details: error.message || 'Veuillez réessayer plus tard'
+        };
         this.loadingProducts = false;
-        this.snackBar.open('Error fetching products: ' + error.message, 'Close', { duration: 3000 });
+        this.snackBar.open('Erreur lors du chargement des produits', 'Fermer', { duration: 3000 });
       }
     });
   }
 
-  mapToCard(p: any): ProductCard {
+  onFiltersChanged(filters: AppliedFilters): void {
+    // Apply filters and reload products
+    this.currentPage = 1; // Reset to first page when filters change
+    this.loadProducts();
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.currentPage = event.pageIndex + 1;
+    this.pageSize = event.pageSize;
+    this.loadProducts();
+  }
+
+  toggleViewMode(): void {
+    this.viewMode = this.viewMode === 'grid' ? 'list' : 'grid';
+  }
+
+  toggleFilters(): void {
+    this.showFilters = !this.showFilters;
+  }
+
+  retry(): void {
+    this.error = null;
+    this.loadProducts();
+  }
+
+  goHome(): void {
+    this.router.navigate(['/']);
+  }
+
+  private updateQueryParams(): void {
+    const queryParams: any = {};
+    if (this.currentPage > 1) queryParams.page = this.currentPage;
+    if (this.pageSize !== 12) queryParams.size = this.pageSize;
+    
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  get hasProducts(): boolean {
+    return this.products.length > 0;
+  }
+
+  get isLoading(): boolean {
+    return this.loadingProducts || this.loadingCategories || this.loadingSuppliers;
+  }
+
+  // Add missing methods referenced in template
+  mapToProductCard(product: any): ProductCard {
     return {
-      id: p.id,
-      name: p.name,
-      price: p.displayedPrice,
-      originalPrice: p.supplierPrice && p.supplierPrice > p.displayedPrice ? p.supplierPrice : undefined,
-      imageUrl: (p.imageUrl ?? (p.imageUrls && p.imageUrls.length ? p.imageUrls[0] : undefined)),
-      description: p.description,
-      inStock: (p.syncedStock ?? 0) > 0,
-      stockQuantity: p.syncedStock ?? 0,
-      category: p.categoryName,
-      brand: p.brand,
-      slug: p.id?.toString()
+      id: product.id,
+      name: product.name,
+      price: product.displayedPrice,
+      originalPrice: product.supplierPrice && product.supplierPrice > product.displayedPrice ? product.supplierPrice : undefined,
+      imageUrl: product.imageUrls?.[0],
+      description: product.description,
+      inStock: (product.syncedStock ?? 0) > 0,
+      stockQuantity: product.syncedStock ?? 0,
+      category: product.categoryName,
+      brand: product.supplierName,
+      slug: product.id.toString()
     };
   }
 
-  // Removed this method as categories are loaded in ngOnInit
-  loadCategories(): void {
-    this.productService.getAllCategories().subscribe(
-      (data) => {
-        this.categories = data;
-      },
-      (error) => {
-        console.error('Error fetching categories:', error);
-        this.snackBar.open('Failed to load categories.', 'Close', { duration: 3000 });
-      }
-    );
-  }
-
-  loadSuppliers(): void {
-    this.loadingSuppliers = true;
-    this.supplierService.getAllSuppliers().subscribe({
-      next: (suppliers) => {
-        this.suppliers = suppliers;
-        this.loadingSuppliers = false;
-      },
-      error: (error) => {
-        console.error('Error fetching suppliers:', error);
-        this.snackBar.open('Failed to load suppliers for filtering.', 'Close', { duration: 3000 });
-        this.loadingSuppliers = false;
-      },
-    });
-  }
-
-  onCategoryChange(categoryId: string): void {
-    this.selectedCategory = categoryId === '' ? null : categoryId;
-    this.applyFilters();
-  }
-
-  
-
-  // Method to handle search input changes
-  onSearchInput(event: Event): void {
-    const term = (event.target as HTMLInputElement).value;
-    this.searchTerms.next(term); // Push the new term to the subject
-  }
-
- onSortChange(sortValue: string): void {
- this.sortBy = sortValue;
- this.currentPage = 1; // Reset to first page on sort change
- this.loadProducts();
-  }
-
-  // Method to handle supplier select changes (corrected signature)
-  onSupplierChange(supplierId: string | null): void {
-    this.selectedSupplier = supplierId === '' ? null : supplierId;
-    this.applyFilters();
-  }
-
-  applyFilters(): void {
-    this.currentPage = 1; // Reset to first page on applying filters
-    this.loadProducts();
-  }
-
-  // Method to update query params in the URL
-  private updateQueryParams(): void {
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: {
-        search: this.searchTerm,
-        category: this.selectedCategory,
-        supplier: this.selectedSupplier,
-        sortBy: this.sortBy,
-        // sortDirection: this.sortDirection, // Uncomment if sort direction is added
-        page: this.currentPage,
-        size: this.pageSize
-      },
-      queryParamsHandling: 'merge', // Merge with existing query params
-      replaceUrl: true // Replace the current URL in history
-    });
-  }
-
-  onPageChange(event: any): void {
-    this.currentPage = event.pageIndex + 1; // PageEvent is 0-based, convert to 1-based
-    this.pageSize = event.pageSize;
-    this.loadProducts();
+  trackByProductId(index: number, product: any): number {
+    return product.id;
   }
 }

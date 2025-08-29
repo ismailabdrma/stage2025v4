@@ -1,0 +1,348 @@
+<div class="shipping-fees-container">
+  <!-- Header -->
+  <div class="header-section">
+    <h1>Gestion des Frais de Livraison</h1>
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="addNewShippingFee()">
+        <mat-icon>add</mat-icon>
+        Nouveau Frais
+      </button>
+      <button mat-stroked-button color="accent" (click)="initializeDefaults()">
+        <mat-icon>refresh</mat-icon>
+        Initialiser Défauts
+      </button>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="statistics-section" *ngIf="statistics">
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-value">{{ statistics.totalFees }}</div>
+        <div class="stat-label">Total Frais</div>
+      </mat-card-content>
+    </mat-card>
+    
+    <mat-card class="stat-card active">
+      <mat-card-content>
+        <div class="stat-value">{{ statistics.activeFees }}</div>
+        <div class="stat-label">Actifs</div>
+      </mat-card-content>
+    </mat-card>
+    
+    <mat-card class="stat-card inactive">
+      <mat-card-content>
+        <div class="stat-value">{{ statistics.inactiveFees }}</div>
+        <div class="stat-label">Inactifs</div>
+      </mat-card-content>
+    </mat-card>
+    
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-value">{{ statistics.byCurrency.MAD || 0 }}</div>
+        <div class="stat-label">Maroc (MAD)</div>
+      </mat-card-content>
+    </mat-card>
+    
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-value">{{ statistics.byCurrency.EUR || 0 }}</div>
+        <div class="stat-label">Europe (EUR)</div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Filters -->
+  <mat-card class="filters-card">
+    <mat-card-content>
+      <div class="filters-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Pays</mat-label>
+          <mat-select [(ngModel)]="filterCountry">
+            <mat-option value="">Tous</mat-option>
+            <mat-option value="MA">🇲🇦 Maroc</mat-option>
+            <mat-option value="FR">🇫🇷 France</mat-option>
+            <mat-option value="BE">🇧🇪 Belgique</mat-option>
+            <mat-option value="DE">🇩🇪 Allemagne</mat-option>
+          </mat-select>
+        </mat-form-field>
+        
+        <mat-form-field appearance="outline">
+          <mat-label>Devise</mat-label>
+          <mat-select [(ngModel)]="filterCurrency">
+            <mat-option value="">Toutes</mat-option>
+            <mat-option value="MAD">MAD</mat-option>
+            <mat-option value="EUR">EUR</mat-option>
+            <mat-option value="USD">USD</mat-option>
+          </mat-select>
+        </mat-form-field>
+        
+        <mat-form-field appearance="outline">
+          <mat-label>Statut</mat-label>
+          <mat-select [(ngModel)]="filterStatus">
+            <mat-option value="all">Tous</mat-option>
+            <mat-option value="active">Actifs</mat-option>
+            <mat-option value="inactive">Inactifs</mat-option>
+          </mat-select>
+        </mat-form-field>
+        
+        <div class="filter-actions">
+          <button mat-button color="primary" (click)="applyFilters()">
+            <mat-icon>filter_list</mat-icon>
+            Appliquer
+          </button>
+          <button mat-button (click)="clearFilters()">
+            <mat-icon>clear</mat-icon>
+            Effacer
+          </button>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Form Section -->
+  <mat-card class="form-card" *ngIf="isEditing || !editingId">
+    <mat-card-header>
+      <mat-card-title>{{ isEditing ? 'Modifier' : 'Nouveau' }} Frais de Livraison</mat-card-title>
+    </mat-card-header>
+    
+    <mat-card-content>
+      <form [formGroup]="shippingFeeForm" (ngSubmit)="saveShippingFee()">
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Code Pays</mat-label>
+            <input matInput formControlName="countryCode" required>
+            <mat-error *ngIf="shippingFeeForm.get('countryCode')?.hasError('required')">
+              Le code pays est requis
+            </mat-error>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Nom du Pays</mat-label>
+            <input matInput formControlName="countryName" required>
+            <mat-error *ngIf="shippingFeeForm.get('countryName')?.hasError('required')">
+              Le nom du pays est requis
+            </mat-error>
+          </mat-form-field>
+        </div>
+        
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Région</mat-label>
+            <input matInput formControlName="region">
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Ville</mat-label>
+            <input matInput formControlName="city">
+          </mat-form-field>
+        </div>
+        
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Code Postal De</mat-label>
+            <input matInput formControlName="postalCodeFrom">
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Code Postal À</mat-label>
+            <input matInput formControlName="postalCodeTo">
+          </mat-form-field>
+        </div>
+        
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Frais de Base</mat-label>
+            <input matInput type="number" formControlName="baseFee" required>
+            <mat-error *ngIf="shippingFeeForm.get('baseFee')?.hasError('required')">
+              Le frais de base est requis
+            </mat-error>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Devise</mat-label>
+            <mat-select formControlName="currency" required>
+              <mat-option value="MAD">MAD</mat-option>
+              <mat-option value="EUR">EUR</mat-option>
+              <mat-option value="USD">USD</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Montant Minimum Commande</mat-label>
+            <input matInput type="number" formControlName="minOrderAmount">
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Seuil Livraison Gratuite</mat-label>
+            <input matInput type="number" formControlName="freeShippingThreshold">
+          </mat-form-field>
+        </div>
+        
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Délai Livraison (jours)</mat-label>
+            <input matInput type="number" formControlName="deliveryTimeDays" required>
+            <mat-error *ngIf="shippingFeeForm.get('deliveryTimeDays')?.hasError('required')">
+              Le délai de livraison est requis
+            </mat-error>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Priorité</mat-label>
+            <input matInput type="number" formControlName="priority" required>
+            <mat-error *ngIf="shippingFeeForm.get('priority')?.hasError('required')">
+              La priorité est requise
+            </mat-error>
+          </mat-form-field>
+        </div>
+        
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Notes</mat-label>
+            <textarea matInput formControlName="notes" rows="3"></textarea>
+          </mat-form-field>
+        </div>
+        
+        <div class="form-row">
+          <mat-checkbox formControlName="isActive">
+            Actif
+          </mat-checkbox>
+        </div>
+        
+        <div class="form-actions">
+          <button mat-button type="button" (click)="resetForm()">
+            Annuler
+          </button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="shippingFeeForm.invalid">
+            {{ isEditing ? 'Mettre à jour' : 'Créer' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Table Section -->
+  <mat-card class="table-card">
+    <mat-card-content>
+      <div class="table-container">
+        <table mat-table [dataSource]="shippingFees" matSort>
+          <!-- Country Column -->
+          <ng-container matColumnDef="country">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Pays</th>
+            <td mat-cell *matCellDef="let fee">
+              <div class="country-cell">
+                <span class="country-flag">{{ getCountryFlag(fee.countryCode) }}</span>
+                <span>{{ fee.countryName }}</span>
+              </div>
+            </td>
+          </ng-container>
+          
+          <!-- City Column -->
+          <ng-container matColumnDef="city">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Ville/Région</th>
+            <td mat-cell *matCellDef="let fee">
+              <div class="city-cell">
+                <span *ngIf="fee.city">{{ fee.city }}</span>
+                <span *ngIf="fee.region" class="region">({{ fee.region }})</span>
+              </div>
+            </td>
+          </ng-container>
+          
+          <!-- Base Fee Column -->
+          <ng-container matColumnDef="baseFee">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Frais</th>
+            <td mat-cell *matCellDef="let fee">
+              <span class="fee-amount">{{ fee.baseFee }} {{ fee.currency }}</span>
+            </td>
+          </ng-container>
+          
+          <!-- Currency Column -->
+          <ng-container matColumnDef="currency">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Devise</th>
+            <td mat-cell *matCellDef="let fee">
+              <span class="currency">{{ fee.currency }}</span>
+            </td>
+          </ng-container>
+          
+          <!-- Delivery Time Column -->
+          <ng-container matColumnDef="deliveryTime">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Délai</th>
+            <td mat-cell *matCellDef="let fee">
+              <span class="delivery-time">{{ fee.deliveryTime || 'N/A' }}</span>
+            </td>
+          </ng-container>
+          
+          <!-- Status Column -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Statut</th>
+            <td mat-cell *matCellDef="let fee">
+              <mat-chip [color]="getStatusColor(fee.active)" selected>
+                {{ getStatusText(fee.active) }}
+              </mat-chip>
+            </td>
+          </ng-container>
+          
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let fee">
+              <div class="action-buttons">
+                <button mat-icon-button color="primary" (click)="editShippingFee(fee)" matTooltip="Modifier">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="deleteShippingFee(fee.id!)" matTooltip="Supprimer">
+                  <mat-icon>delete</mat-icon>
+                </button>
+                <button mat-icon-button [color]="fee.active ? 'warn' : 'primary'" 
+                        (click)="toggleStatus(fee.id!)" 
+                        [matTooltip]="fee.active ? 'Désactiver' : 'Activer'">
+                  <mat-icon>{{ fee.active ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+          
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+        
+        <!-- Loading State -->
+        <div class="loading-container" *ngIf="isLoading">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Chargement des frais de livraison...</p>
+        </div>
+        
+        <!-- Error State -->
+        <div class="error-container" *ngIf="error">
+          <mat-icon color="warn">error</mat-icon>
+          <p>{{ error }}</p>
+          <button mat-raised-button color="primary" (click)="loadShippingFees()">
+            Réessayer
+          </button>
+        </div>
+        
+        <!-- Empty State -->
+        <div class="empty-container" *ngIf="!isLoading && !error && shippingFees.length === 0">
+          <mat-icon>local_shipping</mat-icon>
+          <p>Aucun frais de livraison configuré</p>
+          <button mat-raised-button color="primary" (click)="addNewShippingFee()">
+            Ajouter le premier
+          </button>
+        </div>
+      </div>
+      
+      <!-- Pagination -->
+      <mat-paginator [length]="totalItems"
+                     [pageSize]="pageSize"
+                     [pageSizeOptions]="pageSizeOptions"
+                     [pageIndex]="currentPage"
+                     (page)="onPageChange($event)"
+                     showFirstLastButtons>
+      </mat-paginator>
+    </mat-card-content>
+  </mat-card>
+</div>
+

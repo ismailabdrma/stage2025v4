@@ -15,5 +15,10 @@ public class AddressDto {
     private String city;
     private String zipCode;
     private String country;
-    private boolean DefaultAddress;
+    private String state;
+    private String firstName;
+    private String lastName;
+    private String phone;
+    private String label;
+    private boolean defaultAddress;
 }

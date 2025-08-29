@@ -102,10 +102,10 @@ export class ProductCardComponent implements OnInit {
       externalProductId: this.product.externalProductId
     };
 
-    this.cartService.addItem(cartItem).subscribe({
+    this.cartService.addItemSmart(cartItem).subscribe({
       next: () => {
         this.isAddingToCart = false;
-        this.toastService.addedToCart(this.product.name);
+        // Toast notification is already handled by addItemSmart
         
         this.analyticsService.trackAddToCart({
           id: this.product.id,

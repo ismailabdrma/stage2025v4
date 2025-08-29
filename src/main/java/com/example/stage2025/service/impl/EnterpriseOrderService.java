@@ -159,6 +159,137 @@ public class EnterpriseOrderService implements OrderService {
         }
     }
 
+    @Override
+    @Transactional(isolation = Isolation.SERIALIZABLE, timeout = 30)
+    public OrderDto createOrderFromJson(Long clientId, Map<String, Object> newAddress, double shippingFee) {
+        String lockKey = "order_creation_" + clientId;
+        ReentrantLock orderLock = orderLocks.computeIfAbsent(lockKey, k -> new ReentrantLock());
+        
+        try {
+            // Acquire lock to prevent concurrent order creation by same user
+            if (!orderLock.tryLock()) {
+                throw new ConcurrentOrderException("Un autre processus de commande est en cours pour cet utilisateur");
+            }
+
+            log.info("Creating enterprise order from JSON for client {} with new address", clientId);
+            
+            Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Client non trouvé"));
+            
+            // Create new address
+            Address address = Address.builder()
+                    .firstName((String) newAddress.get("fullName"))
+                    .lastName("") // We'll use fullName as firstName for now
+                    .street((String) newAddress.get("address"))
+                    .city((String) newAddress.get("city"))
+                    .state((String) newAddress.get("state"))
+                    .zipCode((String) newAddress.get("postalCode"))
+                    .country((String) newAddress.get("country"))
+                    .phone((String) newAddress.get("phone"))
+                    .defaultAddress(false)
+                    .client(client)
+                    .build();
+            
+            Address savedAddress = addressRepository.save(address);
+            log.info("Created new address with ID: {} for client: {}", savedAddress.getId(), clientId);
+            
+            Cart cart = cartRepository.findByClientId(clientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Panier non trouvé"));
+
+            if (cart.getItems().isEmpty()) {
+                throw new IllegalStateException("Le panier est vide");
+            }
+
+            // Group cart items by supplier for multi-supplier handling
+            Map<Supplier, List<CartItem>> itemsBySupplier = cart.getItems().stream()
+                .collect(Collectors.groupingBy(item -> item.getProduct().getSupplier()));
+
+            log.info("Order contains products from {} suppliers", itemsBySupplier.size());
+
+            // Validate stock availability for ALL products atomically
+            validateAndReserveStock(cart.getItems());
+
+            // Calculate totals
+            double subtotal = cart.getItems().stream()
+                .mapToDouble(item -> item.getQuantity() * item.getUnitPrice())
+                .sum();
+            double total = subtotal + shippingFee;
+
+            // Create main order
+            Order order = Order.builder()
+                .orderNumber(generateUniqueOrderNumber())
+                .orderDate(LocalDateTime.now())
+                .status(OrderStatus.PENDING)
+                .shippingStatus(DeliveryStatus.NOT_SHIPPED)
+                .subtotal(subtotal)
+                .shippingFee(shippingFee)
+                .total(total)
+                .client(client)
+                .deliveryAddress(savedAddress)
+                .comments("")
+                .totalSuppliers(itemsBySupplier.size())
+                .completedSuppliers(0)
+                .sessionId(generateSessionId(clientId))
+                .lockToken(UUID.randomUUID().toString())
+                .lockExpiry(LocalDateTime.now().plusMinutes(30))
+                .version(0L)
+                .currency("EUR") // Explicitly set currency
+                .build();
+
+            // Create order items grouped by supplier
+            List<OrderItem> allOrderItems = new ArrayList<>();
+            for (Map.Entry<Supplier, List<CartItem>> entry : itemsBySupplier.entrySet()) {
+                Supplier supplier = entry.getKey();
+                List<CartItem> supplierItems = entry.getValue();
+
+                log.info("Processing {} items for supplier {}", supplierItems.size(), supplier.getName());
+
+                for (CartItem cartItem : supplierItems) {
+                    OrderItem orderItem = OrderItem.builder()
+                        .order(order)
+                        .product(cartItem.getProduct())
+                        .productName(cartItem.getProduct().getName())
+                        .quantity(cartItem.getQuantity())
+                        .unitPrice(cartItem.getUnitPrice())
+                        .subtotal(cartItem.getQuantity() * cartItem.getUnitPrice())
+                        .supplierName(supplier.getName())
+                        .build();
+                    allOrderItems.add(orderItem);
+                }
+            }
+
+            order.setItems(allOrderItems);
+
+            // Save order with retry mechanism for optimistic locking
+            Order savedOrder = saveOrderWithRetry(order, 3);
+
+            // Update stock quantities atomically
+            updateProductStocks(cart.getItems());
+
+            // Clear cart after successful order creation
+            cart.getItems().clear();
+            cartRepository.save(cart);
+
+            // Send notifications asynchronously
+            sendOrderNotifications(savedOrder, itemsBySupplier);
+
+            // Create supplier payments asynchronously
+            createSupplierPayments(savedOrder);
+
+            log.info("Enterprise order {} created successfully with {} suppliers", 
+                savedOrder.getOrderNumber(), savedOrder.getTotalSuppliers());
+
+            return OrderMapper.toDto(savedOrder);
+
+        } catch (Exception e) {
+            log.error("Failed to create enterprise order from JSON for client {}: {}", clientId, e.getMessage());
+            throw e;
+        } finally {
+            orderLock.unlock();
+            orderLocks.remove(lockKey);
+        }
+    }
+
     private void validateAndReserveStock(List<CartItem> cartItems) {
         log.info("Validating stock for {} cart items", cartItems.size());
         

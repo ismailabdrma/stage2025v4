@@ -16,12 +16,18 @@ public class Address {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String firstName;
+    private String lastName;
     private String street;
     private String city;
-    private String state;    // Add state/region field
+    private String state;
     private String zipCode;
     private String country;
-    private boolean DefaultAddress;
+    private String phone;
+    private String label;
+    
+    @Column(name = "default_address")
+    private boolean defaultAddress;
 
     @ManyToOne
     @ToString.Exclude

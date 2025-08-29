@@ -41,6 +41,29 @@
   padding-top: 0;
 }
 
+.shipping-fee {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #3498db;
+
+  .fee-label {
+    margin-left: 8px;
+    color: #5a6c7d;
+    font-size: 0.9rem;
+  }
+
+  .fee-amount {
+    margin-left: auto;
+    font-weight: 600;
+    color: #27ae60;
+    font-size: 1rem;
+  }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .header {

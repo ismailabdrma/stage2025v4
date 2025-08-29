@@ -5,12 +5,14 @@ import com.example.stage2025.dto.SoapOperationMeta;
 import com.example.stage2025.utils.WsdlFullMetadataUtils;
 import com.example.stage2025.utils.WsdlOperationUtils;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/wsdl")
+@PreAuthorize("hasRole('ADMIN')")
 public class WsdlController {
 
     // Example: GET /api/wsdl/operations?url=http://localhost:8080/ws/supplier.wsdl
@@ -23,6 +25,7 @@ public class WsdlController {
             return ResponseEntity.badRequest().body(List.of("ERROR: " + ex.getMessage()));
         }
     }
+    
     @GetMapping("/operations-full")
     public ResponseEntity<List<SoapOperationMeta>> getWsdlOperationsFull(@RequestParam String url) {
         try {

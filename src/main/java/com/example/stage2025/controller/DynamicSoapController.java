@@ -6,13 +6,17 @@ import com.example.stage2025.entity.SoapSupplier;
 import com.example.stage2025.repository.SupplierRepository;
 import com.example.stage2025.utils.SoapDynamicInvoker;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
 @RequestMapping("/api/soap")
 @RequiredArgsConstructor
+@Slf4j
+@PreAuthorize("hasRole('ADMIN')")
 public class DynamicSoapController {
 
     private final SupplierRepository supplierRepository;

@@ -7,23 +7,33 @@ import com.example.stage2025.entity.Address;
 public class AddressMapper {
 
     public static AddressDto toDto(Address address) {
-        AddressDto dto = new AddressDto();
-        dto.setId(address.getId());
-        dto.setStreet(address.getStreet());
-        dto.setCity(address.getCity());
-        dto.setZipCode(address.getZipCode());
-        dto.setCountry(address.getCountry());
-        dto.setDefaultAddress(address.isDefaultAddress());
-        return dto;
+        return AddressDto.builder()
+                .id(address.getId())
+                .firstName(address.getFirstName())
+                .lastName(address.getLastName())
+                .street(address.getStreet())
+                .city(address.getCity())
+                .state(address.getState())
+                .zipCode(address.getZipCode())
+                .country(address.getCountry())
+                .phone(address.getPhone())
+                .label(address.getLabel())
+                .defaultAddress(address.isDefaultAddress())
+                .build();
     }
 
     public static Address toEntity(AddressDto dto) {
-        Address address = new Address();
-        address.setStreet(dto.getStreet());
-        address.setCity(dto.getCity());
-        address.setZipCode(dto.getZipCode());
-        address.setCountry(dto.getCountry());
-        address.setDefaultAddress(dto.isDefaultAddress());
-        return address;
+        return Address.builder()
+                .firstName(dto.getFirstName())
+                .lastName(dto.getLastName())
+                .street(dto.getStreet())
+                .city(dto.getCity())
+                .state(dto.getState())
+                .zipCode(dto.getZipCode())
+                .country(dto.getCountry())
+                .phone(dto.getPhone())
+                .label(dto.getLabel())
+                .defaultAddress(dto.isDefaultAddress())
+                .build();
     }
 }

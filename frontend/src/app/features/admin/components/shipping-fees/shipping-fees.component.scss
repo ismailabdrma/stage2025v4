@@ -1,0 +1,283 @@
+.shipping-fees-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header Section */
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  
+  h1 {
+    margin: 0;
+    color: #1976d2;
+    font-size: 28px;
+    font-weight: 500;
+  }
+  
+  .header-actions {
+    display: flex;
+    gap: 12px;
+    
+    button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+}
+
+/* Statistics Section */
+.statistics-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  
+  .stat-card {
+    text-align: center;
+    padding: 20px;
+    
+    &.active {
+      border-left: 4px solid #4caf50;
+    }
+    
+    &.inactive {
+      border-left: 4px solid #ff9800;
+    }
+    
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1976d2;
+      margin-bottom: 8px;
+    }
+    
+    .stat-label {
+      font-size: 14px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+}
+
+/* Filters Card */
+.filters-card {
+  margin-bottom: 24px;
+  
+  .filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    
+    mat-form-field {
+      min-width: 200px;
+    }
+    
+    .filter-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
+  }
+}
+
+/* Form Card */
+.form-card {
+  margin-bottom: 24px;
+  
+  .form-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    
+    mat-form-field {
+      flex: 1;
+      
+      &.full-width {
+        flex: 1 1 100%;
+      }
+    }
+    
+    mat-checkbox {
+      margin-top: 16px;
+    }
+  }
+  
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #e0e0e0;
+  }
+}
+
+/* Table Card */
+.table-card {
+  .table-container {
+    position: relative;
+    min-height: 400px;
+    
+    table {
+      width: 100%;
+      
+      .country-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        
+        .country-flag {
+          font-size: 20px;
+        }
+      }
+      
+      .city-cell {
+        .region {
+          color: #666;
+          font-size: 12px;
+        }
+      }
+      
+      .fee-amount {
+        font-weight: 600;
+        color: #1976d2;
+      }
+      
+      .currency {
+        font-weight: 500;
+        color: #666;
+      }
+      
+      .delivery-time {
+        color: #4caf50;
+        font-weight: 500;
+      }
+      
+      .action-buttons {
+        display: flex;
+        gap: 4px;
+      }
+    }
+  }
+}
+
+/* Loading State */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+  
+  p {
+    margin-top: 16px;
+    font-size: 16px;
+  }
+}
+
+/* Error State */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #f44336;
+  
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+  
+  p {
+    margin: 16px 0;
+    font-size: 16px;
+    text-align: center;
+  }
+}
+
+/* Empty State */
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+  
+  mat-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+    color: #ccc;
+  }
+  
+  p {
+    margin: 16px 0 24px;
+    font-size: 18px;
+    text-align: center;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .shipping-fees-container {
+    padding: 16px;
+  }
+  
+  .header-section {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+    
+    .header-actions {
+      justify-content: center;
+    }
+  }
+  
+  .statistics-section {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+    
+    .filter-actions {
+      margin-left: 0;
+      justify-content: center;
+    }
+  }
+  
+  .form-row {
+    flex-direction: column;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    
+    button {
+      width: 100%;
+    }
+  }
+  
+  .table-container {
+    overflow-x: auto;
+    
+    table {
+      min-width: 800px;
+    }
+  }
+}
+

@@ -40,11 +40,43 @@
 <!-- Quick links -->
 <section class="quick-links">
     <div class="container">
-        <a routerLink="/login">Login</a>
-        <a routerLink="/signup">Signup</a>
-        <ng-container *ngIf="isAdmin">
-          <a routerLink="/admin">Admin Access</a>
+        <ng-container *ngIf="isAuthenticated; else authLinks">
+          <!-- Authenticated user links -->
+          <a routerLink="/profile">
+            <mat-icon>person</mat-icon>
+            Mon Profil & Adresses
+          </a>
+          <a routerLink="/cart">
+            <mat-icon>shopping_cart</mat-icon>
+            Mon Panier
+          </a>
+          <a routerLink="/orders">
+            <mat-icon>receipt</mat-icon>
+            Mes Commandes
+          </a>
+          <ng-container *ngIf="isAdmin">
+            <a routerLink="/admin">
+              <mat-icon>admin_panel_settings</mat-icon>
+              Administration
+            </a>
+          </ng-container>
+          <a (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            Déconnexion
+          </a>
         </ng-container>
+        
+        <ng-template #authLinks>
+          <!-- Non-authenticated user links -->
+          <a routerLink="/auth/login">
+            <mat-icon>login</mat-icon>
+            Connexion
+          </a>
+          <a routerLink="/auth/signup">
+            <mat-icon>person_add</mat-icon>
+            Inscription
+          </a>
+        </ng-template>
     </div>
 </section>
 

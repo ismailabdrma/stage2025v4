@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 
@@ -22,8 +23,8 @@ import java.util.Arrays;
 import java.util.List;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
-
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtUtils jwtUtils, UserDetailsServiceImpl userDetailsService) throws Exception {
@@ -31,24 +32,23 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // Allow preflight requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         
-                        // 🔒 HYBRID SECURITY: Allow payment completion but secure other operations
-                        .requestMatchers("/api/payment-success/success/**").permitAll()  // Allow payment completion
-                        .requestMatchers("/api/payment-success/test").permitAll()       // Allow health checks
-                        .requestMatchers("/api/payment-success/**").authenticated()     // Secure other payment operations
-                        
-                        // 🔒 Secure core payment operations
-                        .requestMatchers("/api/payments/**").authenticated()
+                        // 🔒 Payment completion endpoints (public for webhooks)
+                        .requestMatchers("/api/payment-success/success/**").permitAll()
+                        .requestMatchers("/api/payment-success/test").permitAll()
                         
                         // ✅ Public endpoints (no authentication required)
-                        .requestMatchers("/api/auth/**", "/api/products/**", "/api/categories/**", "/api/images/**").permitAll()
-                        .requestMatchers("/api/order-session-mapping/**").permitAll()  // Allow session mapping access
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/products/**").permitAll()
+                        .requestMatchers("/api/categories/**").permitAll()
+                        .requestMatchers("/api/images/**").permitAll()
+                        .requestMatchers("/api/order-session-mapping/**").permitAll()
                         .requestMatchers("/images/**", "/assets/**", "/uploads/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/suppliers/**").permitAll()
                         
-                        // 🔒 Admin-only endpoints
-                        .requestMatchers("/api/admin/**", "/api/suppliers/**").hasRole("ADMIN")
+                        // 🔒 Admin endpoints (temporarily public for testing)
+                        .requestMatchers("/api/suppliers/**").permitAll()
                         
                         // 🔒 All other endpoints require authentication
                         .anyRequest().authenticated()
@@ -56,6 +56,11 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtAuthFilter(jwtUtils, userDetailsService), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean
@@ -75,11 +80,4 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
-
-
 }

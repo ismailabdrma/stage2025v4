@@ -34,6 +34,7 @@ export class HomeComponent implements OnInit {
   featuredProducts: Product[] = [];
   searchKeyword: string = '';
   isAdmin: boolean = false;
+  isAuthenticated: boolean = false;
   loadingCategories = true;
   loadingFeaturedProducts = true;
 
@@ -45,6 +46,12 @@ export class HomeComponent implements OnInit {
   ngOnInit(): void {
     this.loadCategories();
     this.loadFeaturedProducts();
+    this.checkAuthStatus();
+  }
+
+  private checkAuthStatus(): void {
+    this.isAuthenticated = this.authService.isAuthenticated();
+    this.isAdmin = this.authService.hasRole('ADMIN');
   }
 
   search(): void {
@@ -89,6 +96,12 @@ export class HomeComponent implements OnInit {
 
   navigateToProductDetail(productId: number): void {
     this.router.navigate(['/products', productId]);
+  }
+
+  logout(): void {
+    this.authService.logout();
+    this.snackBar.open('Déconnecté avec succès', 'Fermer', { duration: 3000 });
+    this.checkAuthStatus(); // Update auth status
   }
 
   // Convert Product to ProductCard for the product-card component

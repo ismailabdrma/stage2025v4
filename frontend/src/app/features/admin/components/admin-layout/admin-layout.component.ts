@@ -92,6 +92,11 @@ import { ProductService } from '@core/services/product.service';
                 <mat-icon matListItemIcon>shopping_cart</mat-icon>
                 <span matListItemTitle>Orders</span>
               </a>
+
+              <a mat-list-item routerLink="/admin/shipping-fees" routerLinkActive="active">
+                <mat-icon matListItemIcon>local_shipping</mat-icon>
+                <span matListItemTitle>Shipping Fees</span>
+              </a>
             </div>
 
             <mat-divider></mat-divider>

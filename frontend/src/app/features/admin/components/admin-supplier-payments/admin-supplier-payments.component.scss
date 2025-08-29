@@ -1,4 +1,3 @@
-scss
 /* Admin Supplier Payments Styles */
 
 .admin-supplier-payments-container {
@@ -26,10 +25,36 @@ scss
   margin-top: 16px;
 }
 
-/* Basic responsiveness for tables - consider breaking points based on columns */
+.table-actions {
+  margin-bottom: 20px;
+}
+
+.no-payments {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.no-payments mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.no-payments h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+}
+
+.no-payments p {
+  margin: 0 0 20px 0;
+}
+
+/* Basic responsiveness for tables */
 @media (max-width: 768px) {
   .supplier-payments-table {
-    /* Example: Stack table headers and data cells on smaller screens */
     thead {
       display: none;
     }
@@ -43,10 +68,9 @@ scss
     }
 
     td {
-      /* Behave  like a \"thead\" for display purposes */
       border: none;
       &::before {
-        content: attr(data-label); /* Use data-label attribute for column name */
+        content: attr(data-label);
         font-weight: bold;
         margin-right: 8px;
       }
