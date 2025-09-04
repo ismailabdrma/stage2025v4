@@ -21,6 +21,6 @@ public class StripeConfig {
             return;
         }
         Stripe.apiKey = stripeSecretKey;
-        log.info("Stripe initialized successfully.");
+        log.info("Stripe initialized successfully with key: {}...", stripeSecretKey.substring(0, Math.min(10, stripeSecretKey.length())));
     }
 }

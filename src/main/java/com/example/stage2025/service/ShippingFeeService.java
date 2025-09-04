@@ -94,7 +94,14 @@ public class ShippingFeeService {
      */
     @Transactional(readOnly = true)
     public List<ShippingFee> getAllActiveShippingFees() {
-        return shippingFeeRepository.findByIsActiveTrueOrderByCountryCodeAscPriorityAsc();
+        List<ShippingFee> fees = shippingFeeRepository.findByIsActiveTrueOrderByCountryCodeAscPriorityAsc();
+        log.info("Retrieved {} active shipping fees", fees.size());
+        for (ShippingFee fee : fees) {
+            log.info("Fee: {} {} - {} {} {} (active: {})", 
+                    fee.getCountryCode(), fee.getCountryName(), 
+                    fee.getCity(), fee.getBaseFee(), fee.getCurrency(), fee.getIsActive());
+        }
+        return fees;
     }
     
     /**
@@ -250,21 +257,144 @@ public class ShippingFeeService {
     public void initializeDefaultShippingFees() {
         log.info("Initializing default shipping fees");
         
-        if (shippingFeeRepository.count() > 0) {
-            log.info("Shipping fees already exist, skipping initialization");
-            return;
+        try {
+            // Clear existing shipping fees to allow reinitialization
+            long deletedCount = shippingFeeRepository.count();
+            shippingFeeRepository.deleteAll();
+            log.info("Cleared {} existing shipping fees", deletedCount);
+        } catch (Exception e) {
+            log.error("Error clearing existing shipping fees: {}", e.getMessage(), e);
+            throw e;
         }
         
-        // Morocco
+        // Morocco - Major Cities (Priority 1)
+        String[][] moroccoMajorCities = {
+            {"Casablanca", "Casablanca-Settat", "30.00", "3"},
+            {"Rabat", "Rabat-Salé-Kénitra", "25.00", "3"},
+            {"Fès", "Fès-Meknès", "30.00", "4"},
+            {"Marrakech", "Marrakech-Safi", "35.00", "4"},
+            {"Agadir", "Souss-Massa", "40.00", "5"},
+            {"Tanger", "Tanger-Tétouan-Al Hoceïma", "35.00", "4"},
+            {"Meknès", "Fès-Meknès", "30.00", "4"},
+            {"Oujda", "Oriental", "45.00", "5"},
+            {"Kénitra", "Rabat-Salé-Kénitra", "25.00", "3"},
+            {"Tétouan", "Tanger-Tétouan-Al Hoceïma", "35.00", "4"},
+            {"Safi", "Marrakech-Safi", "35.00", "4"},
+            {"Mohammedia", "Casablanca-Settat", "30.00", "3"}
+        };
+        
+        try {
+            for (String[] city : moroccoMajorCities) {
+                ShippingFee fee = ShippingFee.builder()
+                        .countryCode("MA")
+                        .countryName("Maroc")
+                        .city(city[0])
+                        .region(city[1])
+                        .baseFee(new BigDecimal(city[2]))
+                        .currency("MAD")
+                        .deliveryTimeDays(Integer.parseInt(city[3]))
+                        .priority(1)
+                        .isActive(true)
+                        .notes("Livraison vers " + city[0])
+                        .build();
+                log.info("Creating Morocco major city fee: {} - {} {} {}", city[0], city[1], city[2], city[3]);
+                createShippingFee(fee);
+            }
+            log.info("Successfully created {} Morocco major cities", moroccoMajorCities.length);
+        } catch (Exception e) {
+            log.error("Error creating Morocco major cities: {}", e.getMessage(), e);
+            throw e;
+        }
+        
+        // Morocco - Secondary Cities (Priority 2)
+        String[][] moroccoSecondaryCities = {
+            {"El Jadida", "Casablanca-Settat", "35.00", "4"},
+            {"Béni Mellal", "Béni Mellal-Khénifra", "40.00", "5"},
+            {"Nador", "Oriental", "45.00", "5"},
+            {"Taza", "Fès-Meknès", "40.00", "5"},
+            {"Settat", "Casablanca-Settat", "30.00", "3"},
+            {"Larache", "Tanger-Tétouan-Al Hoceïma", "40.00", "5"},
+            {"Ksar El Kebir", "Tanger-Tétouan-Al Hoceïma", "40.00", "5"},
+            {"Khouribga", "Béni Mellal-Khénifra", "40.00", "5"},
+            {"Berkane", "Oriental", "45.00", "5"},
+            {"Taourirt", "Oriental", "45.00", "5"},
+            {"Bouskoura", "Casablanca-Settat", "30.00", "3"},
+            {"Fquih Ben Salah", "Béni Mellal-Khénifra", "40.00", "5"},
+            {"Dcheira El Jihadia", "Souss-Massa", "40.00", "5"},
+            {"Oued Zem", "Béni Mellal-Khénifra", "40.00", "5"},
+            {"El Kelaa des Sraghna", "Marrakech-Safi", "35.00", "4"},
+            {"Sidi Slimane", "Rabat-Salé-Kénitra", "30.00", "3"},
+            {"Errachidia", "Drâa-Tafilalet", "50.00", "6"},
+            {"Guercif", "Oriental", "45.00", "5"},
+            {"Oulad Teïma", "Souss-Massa", "40.00", "5"},
+            {"Ben Guerir", "Marrakech-Safi", "35.00", "4"},
+            {"Hajeb", "Fès-Meknès", "40.00", "5"},
+            {"Youssoufia", "Marrakech-Safi", "35.00", "4"},
+            {"Lahraouyine", "Casablanca-Settat", "30.00", "3"},
+            {"Martil", "Tanger-Tétouan-Al Hoceïma", "35.00", "4"},
+            {"Ain Harrouda", "Casablanca-Settat", "30.00", "3"},
+            {"Suq as-Sabt Awlad an-Nama", "Béni Mellal-Khénifra", "40.00", "5"},
+            {"Skhirat", "Rabat-Salé-Kénitra", "25.00", "3"},
+            {"Ouazzane", "Tanger-Tétouan-Al Hoceïma", "40.00", "5"},
+            {"Benslimane", "Casablanca-Settat", "30.00", "3"},
+            {"Khemisset", "Rabat-Salé-Kénitra", "30.00", "3"},
+            {"Inezgane", "Souss-Massa", "40.00", "5"},
+            {"Ksar es-Seghir", "Tanger-Tétouan-Al Hoceïma", "35.00", "4"},
+            {"Tiflet", "Rabat-Salé-Kénitra", "30.00", "3"},
+            {"Sidi Qacem", "Fès-Meknès", "35.00", "4"},
+            {"Larache", "Tanger-Tétouan-Al Hoceïma", "40.00", "5"},
+            {"Tan-Tan", "Guelmim-Oued Noun", "60.00", "7"},
+            {"Sidi Yahya Zaer", "Rabat-Salé-Kénitra", "30.00", "3"},
+            {"Souk El Arbaa", "Rabat-Salé-Kénitra", "30.00", "3"},
+            {"Tiznit", "Souss-Massa", "40.00", "5"},
+            {"Zagora", "Drâa-Tafilalet", "50.00", "6"},
+            {"Sefrou", "Fès-Meknès", "35.00", "4"},
+            {"Ouarzazate", "Drâa-Tafilalet", "50.00", "6"},
+            {"Taourirt", "Oriental", "45.00", "5"},
+            {"Essaouira", "Marrakech-Safi", "35.00", "4"},
+            {"Chefchaouen", "Tanger-Tétouan-Al Hoceïma", "40.00", "5"},
+            {"Dakhla", "Dakhla-Oued Ed-Dahab", "80.00", "8"},
+            {"Laâyoune", "Laâyoune-Sakia El Hamra", "70.00", "7"},
+            {"Smara", "Laâyoune-Sakia El Hamra", "70.00", "7"},
+            {"Guelmim", "Guelmim-Oued Noun", "60.00", "7"},
+            {"Laâyoune", "Laâyoune-Sakia El Hamra", "70.00", "7"},
+            {"Boujdour", "Laâyoune-Sakia El Hamra", "75.00", "8"},
+            {"Aousserd", "Dakhla-Oued Ed-Dahab", "80.00", "8"}
+        };
+        
+        try {
+            for (String[] city : moroccoSecondaryCities) {
+                ShippingFee fee = ShippingFee.builder()
+                        .countryCode("MA")
+                        .countryName("Maroc")
+                        .city(city[0])
+                        .region(city[1])
+                        .baseFee(new BigDecimal(city[2]))
+                        .currency("MAD")
+                        .deliveryTimeDays(Integer.parseInt(city[3]))
+                        .priority(2)
+                        .isActive(true)
+                        .notes("Livraison vers " + city[0])
+                        .build();
+                log.info("Creating Morocco secondary city fee: {} - {} {} {}", city[0], city[1], city[2], city[3]);
+                createShippingFee(fee);
+            }
+            log.info("Successfully created {} Morocco secondary cities", moroccoSecondaryCities.length);
+        } catch (Exception e) {
+            log.error("Error creating Morocco secondary cities: {}", e.getMessage(), e);
+            throw e;
+        }
+        
+        // Morocco - Default fallback for any other cities
         createShippingFee(ShippingFee.builder()
                 .countryCode("MA")
                 .countryName("Maroc")
-                .baseFee(new BigDecimal("25.00"))
+                .baseFee(new BigDecimal("50.00"))
                 .currency("MAD")
-                .deliveryTimeDays(3)
-                .priority(1)
+                .deliveryTimeDays(7)
+                .priority(3)
                 .isActive(true)
-                .notes("Livraison standard au Maroc")
+                .notes("Livraison par défaut au Maroc")
                 .build());
         
         // France
@@ -291,6 +421,23 @@ public class ShippingFeeService {
                 .notes("Livraison standard en Belgique")
                 .build());
         
-        log.info("Default shipping fees initialized");
+        // Final count
+        long totalFees = shippingFeeRepository.count();
+        long moroccoFees = shippingFeeRepository.countByCountryCode("MA");
+        log.info("Default shipping fees initialization completed. Total fees: {}, Morocco fees: {}", totalFees, moroccoFees);
+    }
+    
+    /**
+     * Get total count of shipping fees
+     */
+    public long getTotalCount() {
+        return shippingFeeRepository.count();
+    }
+    
+    /**
+     * Get count of Morocco shipping fees
+     */
+    public long getMoroccoCount() {
+        return shippingFeeRepository.countByCountryCode("MA");
     }
 }

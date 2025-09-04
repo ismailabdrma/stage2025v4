@@ -73,7 +73,7 @@ public class SoapPaymentService {
             
             requestData.put("amount", pricePerPiece); // Price per piece, not total
             requestData.put("quantity", order.getItems().get(0).getQuantity());
-            requestData.put("productId", order.getItems().get(0).getProduct().getId());
+            requestData.put("productId", getSupplierProductId(order.getItems().get(0)));
             requestData.put("orderId", order.getId());
             requestData.put("currency", order.getCurrency());
             
@@ -85,6 +85,15 @@ public class SoapPaymentService {
                 order.getId(), order.getTotal(), order.getItems().get(0).getQuantity(), pricePerPiece);
             log.info("Sending to supplier: amount={} (price per piece), quantity={}, totalAmount={}", 
                 pricePerPiece, order.getItems().get(0).getQuantity(), order.getTotal());
+            
+            // Log product ID information for debugging
+            String supplierProductId = getSupplierProductId(order.getItems().get(0));
+            log.info("Product ID mapping for order {}: internalId={}, supplierRef={}, externalProductId={}, finalSupplierId={}", 
+                order.getId(), 
+                order.getItems().get(0).getProduct().getId(),
+                order.getItems().get(0).getProduct().getSupplierRef(),
+                order.getItems().get(0).getProduct().getExternalProductId(),
+                supplierProductId);
             
             // IMPORTANT: Force supplier to redirect to OUR success page, not theirs
             // This ensures customer always reaches our platform

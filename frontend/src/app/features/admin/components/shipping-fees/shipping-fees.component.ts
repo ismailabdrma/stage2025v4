@@ -1,11 +1,11 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, inject, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
+import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -15,7 +15,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDividerModule } from '@angular/material/divider';
@@ -55,7 +55,7 @@ import { Subject, takeUntil } from 'rxjs';
   templateUrl: './shipping-fees.component.html',
   styleUrls: ['./shipping-fees.component.scss']
 })
-export class ShippingFeesComponent implements OnInit, OnDestroy {
+export class ShippingFeesComponent implements OnInit, AfterViewInit, OnDestroy {
   private fb = inject(FormBuilder);
   private shippingFeeService = inject(ShippingFeeService);
   private dialog = inject(MatDialog);
@@ -63,6 +63,7 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   shippingFees: ShippingFee[] = [];
+  dataSource = new MatTableDataSource<ShippingFee>([]);
   isLoading = false;
   error: string | null = null;
   
@@ -72,6 +73,9 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
   pageSizeOptions = [5, 10, 25, 50];
   currentPage = 0;
   totalItems = 0;
+  
+  // Paginator reference
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
   
   // Form properties
   shippingFeeForm: FormGroup;
@@ -106,8 +110,15 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    console.log('ShippingFeesComponent initialized');
     this.loadShippingFees();
     this.loadStatistics();
+  }
+
+  ngAfterViewInit(): void {
+    if (this.paginator) {
+      this.dataSource.paginator = this.paginator;
+    }
   }
 
   ngOnDestroy(): void {
@@ -119,13 +130,22 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
 
+    console.log('Loading shipping fees...');
     this.shippingFeeService.getAllActiveShippingFees().pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: (fees) => {
+        console.log('Shipping fees loaded:', fees);
+        console.log('Number of fees:', fees.length);
+        console.log('Fees by country:', fees.reduce((acc: {[key: string]: number}, fee) => {
+          acc[fee.countryCode] = (acc[fee.countryCode] || 0) + 1;
+          return acc;
+        }, {}));
         this.shippingFees = fees;
+        this.dataSource.data = fees;
         this.totalItems = fees.length;
         this.isLoading = false;
+        this.calculateStatistics();
       },
       error: (error) => {
         console.error('Error loading shipping fees:', error);
@@ -157,6 +177,8 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
     const moroccoFees = this.shippingFees.filter(f => f.countryCode === 'MA').length;
     const franceFees = this.shippingFees.filter(f => f.countryCode === 'FR').length;
     const otherFees = totalFees - moroccoFees - franceFees;
+
+    console.log('Statistics calculated:', { totalFees, activeFees, inactiveFees, moroccoFees, franceFees });
 
     this.statistics = {
       totalFees,
@@ -191,7 +213,7 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
       currency: fee.currency,
       minOrderAmount: fee.minOrderAmount,
       freeShippingThreshold: fee.freeShippingThreshold,
-      deliveryTimeDays: fee.deliveryTime,
+      deliveryTimeDays: fee.deliveryTimeDays,
       isActive: fee.active,
       priority: fee.priority,
       notes: fee.notes
@@ -224,6 +246,7 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (newFee) => {
         this.shippingFees.push(newFee);
+        this.dataSource.data = [...this.shippingFees];
         this.snackBar.open('Frais de livraison créés avec succès!', 'Fermer', { duration: 3000 });
         this.resetForm();
         this.loadStatistics();
@@ -243,6 +266,7 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
         const index = this.shippingFees.findIndex(f => f.id === id);
         if (index !== -1) {
           this.shippingFees[index] = updatedFee;
+          this.dataSource.data = [...this.shippingFees];
         }
         this.snackBar.open('Frais de livraison mis à jour avec succès!', 'Fermer', { duration: 3000 });
         this.resetForm();
@@ -260,11 +284,12 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
       this.shippingFeeService.deleteShippingFee(id).pipe(
         takeUntil(this.destroy$)
       ).subscribe({
-        next: () => {
-          this.shippingFees = this.shippingFees.filter(f => f.id !== id);
-          this.snackBar.open('Frais de livraison supprimés avec succès!', 'Fermer', { duration: 3000 });
-          this.loadStatistics();
-        },
+              next: () => {
+        this.shippingFees = this.shippingFees.filter(f => f.id !== id);
+        this.dataSource.data = [...this.shippingFees];
+        this.snackBar.open('Frais de livraison supprimés avec succès!', 'Fermer', { duration: 3000 });
+        this.loadStatistics();
+      },
         error: (error) => {
           console.error('Error deleting shipping fee:', error);
           this.snackBar.open('Erreur lors de la suppression des frais de livraison', 'Fermer', { duration: 3000 });
@@ -281,6 +306,7 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
         const index = this.shippingFees.findIndex(f => f.id === id);
         if (index !== -1) {
           this.shippingFees[index] = updatedFee;
+          this.dataSource.data = [...this.shippingFees];
         }
         this.snackBar.open('Statut mis à jour avec succès!', 'Fermer', { duration: 3000 });
         this.loadStatistics();
@@ -303,20 +329,48 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
   }
 
   initializeDefaults(): void {
-    if (confirm('Voulez-vous initialiser les frais de livraison par défaut ?')) {
+    if (confirm('Voulez-vous initialiser les frais de livraison par défaut ?\n\nCela va installer les frais pour:\n• Toutes les villes du Maroc (60+ villes)\n• France et Belgique\n\nLes frais existants seront remplacés.')) {
+      console.log('Initializing default shipping fees...');
       this.shippingFeeService.initializeDefaultShippingFees().pipe(
         takeUntil(this.destroy$)
       ).subscribe({
-        next: () => {
-          this.snackBar.open('Frais de livraison par défaut initialisés!', 'Fermer', { duration: 3000 });
-          this.loadShippingFees();
+        next: (response) => {
+          console.log('Default shipping fees initialized:', response);
+          this.snackBar.open('✅ Frais de livraison initialisés avec succès!\n60+ villes du Maroc + France/Belgique', 'Fermer', { duration: 5000 });
+          // Force refresh the data
+          setTimeout(() => {
+            this.loadShippingFees();
+          }, 1000);
         },
         error: (error) => {
           console.error('Error initializing defaults:', error);
-          this.snackBar.open('Erreur lors de l\'initialisation des frais par défaut', 'Fermer', { duration: 3000 });
+          this.snackBar.open('❌ Erreur lors de l\'initialisation des frais par défaut', 'Fermer', { duration: 3000 });
         }
       });
     }
+  }
+
+  // Manual refresh method
+  refreshData(): void {
+    console.log('Manually refreshing shipping fees data...');
+    this.loadShippingFees();
+  }
+
+  // Debug method
+  debugData(): void {
+    console.log('Debugging shipping fees data...');
+    this.shippingFeeService.debugShippingFees().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (debugInfo) => {
+        console.log('Debug info:', debugInfo);
+        this.snackBar.open(`Debug: Total=${debugInfo.totalCount}, Morocco=${debugInfo.moroccoCount}, All=${debugInfo.allFeesCount}`, 'Fermer', { duration: 5000 });
+      },
+      error: (error) => {
+        console.error('Debug error:', error);
+        this.snackBar.open('Debug error: ' + error.message, 'Fermer', { duration: 5000 });
+      }
+    });
   }
 
   // Helper methods
@@ -338,8 +392,8 @@ export class ShippingFeesComponent implements OnInit, OnDestroy {
 
   // Table event handlers
   onPageChange(event: PageEvent): void {
-    this.currentPage = event.pageIndex;
-    this.pageSize = event.pageSize;
+    // Pagination is now handled by MatTableDataSource
+    console.log('Page changed:', event);
   }
 
   onSortChange(sort: Sort): void {

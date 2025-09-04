@@ -12,6 +12,7 @@ import com.example.stage2025.service.impl.SmartPaymentRoutingService;
 import com.example.stage2025.service.impl.SoapPaymentService;
 import com.example.stage2025.dto.PaymentDto;
 import com.example.stage2025.repository.OrderRepository;
+import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
@@ -330,8 +331,7 @@ public class OrderController {
                     response.put("error", "Failed to create payment intent: " + e.getMessage());
                 }
             } else {
-                // For direct supplier payments, ALWAYS create Stripe payment intent
-                // This provides a fallback payment method for suppliers without payment systems
+                // For direct supplier payments, create supplier payment intent
                 try {
                     PaymentIntentRequest paymentRequest = PaymentIntentRequest.builder()
                             .orderId(orderDto.getId())
@@ -341,18 +341,18 @@ public class OrderController {
 
                     // IMPORTANT: Use the existing routing result instead of calling determinePaymentFlow again
                     PaymentIntentResponse paymentIntent = smartPaymentRoutingService.createPaymentIntentWithRouting(paymentRequest, routing);
-                    response.put("paymentIntentId", paymentIntent.getId());
                     
                     // Check if supplier has payment system
                     if (routing.getPrimarySupplier() != null && routing.getPrimarySupplier().isHasOwnPaymentSystem()) {
-                        // Supplier has payment system, include payment URL
-                    response.put("paymentUrl", paymentIntent.getPaymentUrl());
-                    response.put("supplierName", routing.getPrimarySupplier().getName());
-                    response.put("supplierId", routing.getPrimarySupplier().getId());
+                        // Supplier has payment system, redirect to supplier payment
+                        response.put("paymentUrl", paymentIntent.getPaymentUrl());
+                        response.put("supplierName", routing.getPrimarySupplier().getName());
+                        response.put("supplierId", routing.getPrimarySupplier().getId());
                         response.put("hasPaymentSystem", true);
-                    
-                    log.info("Direct supplier payment intent created for order {}: paymentUrl={}, supplier={}", 
-                            orderDto.getId(), paymentIntent.getPaymentUrl(), routing.getPrimarySupplier().getName());
+                        response.put("paymentFlow", "DIRECT_TO_SUPPLIER");
+                        
+                        log.info("Direct supplier payment intent created for order {}: paymentUrl={}, supplier={}", 
+                                orderDto.getId(), paymentIntent.getPaymentUrl(), routing.getPrimarySupplier().getName());
                     } else {
                         // Supplier has no payment system, use Stripe as fallback
                         response.put("paymentUrl", null);
@@ -360,13 +360,42 @@ public class OrderController {
                         response.put("supplierId", routing.getPrimarySupplier() != null ? routing.getPrimarySupplier().getId() : null);
                         response.put("hasPaymentSystem", false);
                         response.put("stripeFallback", true);
+                        response.put("clientSecret", paymentIntent.getClientSecret());
+                        response.put("paymentIntentId", paymentIntent.getId());
                         
                         log.info("Supplier has no payment system, using Stripe fallback for order {}: supplier={}", 
                                 orderDto.getId(), routing.getPrimarySupplier() != null ? routing.getPrimarySupplier().getName() : "Unknown");
                     }
                 } catch (Exception e) {
                     log.error("Error creating direct supplier payment intent for order {}: {}", orderDto.getId(), e.getMessage());
-                    response.put("error", "Failed to create supplier payment intent: " + e.getMessage());
+                    // Fallback to Stripe when supplier payment fails
+                    log.info("Falling back to Stripe payment for order {} due to supplier payment error", orderDto.getId());
+                    try {
+                        // Create Stripe payment intent as fallback
+                        PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                                .setAmount((long) (routing.getTotalAmount() * 100))
+                                .setCurrency("EUR")
+                                .setAutomaticPaymentMethods(
+                                        PaymentIntentCreateParams.AutomaticPaymentMethods.builder().setEnabled(true).build()
+                                )
+                                .putMetadata("orderId", String.valueOf(orderDto.getId()))
+                                .build();
+                        PaymentIntent intent = PaymentIntent.create(params);
+                        
+                        response.put("clientSecret", intent.getClientSecret());
+                        response.put("paymentIntentId", intent.getId());
+                        response.put("paymentUrl", null);
+                        response.put("supplierName", routing.getPrimarySupplier() != null ? routing.getPrimarySupplier().getName() : "Unknown");
+                        response.put("supplierId", routing.getPrimarySupplier() != null ? routing.getPrimarySupplier().getId() : null);
+                        response.put("hasPaymentSystem", false);
+                        response.put("stripeFallback", true);
+                        response.put("error", "Supplier payment failed, using Stripe fallback: " + e.getMessage());
+                        
+                        log.info("Stripe fallback payment created successfully for order {}", orderDto.getId());
+                    } catch (Exception stripeError) {
+                        log.error("Stripe fallback also failed for order {}: {}", orderDto.getId(), stripeError.getMessage());
+                        response.put("error", "Both supplier payment and Stripe fallback failed: " + e.getMessage() + " | " + stripeError.getMessage());
+                    }
                 }
             }
 
@@ -472,6 +501,17 @@ public class OrderController {
 
         // Create a real Stripe PaymentIntent and return clientSecret
         try {
+            // Check if Stripe is properly initialized
+            if (Stripe.apiKey == null || Stripe.apiKey.isEmpty()) {
+                log.error("Stripe API key is not configured. Cannot create payment intent.");
+                return ResponseEntity.ok(Map.of(
+                        "orderId", order.getId(),
+                        "total", order.getTotal(),
+                        "currency", "EUR",
+                        "error", "Stripe payment system not configured. Please contact support."
+                ));
+            }
+            
             long amountInCents = Math.round(order.getTotal() * 100);
             log.info("Creating Stripe payment intent for order: {} with amount: {} cents", order.getId(), amountInCents);
             

@@ -9,8 +9,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/shipping-fees")
@@ -125,13 +127,46 @@ public class AdminShippingFeeController {
         log.info("Admin initializing default shipping fees");
         
         try {
+            // Check if table exists first
+            long countBefore = shippingFeeService.getTotalCount();
+            log.info("Shipping fees count before initialization: {}", countBefore);
+            
             shippingFeeService.initializeDefaultShippingFees();
-            return ResponseEntity.ok(Map.of("message", "Default shipping fees initialized successfully"));
+            
+            long countAfter = shippingFeeService.getTotalCount();
+            log.info("Shipping fees count after initialization: {}", countAfter);
+            
+            return ResponseEntity.ok(Map.of(
+                "message", "Default shipping fees initialized successfully",
+                "countBefore", String.valueOf(countBefore),
+                "countAfter", String.valueOf(countAfter)
+            ));
         } catch (Exception e) {
-            log.error("Error initializing default shipping fees: {}", e.getMessage());
+            log.error("Error initializing default shipping fees: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to initialize default shipping fees"));
+                    .body(Map.of("error", "Failed to initialize default shipping fees: " + e.getMessage()));
         }
+    }
+    
+    /**
+     * Debug endpoint to check database contents
+     */
+    @GetMapping("/debug")
+    public ResponseEntity<Map<String, Object>> debugShippingFees() {
+        log.info("Debug endpoint called");
+        
+        long totalCount = shippingFeeService.getTotalCount();
+        long moroccoCount = shippingFeeService.getMoroccoCount();
+        List<ShippingFee> allFees = shippingFeeService.getAllActiveShippingFees();
+        
+        Map<String, Object> debugInfo = new HashMap<>();
+        debugInfo.put("totalCount", totalCount);
+        debugInfo.put("moroccoCount", moroccoCount);
+        debugInfo.put("allFeesCount", allFees.size());
+        debugInfo.put("feesByCountry", allFees.stream()
+            .collect(Collectors.groupingBy(ShippingFee::getCountryCode, Collectors.counting())));
+        
+        return ResponseEntity.ok(debugInfo);
     }
     
     /**

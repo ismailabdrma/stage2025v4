@@ -18,7 +18,6 @@ public class SupplierController {
     private final SupplierService supplierService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<SupplierDto>> getAllSuppliers() {
         return ResponseEntity.ok(supplierService.getAllSuppliers());
     }

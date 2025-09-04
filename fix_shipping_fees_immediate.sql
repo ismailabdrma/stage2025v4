@@ -89,3 +89,6 @@ SELECT country_code, country_name, COUNT(*) as fee_count FROM shipping_fees GROU
 SELECT '🏙️ City-specific fees:' as info;
 SELECT country_code, city, base_fee, currency, delivery_time_days FROM shipping_fees WHERE city IS NOT NULL ORDER BY country_code, city;
 
+
+
+

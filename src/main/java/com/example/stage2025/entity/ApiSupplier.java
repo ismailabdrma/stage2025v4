@@ -40,8 +40,8 @@ public class ApiSupplier extends Supplier {
 
     // ADD THESE METHODS:
     public boolean isHasOwnPaymentSystem() {
-        return "REST_API".equals(paymentIntegrationType) &&
-                paymentApiUrl != null && !paymentApiUrl.trim().isEmpty();
+        // Only honor admin toggle on the base Supplier - no automatic detection
+        return super.isHasOwnPaymentSystem();
     }
 
     public boolean isAutoPaymentEnabled() {

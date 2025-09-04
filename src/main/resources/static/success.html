@@ -149,9 +149,9 @@
                     console.log('Payment completed successfully:', result);
                     document.getElementById('status').textContent = 'Payment completed! Redirecting...';
                     
-                    // Redirect to Angular success page instead of home
+                    // Redirect to Angular frontend success page
                     setTimeout(() => {
-                        window.location.href = '/success?order_id=' + orderId + '&supplier_id=' + supplierId;
+                        window.location.href = 'http://localhost:4200/orders/success?order_id=' + orderId + '&supplier_id=' + supplierId + '&session_id=' + sessionId + '&source=supplier_redirect';
                     }, 1000);
                 } else {
                     console.error('Payment completion failed:', result);
@@ -172,9 +172,9 @@
                 
                 document.getElementById('status').textContent = 'Error processing payment. Redirecting...';
                 
-                // Fallback redirect to Angular success page
+                // Fallback redirect to Angular frontend success page
                 setTimeout(() => {
-                    window.location.href = '/success?order_id=' + orderId + '&supplier_id=' + supplierId;
+                    window.location.href = 'http://localhost:4200/orders/success?order_id=' + orderId + '&supplier_id=' + supplierId + '&session_id=' + sessionId + '&source=supplier_redirect';
                 }, 2000);
             }
         }

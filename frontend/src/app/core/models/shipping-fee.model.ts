@@ -11,6 +11,7 @@ export interface ShippingFee {
   minOrderAmount?: number;
   freeShippingThreshold?: number;
   deliveryTime?: string;
+  deliveryTimeDays?: number;
   active: boolean;
   priority?: number;
   notes?: string;

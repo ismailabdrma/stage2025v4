@@ -151,17 +151,17 @@ import { environment } from '@environments/environment';
                     <mat-icon>edit</mat-icon>
                   </button>
                   <button mat-icon-button (click)="approveProduct(product)" 
-                          *ngIf="!isProductActive(product)"
+                          *ngIf="shouldShowApproveButton(product)"
                           matTooltip="Approve Product">
                     <mat-icon>check</mat-icon>
                   </button>
                   <button mat-icon-button (click)="rejectProduct(product)" 
-                          *ngIf="!isProductActive(product)"
+                          *ngIf="shouldShowRejectButton(product)"
                           matTooltip="Reject Product">
                     <mat-icon>close</mat-icon>
                   </button>
                   <button mat-icon-button (click)="deactivateProduct(product)" 
-                          *ngIf="isProductActive(product)"
+                          *ngIf="shouldShowDeactivateButton(product)"
                           matTooltip="Deactivate Product">
                     <mat-icon>block</mat-icon>
                   </button>
@@ -354,6 +354,16 @@ import { environment } from '@environments/environment';
       color: #721c24;
     }
 
+    .status-suspended {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .status-deleted {
+      background-color: #f5c6cb;
+      color: #721c24;
+    }
+
     .status-active {
       background-color: #d4edda;
       color: #155724;
@@ -493,8 +503,8 @@ export class ProductApprovalComponent implements OnInit {
     this.loading = true;
     console.log('Loading products for admin panel...');
 
-    // First try to get all products using the simple endpoint
-    this.productService.getAllProducts().subscribe({
+    // First try to get all products using the admin endpoint
+    this.productService.getAllProducts({ includeInactive: true }).subscribe({
       next: (products) => {
         console.log('Loaded all products:', products.length, products);
         this.products = products || [];
@@ -572,7 +582,23 @@ export class ProductApprovalComponent implements OnInit {
   }
 
   getProductStatus(product: Product): string {
+    // Use the status field from backend if available, otherwise fallback to active field
+    if (product.status) {
+      return product.status.toUpperCase();
+    }
     return this.isProductActive(product) ? 'ACTIVE' : 'PENDING';
+  }
+
+  shouldShowApproveButton(product: Product): boolean {
+    return product.status === 'PENDING' || (!product.status && !this.isProductActive(product));
+  }
+
+  shouldShowRejectButton(product: Product): boolean {
+    return product.status === 'PENDING' || (!product.status && !this.isProductActive(product));
+  }
+
+  shouldShowDeactivateButton(product: Product): boolean {
+    return product.status === 'APPROVED' || (product.status === undefined && this.isProductActive(product));
   }
 
   getPriceDifferencePercentage(product: Product): string {

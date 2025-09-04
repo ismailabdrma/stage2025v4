@@ -30,6 +30,7 @@ public class ProductDto {
     private String categoryName;
     private String supplierName;
     private Boolean active;
+    private String status;
 
     /** external product id at supplier (needed for sync, fetch, etc.) */
     private String externalProductId;     // <-- ADD THIS LINE

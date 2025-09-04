@@ -1,5 +1,6 @@
 import { bootstrapApplication } from "@angular/platform-browser"
 import '@angular/common/locales/global/fr'
+import '@angular/localize/init'
 import { AppComponent } from "./app/app.component"
 import { provideRouter } from "@angular/router"
 import { provideAnimationsAsync } from "@angular/platform-browser/animations/async"

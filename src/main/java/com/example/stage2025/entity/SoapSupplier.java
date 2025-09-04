@@ -53,33 +53,14 @@ public class SoapSupplier extends Supplier {
     // LOGIC HELPERS
 
     /**
-     * Enhanced check: SOAP supplier has own payment system if:
-     * 1. Has stored operations from WSDL metadata
-     * 2. Has a payment operation configured (either specific or from main operations)
-     * 3. Has auto payment enabled
+     * Check if SOAP supplier has own payment system.
+     * This should ONLY be based on the admin's explicit choice, not automatic detection.
      */
     public boolean isHasOwnPaymentSystem() {
-        // Honor admin toggle on the base Supplier first
-        if (super.isHasOwnPaymentSystem()) {
-            log.debug("SOAP Supplier {} payment system check: base flag is true (admin override)", getName());
-            return true;
-        }
-        // Check if we have stored operations from WSDL
-        boolean hasStoredOperations = operations != null && !operations.isEmpty();
-        
-        // Check if we have a payment operation configured
-        boolean hasPaymentOperation = notBlank(getEffectivePaymentOperationName());
-        
-        // Check if auto payment is enabled
-        boolean autoPaymentEnabled = isAutoPaymentEnabled();
-        
-        // Check if we have a WSDL URL (either payment-specific or main)
-        boolean hasWsdlUrl = notBlank(getEffectivePaymentWsdlUrl());
-        
-        log.debug("SOAP Supplier {} payment system check: hasStoredOperations={}, hasPaymentOperation={}, autoPaymentEnabled={}, hasWsdlUrl={}", 
-                getName(), hasStoredOperations, hasPaymentOperation, autoPaymentEnabled, hasWsdlUrl);
-        
-        return hasStoredOperations && hasPaymentOperation && autoPaymentEnabled && hasWsdlUrl;
+        // Only honor admin toggle on the base Supplier - no automatic detection
+        boolean adminChoice = super.isHasOwnPaymentSystem();
+        log.debug("SOAP Supplier {} payment system check: admin choice = {}", getName(), adminChoice);
+        return adminChoice;
     }
 
     /**

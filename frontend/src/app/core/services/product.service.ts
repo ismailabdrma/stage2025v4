@@ -30,9 +30,34 @@ export class ProductService {
       });
     }
     
-    // Use the correct endpoint that exists in the backend
-    const endpoint = params?.includeInactive !== undefined ? '/admin/all' : '/all';
+    // Use the public endpoint for regular users, admin endpoint only for admin users
+    const endpoint = params?.includeInactive ? '/admin/all' : '';
     return this.http.get<Product[]>(`${this.apiUrl}/products${endpoint}`, { params: httpParams });
+  }
+
+  // Get active products for customers (public endpoint)
+  getActiveProducts(params?: {
+    category?: string;
+    supplier?: string;
+    search?: string;
+    sortBy?: string;
+    page?: number;
+    size?: number;
+    minPrice?: number;
+    maxPrice?: number;
+  }): Observable<Product[]> {
+    let httpParams = new HttpParams();
+    if (params) {
+      Object.keys(params).forEach(key => {
+        const value = (params as any)[key];
+        if (value !== undefined && value !== null) {
+          httpParams = httpParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    // Always use public endpoint for active products (includeInactive=false by default)
+    return this.http.get<Product[]>(`${this.apiUrl}/products`, { params: httpParams });
   }
 
   getProductById(id: number): Observable<Product> {

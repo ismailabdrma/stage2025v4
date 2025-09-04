@@ -119,14 +119,18 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.loadingCategories = true;
     this.productService.getAllCategories().subscribe({
       next: (data) => {
-        this.categories = data;
-        this.filterOptions.categories = data.map(cat => ({ id: cat.id, name: cat.name }));
+        this.categories = data || [];
+        this.filterOptions.categories = (data || []).map(cat => ({ id: cat.id, name: cat.name }));
         this.loadingCategories = false;
+        console.log('✅ Categories loaded successfully:', this.categories.length);
       },
       error: (error) => {
-        console.error('Error fetching categories:', error);
-        this.snackBar.open('Erreur lors du chargement des catégories', 'Fermer', { duration: 3000 });
+        console.error('❌ Error fetching categories:', error);
+        this.categories = [];
+        this.filterOptions.categories = [];
         this.loadingCategories = false;
+        // Don't show error message for categories as it's not critical for basic functionality
+        console.warn('⚠️ Categories filter will be disabled due to loading error');
       }
     });
   }
@@ -135,14 +139,18 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.loadingSuppliers = true;
     this.supplierService.getAllSuppliers().subscribe({
       next: (data) => {
-        this.suppliers = data;
-        this.filterOptions.suppliers = data.map(sup => ({ id: sup.id, name: sup.name }));
+        this.suppliers = data || [];
+        this.filterOptions.suppliers = (data || []).map(sup => ({ id: sup.id, name: sup.name }));
         this.loadingSuppliers = false;
+        console.log('✅ Suppliers loaded successfully:', this.suppliers.length);
       },
       error: (error) => {
-        console.error('Error fetching suppliers:', error);
-        this.snackBar.open('Erreur lors du chargement des fournisseurs', 'Fermer', { duration: 3000 });
+        console.error('❌ Error fetching suppliers:', error);
+        this.suppliers = [];
+        this.filterOptions.suppliers = [];
         this.loadingSuppliers = false;
+        // Don't show error message for suppliers as it's not critical for basic functionality
+        console.warn('⚠️ Suppliers filter will be disabled due to loading error');
       }
     });
   }
@@ -156,7 +164,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
       size: this.pageSize
     };
 
-    this.productService.getAllProducts(params).subscribe({
+    this.productService.getActiveProducts(params).subscribe({
       next: (data: any) => {
         if (Array.isArray(data)) {
           this.products = data;

@@ -28,7 +28,7 @@ export class AddressService {
   }
 
   setDefaultAddress(addressId: number): Observable<Address> {
-    return this.http.patch<Address>(`${this.apiUrl}/${addressId}/default`, {});
+    return this.http.post<Address>(`${this.apiUrl}/${addressId}/default`, {});
   }
 
   createAddress(address: Address): Observable<Address> {

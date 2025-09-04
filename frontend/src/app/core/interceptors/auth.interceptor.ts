@@ -23,6 +23,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         '/api/products',
         '/api/products/featured',
         '/api/products/suggested',
+        // Only GET requests to categories are public, POST/PUT/DELETE require auth
         '/api/categories',
         '/api/images',
         '/api/brands',
@@ -37,6 +38,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
     // Check if the request URL should skip authentication (public endpoints)
     const shouldSkipAuth = noAuthEndpoints.some((endpoint) => {
+        // Special case: categories - only GET requests are public
+        if (endpoint === '/api/categories' && req.method !== 'GET') {
+            return false;
+        }
         // Exact match for specific endpoints
         if (req.url.endsWith(endpoint)) return true;
         // Pattern matching for dynamic endpoints

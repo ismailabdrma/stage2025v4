@@ -117,8 +117,18 @@ public class ProductController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
-        productService.deleteProduct(id);
-        return ResponseEntity.noContent().build();
+        try {
+            log.info("Attempting to delete product with ID: {}", id);
+            productService.deleteProduct(id);
+            log.info("Product {} deleted successfully", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.error("Error deleting product {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to delete product: " + e.getMessage(),
+                "productId", id
+            ));
+        }
     }
 
     // --- Admin: List all inactive (pending validation) products ---
@@ -222,7 +232,15 @@ public class ProductController {
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDto> approveProduct(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.approveProduct(id));
+        try {
+            log.info("Approving product with ID: {}", id);
+            ProductDto result = productService.approveProduct(id);
+            log.info("Product {} approved successfully. Active: {}, Status: {}", id, result.getActive(), result.getStatus());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error approving product {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.badRequest().body(null);
+        }
     }
     
     @DeleteMapping("/{id}/reject")

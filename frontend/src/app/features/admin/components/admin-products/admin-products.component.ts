@@ -101,13 +101,17 @@ export class AdminProductsComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
+        console.log('🗑️ Attempting to delete product with ID:', id);
         this.productService.deleteProduct(id).subscribe({
           next: () => {
+            console.log('✅ Product deleted successfully:', id);
             this.snackBar.open("Product deleted successfully.", "Close", { duration: 3000 })
             this.loadProducts()
           },
           error: (error) => {
-            this.snackBar.open("Error deleting product.", "Close", { duration: 3000 })
+            console.error('❌ Error deleting product:', error);
+            console.error('Error details:', error);
+            this.snackBar.open(`Error deleting product: ${error.error?.message || error.message || 'Unknown error'}`, "Close", { duration: 5000 })
           },
         })
       }

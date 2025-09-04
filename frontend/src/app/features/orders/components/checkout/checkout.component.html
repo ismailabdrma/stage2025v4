@@ -15,13 +15,13 @@
       <mat-icon>bug_report</mat-icon>
       Debug State
     </button>
-  </div>
-
+              </div>
+              
   <div class="checkout-header">
     <h1>Finaliser votre commande</h1>
     <p>Vérifiez vos informations et procédez au paiement</p>
-  </div>
-
+              </div>
+              
   <!-- Cart Summary -->
   <div class="cart-summary">
     <h2>Récapitulatif du panier</h2>
@@ -30,15 +30,15 @@
         <div class="item-info">
           <span class="item-name">{{ item.product?.name || 'Produit' }}</span>
           <span class="item-quantity">x{{ item.quantity }}</span>
-        </div>
+              </div>
         <span class="item-price">{{ item.price | currency:'MAD':'symbol':'1.2-2' }}</span>
-      </div>
-    </div>
+                  </div>
+                </div>
     <div class="cart-total">
               <strong>Sous-total: {{ cartTotal | currency:'EUR':'symbol':'1.2-2' }}</strong>
-    </div>
-  </div>
-
+              </div>
+            </div>
+            
   <!-- Address Selection -->
   <div class="address-section">
     <h2>Adresse de livraison</h2>
@@ -58,24 +58,24 @@
               <mat-icon>star</mat-icon>
               Par défaut
             </mat-chip>
-          </div>
+              </div>
           <div class="address-details">
             <p><mat-icon>location_on</mat-icon> {{ address.street }}</p>
             <p><mat-icon>city</mat-icon> {{ address.city }}, {{ address.zipCode }}</p>
             <p><mat-icon>flag</mat-icon> {{ getCountryName(address.country) }}</p>
             <p *ngIf="address.phone"><mat-icon>phone</mat-icon> {{ address.phone }}</p>
-          </div>
-        </div>
-      </div>
-      
+                    </div>
+                  </div>
+                </div>
+                
       <div class="address-actions">
         <button mat-button color="primary" (click)="useNewAddressForm()">
           <mat-icon>add_location</mat-icon>
           Utiliser une nouvelle adresse
         </button>
-      </div>
-    </div>
-
+              </div>
+            </div>
+            
     <!-- New Address Form -->
     <div *ngIf="useNewAddress || addresses.length === 0" class="new-address-form">
       <h3>{{ addresses.length === 0 ? 'Ajouter votre première adresse' : 'Nouvelle adresse' }}</h3>
@@ -89,8 +89,8 @@
               Le nom complet est requis
             </mat-error>
           </mat-form-field>
-        </div>
-
+              </div>
+              
         <div class="form-row">
           <mat-form-field appearance="outline">
             <mat-label>Adresse</mat-label>
@@ -99,8 +99,8 @@
               L'adresse est requise
             </mat-error>
           </mat-form-field>
-        </div>
-
+              </div>
+              
         <div class="form-row">
           <mat-form-field appearance="outline">
             <mat-label>Ville</mat-label>
@@ -119,8 +119,8 @@
             <mat-label>État/Région</mat-label>
             <input matInput formControlName="state" placeholder="État ou région" [readonly]="addressForm.get('country')?.value === 'MA'">
           </mat-form-field>
-        </div>
-
+            </div>
+            
         <div class="form-row">
           <mat-form-field appearance="outline">
             <mat-label>Code postal</mat-label>
@@ -129,8 +129,8 @@
               Le code postal est requis
             </mat-error>
           </mat-form-field>
-        </div>
-
+              </div>
+              
         <div class="form-row">
           <mat-form-field appearance="outline">
             <mat-label>Pays</mat-label>
@@ -160,9 +160,9 @@
           Utiliser une adresse enregistrée
         </button>
       </div>
-    </div>
-  </div>
-
+        </div>
+      </div>
+      
   <!-- Shipping Information -->
   <div class="shipping-section">
     <h2>Informations de livraison</h2>
@@ -174,29 +174,29 @@
         <p *ngIf="selectedRegion"><strong>Région:</strong> {{ selectedRegion }}</p>
         <p><strong>Frais de livraison:</strong> {{ shippingFee | currency:'EUR':'symbol':'1.2-2' }}</p>
         <p><strong>Délai de livraison:</strong> {{ getDeliveryTime(addressForm.get('country')?.value, selectedCity) }} jour(s)</p>
-      </div>
-    </div>
-  </div>
-
+              </div>
+            </div>
+          </div>
+          
   <!-- Order Summary -->
   <div class="order-summary">
     <h2>Récapitulatif de la commande</h2>
     
     <div class="summary-details">
-      <div class="summary-row">
+          <div class="summary-row">
         <span>Sous-total:</span>
         <span>{{ cartTotal | currency:'EUR':'symbol':'1.2-2' }}</span>
-      </div>
-      <div class="summary-row">
+          </div>
+          <div class="summary-row">
         <span>Frais de livraison:</span>
         <span>{{ shippingFee | currency:'EUR':'symbol':'1.2-2' }}</span>
-      </div>
-      <div class="summary-row total">
+          </div>
+          <div class="summary-row total">
         <span>Total:</span>
         <span>{{ totalWithShipping | currency:'EUR':'symbol':'1.2-2' }}</span>
-      </div>
-    </div>
-  </div>
+            </div>
+          </div>
+        </div>
 
   <!-- Checkout Actions -->
   <div class="checkout-actions">
@@ -209,7 +209,7 @@
       <mat-spinner *ngIf="isLoading" diameter="20"></mat-spinner>
       {{ isLoading ? 'Traitement...' : 'Procéder au paiement' }}
     </button>
-  </div>
+      </div>
 
   <!-- Stripe Payment Form -->
   <div *ngIf="showPaymentForm && currentPaymentData" class="payment-section">

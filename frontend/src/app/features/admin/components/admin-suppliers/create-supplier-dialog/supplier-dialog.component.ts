@@ -241,112 +241,36 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                     <div class="form-row">
                                         <mat-checkbox formControlName="hasOwnPaymentSystem" 
                                                      (change)="updatePaymentValidators()">
-                                            Supplier handles customer payment directly
+                                            Supplier has own payment system
                                         </mat-checkbox>
                                         <mat-checkbox formControlName="autoPaymentEnabled">
                                             Enable automatic payment processing
                                         </mat-checkbox>
                                     </div>
 
-                                    <!-- SOAP Payment Configuration -->
-                                    <div *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value && supplierForm.get('type')?.value === 'SOAP'">
-                                        <div class="payment-config-section">
+
+                                    <!-- Payment info based on selection -->
+                                    <div class="payment-config-section">
+                                        <div *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value">
                                             <h5 class="payment-section-title">
-                                                <mat-icon>soap</mat-icon>
-                                                SOAP Payment Configuration
+                                                <mat-icon>payment</mat-icon>
+                                                Supplier Payment System
                                             </h5>
-                                            
-                                            <mat-form-field appearance="outline" class="full-width">
-                                                <mat-label>Payment WSDL URL *</mat-label>
-                                                <input matInput formControlName="paymentWsdlUrl" 
-                                                       [placeholder]="supplierForm.get('wsdlUrl')?.value || 'https://supplier.com/payment.wsdl'"
-                                                       (blur)="loadPaymentSoapOperations()"
-                                                       required>
-                                                <mat-icon matSuffix>payment</mat-icon>
-                                                <mat-hint>Separate WSDL for payment operations (defaults to main WSDL if empty)</mat-hint>
-                                                <mat-error *ngIf="supplierForm.get('paymentWsdlUrl')?.hasError('required')">
-                                                    Payment WSDL URL is required for SOAP payment system
-                                                </mat-error>
-                                            </mat-form-field>
-
-                                            <mat-form-field appearance="outline" class="full-width">
-                                                <mat-label>Payment Operation Name *</mat-label>
-                                                <mat-select formControlName="paymentOperationNameConfig" 
-                                                           [disabled]="paymentSoapOperations.length === 0"
-                                                           required>
-                                                    <mat-option value="">Select payment operation</mat-option>
-                                                    <mat-option *ngFor="let op of paymentSoapOperations" [value]="op">{{ op }}</mat-option>
-                                                </mat-select>
-                                                <mat-icon matSuffix>settings</mat-icon>
-                                                <mat-hint>Select the operation for payment processing from payment WSDL</mat-hint>
-                                                <mat-error *ngIf="supplierForm.get('paymentOperationNameConfig')?.hasError('required')">
-                                                    Payment operation is required for SOAP payment system
-                                                </mat-error>
-                                            </mat-form-field>
-
-                                            <mat-form-field appearance="outline" class="full-width">
-                                                <mat-label>SOAP Action for Payment *</mat-label>
-                                                <input matInput formControlName="soapAction" 
-                                                       placeholder="http://tempuri.org/ProcessPayment"
-                                                       required>
-                                                <mat-icon matSuffix>code</mat-icon>
-                                                <mat-hint>SOAP action header for payment operations</mat-hint>
-                                                <mat-error *ngIf="supplierForm.get('soapAction')?.hasError('required')">
-                                                    SOAP action is required for SOAP payment system
-                                                </mat-error>
-                                            </mat-form-field>
+                                            <div class="payment-info">
+                                                <mat-icon color="primary">info</mat-icon>
+                                                <span>Customer will be redirected to supplier's payment system. Supplier handles payment directly.</span>
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    <!-- API Payment Configuration -->
-                                    <div *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value && supplierForm.get('type')?.value === 'API'">
-                                        <div class="payment-config-section">
-                                            <h5 class="payment-section-title">
-                                                <mat-icon>api</mat-icon>
-                                                API Payment Configuration
-                                            </h5>
-                                            
-                                            <mat-form-field appearance="outline" class="full-width">
-                                                <mat-label>Payment API Endpoint *</mat-label>
-                                                <input matInput formControlName="paymentApiEndpoint" 
-                                                       placeholder="https://supplier.com/payments"
-                                                       required>
-                                                <mat-icon matSuffix>link</mat-icon>
-                                                <mat-hint>API endpoint for payment processing</mat-hint>
-                                                <mat-error *ngIf="supplierForm.get('paymentApiEndpoint')?.hasError('required')">
-                                                    Payment API endpoint is required for API payment system
-                                                </mat-error>
-                                            </mat-form-field>
-
-                                            <mat-form-field appearance="outline" class="full-width">
-                                                <mat-label>Commission API Endpoint *</mat-label>
-                                                <input matInput formControlName="commissionApiEndpoint" 
-                                                       placeholder="https://supplier.com/commission"
-                                                       required>
-                                                <mat-icon matSuffix>account_balance</mat-icon>
-                                                <mat-hint>API endpoint for commission handling</mat-hint>
-                                                <mat-error *ngIf="supplierForm.get('commissionApiEndpoint')?.hasError('required')">
-                                                    Commission API endpoint is required for API payment system
-                                                </mat-error>
-                                            </mat-form-field>
-                                        </div>
-                                    </div>
-
-                                    <!-- Platform payment configuration when supplier doesn't handle payments -->
-                                    <div *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
-                                        <div class="payment-config-section">
+                                        
+                                        <div *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
                                             <h5 class="payment-section-title">
                                                 <mat-icon>account_balance</mat-icon>
-                                                Platform Payment Configuration
+                                                Platform Payment System
                                             </h5>
-                                            
-                                            <mat-form-field appearance="outline" class="full-width">
-                                                <mat-label>Platform Payment API Endpoint</mat-label>
-                                                <input matInput formControlName="paymentApiEndpoint" 
-                                                       placeholder="https://platform.com/payments">
-                                                <mat-icon matSuffix>link</mat-icon>
-                                                <mat-hint>Platform endpoint for handling payments to this supplier</mat-hint>
-                                            </mat-form-field>
+                                            <div class="payment-info">
+                                                <mat-icon color="primary">info</mat-icon>
+                                                <span>Customer will pay through our platform (Stripe). We handle payment processing.</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </ng-container>
@@ -358,56 +282,44 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                     <mat-tab label="Payment" >
                         <div class="tab-content">
                             <form [formGroup]="supplierForm" class="supplier-form">
+                                <h3 class="section-title">
+                                    <mat-icon>payment</mat-icon>
+                                    Payment System Configuration
+                                </h3>
+                                
                                 <div class="form-row">
-                                    <mat-checkbox formControlName="hasOwnPaymentSystem">Supplier handles customer payment directly</mat-checkbox>
+                                    <mat-checkbox formControlName="hasOwnPaymentSystem" 
+                                                 (change)="updatePaymentValidators()">
+                                        Supplier has own payment system
+                                    </mat-checkbox>
+                                    <mat-checkbox formControlName="autoPaymentEnabled">
+                                        Enable automatic payment processing
+                                    </mat-checkbox>
                                 </div>
-                                <div class="form-row" *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value">
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Supplier Payment API Endpoint</mat-label>
-                                        <input matInput formControlName="paymentApiEndpoint" placeholder="https://supplier.com/payments">
-                                        <mat-icon matSuffix>link</mat-icon>
-                                    </mat-form-field>
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Commission API Endpoint</mat-label>
-                                        <input matInput formControlName="commissionApiEndpoint" placeholder="https://supplier.com/commission">
-                                        <mat-icon matSuffix>link</mat-icon>
-                                    </mat-form-field>
-                                </div>
-                                <div class="form-row" *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Payout Frequency</mat-label>
-                                        <mat-select formControlName="payoutFrequency">
-                                            <mat-option value="DAILY">Daily</mat-option>
-                                            <mat-option value="WEEKLY">Weekly</mat-option>
-                                            <mat-option value="MONTHLY">Monthly</mat-option>
-                                            <mat-option value="CUSTOM">Custom</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Custom Schedule</mat-label>
-                                        <input matInput formControlName="customPaymentSchedule" placeholder="EVERY_15_DAYS">
-                                        <mat-hint>Used when frequency is CUSTOM</mat-hint>
-                                    </mat-form-field>
-                                </div>
-                                <div class="form-row" *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Custom Payment Days</mat-label>
-                                        <input matInput formControlName="customPaymentDays" placeholder="1,15">
-                                    </mat-form-field>
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Payment Hour (0-23)</mat-label>
-                                        <input matInput type="number" formControlName="customPaymentHour" min="0" max="23">
-                                    </mat-form-field>
-                                </div>
-                                <div class="form-row" *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Minimum Payment Amount</mat-label>
-                                        <input matInput type="number" formControlName="minimumPaymentAmount" min="0">
-                                    </mat-form-field>
-                                    <mat-form-field appearance="outline" class="half-width">
-                                        <mat-label>Maximum Payment Delay (days)</mat-label>
-                                        <input matInput type="number" formControlName="maximumPaymentDelay" min="0">
-                                    </mat-form-field>
+
+                                <!-- Payment info based on selection -->
+                                <div class="payment-config-section">
+                                    <div *ngIf="supplierForm.get('hasOwnPaymentSystem')?.value">
+                                        <h5 class="payment-section-title">
+                                            <mat-icon>payment</mat-icon>
+                                            Supplier Payment System
+                                        </h5>
+                                        <div class="payment-info">
+                                            <mat-icon color="primary">info</mat-icon>
+                                            <span>Customer will be redirected to supplier's payment system. Supplier handles payment directly.</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
+                                        <h5 class="payment-section-title">
+                                            <mat-icon>account_balance</mat-icon>
+                                            Platform Payment System
+                                        </h5>
+                                        <div class="payment-info">
+                                            <mat-icon color="primary">info</mat-icon>
+                                            <span>Customer will pay through our platform (Stripe). We handle payment processing.</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -570,6 +482,18 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
             margin-bottom: 0;
         }
 
+        .payment-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            color: #1565c0;
+            font-size: 14px;
+            border-left: 4px solid #1976d2;
+        }
+
         .form-row .mat-checkbox {
             margin-right: 24px;
         }
@@ -728,8 +652,6 @@ export class CreateSupplierDialogComponent {
     isDragOver = false;
     uploadProgress = 0;
     
-    // SOAP operations for payment system
-    paymentSoapOperations: string[] = [];
 
     private fb = inject(FormBuilder);
     private dialogRef = inject(MatDialogRef<CreateSupplierDialogComponent>);
@@ -771,16 +693,7 @@ export class CreateSupplierDialogComponent {
             // Payment System Configuration
             hasOwnPaymentSystem: [data?.hasOwnPaymentSystem || false],
             autoPaymentEnabled: [data?.autoPaymentEnabled !== false],
-            paymentIntegrationType: [data?.paymentIntegrationType || 'MANUAL'],
             
-            // SOAP Payment Configuration
-            paymentWsdlUrl: [data?.paymentWsdlUrl || ''],
-            paymentOperationNameConfig: [data?.paymentOperationNameConfig || ''],
-            soapAction: [data?.soapAction || 'http://tempuri.org/ProcessPayment'],
-            
-            // API Payment Configuration
-            paymentApiEndpoint: [data?.paymentApiEndpoint || ''],
-            commissionApiEndpoint: [data?.commissionApiEndpoint || ''],
             
             // Payment Schedule Configuration
             payoutFrequency: [data?.payoutFrequency || 'WEEKLY'],
@@ -795,10 +708,6 @@ export class CreateSupplierDialogComponent {
         this.updateValidators();
         this.setupPaymentSystemListener();
         
-        // Initialize payment SOAP operations if editing
-        if (data?.paymentWsdlUrl) {
-            this.loadPaymentSoapOperations();
-        }
     }
 
     onTypeChange(): void {
@@ -820,20 +729,12 @@ export class CreateSupplierDialogComponent {
             paymentOperationName: '',
             refundOperationName: '',
             successOperationName: '',
-            // Clear payment-specific fields
-            paymentWsdlUrl: '',
-            paymentOperationNameConfig: '',
-            soapAction: 'http://tempuri.org/ProcessPayment',
-            paymentApiEndpoint: '',
-            commissionApiEndpoint: '',
             // Reset payment system settings
             hasOwnPaymentSystem: false,
-            autoPaymentEnabled: true,
-            paymentIntegrationType: 'MANUAL'
+            autoPaymentEnabled: true
         });
         
         this.soapOperations = [];
-        this.paymentSoapOperations = [];
         this.selectedFile = null;
         
         // Update validators after clearing fields
@@ -895,59 +796,11 @@ export class CreateSupplierDialogComponent {
         this.supplierForm.get('hasOwnPaymentSystem')?.valueChanges.subscribe(hasOwnPayment => {
             this.updatePaymentValidators();
         });
-        
-        // Listen for type changes to update payment integration type
-        this.supplierForm.get('type')?.valueChanges.subscribe(type => {
-            if (type === 'SOAP') {
-                this.supplierForm.patchValue({ paymentIntegrationType: 'SOAP' });
-            } else if (type === 'API') {
-                this.supplierForm.patchValue({ paymentIntegrationType: 'REST_API' });
-            } else {
-                this.supplierForm.patchValue({ paymentIntegrationType: 'MANUAL' });
-            }
-        });
     }
 
     updatePaymentValidators(): void {
         const hasOwnPayment = this.supplierForm.get('hasOwnPaymentSystem')?.value;
-        const type = this.supplierForm.get('type')?.value;
-        
-        // Get payment-related controls
-        const paymentWsdlUrlControl = this.supplierForm.get('paymentWsdlUrl');
-        const paymentOperationNameConfigControl = this.supplierForm.get('paymentOperationNameConfig');
-        const soapActionControl = this.supplierForm.get('soapAction');
-        const paymentApiEndpointControl = this.supplierForm.get('paymentApiEndpoint');
-        const commissionApiEndpointControl = this.supplierForm.get('commissionApiEndpoint');
-        
-        // Clear all payment validators first
-        paymentWsdlUrlControl?.clearValidators();
-        paymentOperationNameConfigControl?.clearValidators();
-        soapActionControl?.clearValidators();
-        paymentApiEndpointControl?.clearValidators();
-        commissionApiEndpointControl?.clearValidators();
-        
-        if (hasOwnPayment) {
-            if (type === 'SOAP') {
-                // SOAP supplier with own payment system
-                paymentWsdlUrlControl?.setValidators([Validators.required]);
-                paymentOperationNameConfigControl?.setValidators([Validators.required]);
-                soapActionControl?.setValidators([Validators.required]);
-            } else if (type === 'API') {
-                // API supplier with own payment system
-                paymentApiEndpointControl?.setValidators([Validators.required]);
-                commissionApiEndpointControl?.setValidators([Validators.required]);
-            }
-        }
-        
-        // Update validity
-        paymentWsdlUrlControl?.updateValueAndValidity();
-        paymentOperationNameConfigControl?.updateValueAndValidity();
-        soapActionControl?.updateValueAndValidity();
-        paymentApiEndpointControl?.updateValueAndValidity();
-        commissionApiEndpointControl?.updateValueAndValidity();
-        
-        // Also update main validators since hasOwnPayment affects WSDL URL requirement
-        this.updateValidators();
+        console.log('Payment system selection updated:', hasOwnPayment);
     }
 
     getTypeDescription(): string {
@@ -1065,28 +918,6 @@ export class CreateSupplierDialogComponent {
         });
     }
 
-    loadPaymentSoapOperations(): void {
-        const paymentWsdlUrl = this.supplierForm.get('paymentWsdlUrl')?.value;
-        if (!paymentWsdlUrl) {
-            this.paymentSoapOperations = [];
-            return;
-        }
-        
-        console.log('Loading payment SOAP operations from:', paymentWsdlUrl);
-        
-        this.supplierService.getWsdlOperations(paymentWsdlUrl).subscribe({
-            next: (ops) => {
-                // Filter out error sentinel
-                this.paymentSoapOperations = (ops || []).filter(op => !String(op).startsWith('ERROR:'));
-                console.log('Loaded payment SOAP operations:', this.paymentSoapOperations);
-            },
-            error: (error) => {
-                console.error('Error loading payment SOAP operations:', error);
-                this.paymentSoapOperations = [];
-                this.snackBar.open('Failed to load payment SOAP operations. Please check the payment WSDL URL.', 'Close', { duration: 3000 });
-            }
-        });
-    }
 
     onSave(): void {
         console.log('Form validity:', this.supplierForm.valid);
@@ -1148,16 +979,7 @@ export class CreateSupplierDialogComponent {
                 // Payment System Configuration
                 hasOwnPaymentSystem: formData.hasOwnPaymentSystem,
                 autoPaymentEnabled: formData.autoPaymentEnabled,
-                paymentIntegrationType: formData.paymentIntegrationType,
                 
-                // SOAP Payment Configuration
-                paymentWsdlUrl: formData.paymentWsdlUrl,
-                paymentOperationNameConfig: formData.paymentOperationNameConfig,
-                soapAction: formData.soapAction,
-                
-                // API Payment Configuration
-                paymentApiEndpoint: formData.paymentApiEndpoint,
-                commissionApiEndpoint: formData.commissionApiEndpoint,
                 
                 // Payment Schedule Configuration
                 payoutFrequency: formData.payoutFrequency,
@@ -1202,33 +1024,6 @@ export class CreateSupplierDialogComponent {
     }
 
     validatePaymentConfiguration(): { isValid: boolean; message: string } {
-        const formData = this.supplierForm.value;
-        const hasOwnPayment = formData.hasOwnPaymentSystem;
-        const type = formData.type;
-        
-        if (!hasOwnPayment) {
-            return { isValid: true, message: '' }; // No payment system required
-        }
-        
-        if (type === 'SOAP') {
-            if (!formData.paymentWsdlUrl) {
-                return { isValid: false, message: 'Payment WSDL URL is required for SOAP suppliers with own payment system.' };
-            }
-            if (!formData.paymentOperationNameConfig) {
-                return { isValid: false, message: 'Payment operation name is required for SOAP suppliers with own payment system.' };
-            }
-            if (!formData.soapAction) {
-                return { isValid: false, message: 'SOAP action is required for SOAP suppliers with own payment system.' };
-            }
-        } else if (type === 'API') {
-            if (!formData.paymentApiEndpoint) {
-                return { isValid: false, message: 'Payment API endpoint is required for API suppliers with own payment system.' };
-            }
-            if (!formData.commissionApiEndpoint) {
-                return { isValid: false, message: 'Commission API endpoint is required for API suppliers with own payment system.' };
-            }
-        }
-        
         return { isValid: true, message: '' };
     }
 
@@ -1265,12 +1060,8 @@ export class CreateSupplierDialogComponent {
                 if (supplier.refundOperationName) cleaned.refundOperationName = supplier.refundOperationName;
                 if (supplier.successOperationName) cleaned.successOperationName = supplier.successOperationName;
                 
-                // New payment system configuration fields
-                cleaned.paymentIntegrationType = 'SOAP'; // Always SOAP for SOAP suppliers
+                // Payment system configuration
                 cleaned.autoPaymentEnabled = supplier.autoPaymentEnabled !== false; // Default to true
-                if (supplier.paymentWsdlUrl) cleaned.paymentWsdlUrl = supplier.paymentWsdlUrl;
-                if (supplier.paymentOperationNameConfig) cleaned.paymentOperationNameConfig = supplier.paymentOperationNameConfig;
-                if (supplier.soapAction) cleaned.soapAction = supplier.soapAction;
                 break;
             case 'EXCEL':
             case 'CSV':

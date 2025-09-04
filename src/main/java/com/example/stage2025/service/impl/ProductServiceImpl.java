@@ -156,14 +156,27 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produit non trouvé avec ID " + id));
         
+        log.info("Deleting product {} with {} order items and {} cart items", 
+                id, 
+                product.getOrderItems() != null ? product.getOrderItems().size() : 0,
+                product.getCartItems() != null ? product.getCartItems().size() : 0);
+        
         // Clear imageUrls manually since ElementCollection doesn't support cascade delete
         if (product.getImageUrls() != null) {
             product.getImageUrls().clear();
-            productRepository.save(product);
         }
         
-        productRepository.deleteById(id);
-        log.info("Product {} deleted successfully", id);
+        // Clear the relationships to avoid lazy loading issues
+        if (product.getOrderItems() != null) {
+            product.getOrderItems().clear();
+        }
+        if (product.getCartItems() != null) {
+            product.getCartItems().clear();
+        }
+        
+        // The cascade settings will handle deleting related OrderItems and CartItems
+        productRepository.delete(product);
+        log.info("Product {} and all related items deleted successfully", id);
     }
 
     @Override
@@ -222,7 +235,10 @@ public class ProductServiceImpl implements ProductService {
             ));
         }
         if (!includeInactive) {
-            spec = spec.and((root, q, cb) -> cb.isTrue(root.get("active")));
+            spec = spec.and((root, q, cb) -> cb.and(
+                cb.isTrue(root.get("active")),
+                cb.equal(root.get("status"), ProductStatus.APPROVED)
+            ));
         }
         if (minPrice != null) {
             spec = spec.and((root, q, cb) -> cb.greaterThanOrEqualTo(root.get("displayedPrice"), minPrice));
@@ -237,7 +253,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ProductDto> getFeaturedProducts() {
-        return productRepository.findTop12ByActiveTrueOrderByIdDesc()
+        return productRepository.findTop12ByActiveTrueAndStatusOrderByIdDesc(ProductStatus.APPROVED)
                 .stream()
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
@@ -270,8 +286,16 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
         
+        log.info("Before approval - Product {}: active={}, status={}", id, product.getActive(), product.getStatus());
+        
         product.setActive(true);
+        product.setStatus(ProductStatus.APPROVED);
+        
+        log.info("After setting values - Product {}: active={}, status={}", id, product.getActive(), product.getStatus());
+        
         Product saved = productRepository.save(product);
+        
+        log.info("After save - Product {}: active={}, status={}", id, saved.getActive(), saved.getStatus());
         
         // Log admin action
         log.info("Product {} approved by admin", id);
@@ -301,6 +325,7 @@ public class ProductServiceImpl implements ProductService {
         
         for (Product product : products) {
             product.setActive(true);
+            product.setStatus(ProductStatus.APPROVED);
         }
         
         List<Product> savedProducts = productRepository.saveAll(products);
@@ -320,6 +345,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
         
         product.setActive(false);
+        product.setStatus(ProductStatus.SUSPENDED);
         Product saved = productRepository.save(product);
         
         // Log admin action
@@ -335,6 +361,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
         
         product.setActive(true);
+        product.setStatus(ProductStatus.APPROVED);
         Product saved = productRepository.save(product);
         
         // Log admin action

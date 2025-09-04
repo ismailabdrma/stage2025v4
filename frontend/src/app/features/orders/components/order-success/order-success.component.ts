@@ -281,6 +281,30 @@ interface PaymentCompletionResponse {
           </div>
         </div>
       </div>
+      
+      <!-- Top Navigation Bar -->
+      <div class="top-nav-bar">
+        <div class="nav-container">
+          <div class="nav-buttons">
+            <button class="nav-btn" (click)="goToProducts()">
+              <mat-icon>inventory_2</mat-icon>
+              <span>Produits</span>
+            </button>
+            <button class="nav-btn" (click)="goToCart()">
+              <mat-icon>shopping_cart</mat-icon>
+              <span>Panier</span>
+            </button>
+            <button class="nav-btn" (click)="goToOrders()">
+              <mat-icon>receipt_long</mat-icon>
+              <span>Commandes</span>
+            </button>
+            <button class="nav-btn" (click)="goToProfile()">
+              <mat-icon>person</mat-icon>
+              <span>Profil</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -900,6 +924,78 @@ interface PaymentCompletionResponse {
         font-size: 1.8rem;
       }
     }
+
+    /* Top Navigation Bar Styles */
+    .top-nav-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 1000;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 15px 20px;
+    }
+
+    .nav-buttons {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      background: transparent;
+      border: none;
+      color: white;
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 80px;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .nav-btn mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+
+    .nav-btn span {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Responsive Top Navigation */
+    @media (max-width: 768px) {
+      .nav-buttons {
+        gap: 5px;
+      }
+
+      .nav-btn {
+        min-width: 70px;
+        padding: 8px;
+      }
+
+      .nav-btn span {
+        font-size: 11px;
+      }
+    }
   `]
 })
 export class OrderSuccessComponent implements OnInit {
@@ -1254,8 +1350,18 @@ export class OrderSuccessComponent implements OnInit {
         }
 
          // Clear cart after successful payment
-         this.cartService.clearCart();
-         console.log('🛒 Cart cleared after successful payment');
+         this.cartService.clearCart().subscribe({
+           next: () => {
+             console.log('🛒 Cart cleared after successful payment');
+             // Force refresh cart to ensure UI updates
+             this.cartService.forceRefreshCart();
+           },
+           error: (error) => {
+             console.error('❌ Error clearing cart:', error);
+             // Still force refresh to clear local state
+             this.cartService.forceRefreshCart();
+           }
+         });
 
          // Show success message
          this.paymentCompletionStatus = {
@@ -1437,8 +1543,18 @@ export class OrderSuccessComponent implements OnInit {
       }
       
       // 5) Clear cart after successful payment
-      this.cartService.clearCart();
-      console.log('🛒 Cart cleared after successful supplier payment');
+      this.cartService.clearCart().subscribe({
+        next: () => {
+          console.log('🛒 Cart cleared after successful supplier payment');
+          // Force refresh cart to ensure UI updates
+          this.cartService.forceRefreshCart();
+        },
+        error: (error) => {
+          console.error('❌ Error clearing cart:', error);
+          // Still force refresh to clear local state
+          this.cartService.forceRefreshCart();
+        }
+      });
       
       // 6) Mark payment as confirmed and stop loading
       this.paymentConfirmed = true;
@@ -1505,6 +1621,18 @@ export class OrderSuccessComponent implements OnInit {
 
   goToHome() {
     this.router.navigate(['/']);
+  }
+
+  goToProducts() {
+    this.router.navigate(['/products']);
+  }
+
+  goToCart() {
+    this.router.navigate(['/cart']);
+  }
+
+  goToProfile() {
+    this.router.navigate(['/profile']);
   }
 
   retryPayment() {

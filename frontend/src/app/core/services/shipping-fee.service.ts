@@ -70,4 +70,8 @@ export class ShippingFeeService {
   getShippingFeeStatistics(): Observable<any> {
     return this.http.get(`${this.apiUrl}/statistics`);
   }
+
+  debugShippingFees(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/debug`);
+  }
 }

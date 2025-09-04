@@ -253,7 +253,16 @@ export class CheckoutComponent implements OnInit {
             this.selectedAddressId = defaultAddress.id;
             this.useNewAddress = false;
             console.log('⭐ Default address selected:', defaultAddress.id);
-          } else if (this.addresses.length === 0) {
+          } else if (this.addresses.length > 0) {
+            // If addresses exist but none is default, set the first one as default
+            console.log('📝 No default address found, setting first address as default');
+            this.selectedAddressId = this.addresses[0].id;
+            this.useNewAddress = false;
+            // Only set as default if this is the first time loading (not a refresh)
+            if (!this.addresses[0].isDefault) {
+              this.setAsDefaultAddress(this.addresses[0].id);
+            }
+          } else {
             // If no addresses exist, automatically enable new address form
             this.useNewAddress = true;
             this.selectedAddressId = null;
@@ -540,7 +549,9 @@ export class CheckoutComponent implements OnInit {
               this.navigateToOrder(response.orderId);
           }
         } else {
-          this.snackBar.open(response.message || 'Erreur lors de la création de la commande', 'Fermer', { duration: 5000 });
+          const errorMessage = response.error || response.message || 'Erreur lors de la création de la commande';
+          this.snackBar.open(errorMessage, 'Fermer', { duration: 7000 });
+          console.error('Order creation failed:', response);
         }
       },
       error: (error) => {
@@ -807,6 +818,28 @@ export class CheckoutComponent implements OnInit {
     } else {
       return this.selectedAddressId !== null;
     }
+  }
+
+  // Set address as default
+  setAsDefaultAddress(addressId: number): void {
+    console.log('⭐ Setting address as default:', addressId);
+    this.addressService.setDefaultAddress(addressId).subscribe({
+      next: (updatedAddress) => {
+        console.log('✅ Address set as default:', updatedAddress);
+        // Update the local addresses array instead of reloading
+        this.addresses.forEach(addr => {
+          addr.isDefault = addr.id === addressId;
+        });
+        // Only show success message if this is a user action, not automatic
+        if (this.selectedAddressId === addressId) {
+          this.snackBar.open('Adresse définie comme adresse par défaut', 'Fermer', { duration: 3000 });
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error setting default address:', error);
+        this.snackBar.open('Erreur lors de la définition de l\'adresse par défaut', 'Fermer', { duration: 5000 });
+      }
+    });
   }
 
   // Payment form event handlers

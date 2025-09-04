@@ -61,6 +61,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
   @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
   List<Product> findTop12ByActiveTrueOrderByIdDesc();
 
+  @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
+  List<Product> findTop12ByActiveTrueAndStatusOrderByIdDesc(com.example.stage2025.enums.ProductStatus status);
+
   // Override the default findById to include @EntityGraph
   @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
   Optional<Product> findById(Long id);

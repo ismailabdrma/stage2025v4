@@ -212,8 +212,14 @@ export class CartService {
           return this.addItemToGuestCart(item);
         }
       }),
-      tap(() => {
+      tap((cart) => {
         this.toastService.addedToCart(item.productName);
+        // Force refresh after adding item to ensure UI updates
+        if (cart) {
+          this.cartSubject.next(cart);
+        }
+        // Additional refresh after a short delay to catch any server-side updates
+        setTimeout(() => this.forceRefreshCart(), 200);
       })
     );
   }
@@ -534,10 +540,14 @@ export class CartService {
           return this.addItemToGuestCart(item);
         }
       }),
-      tap(() => {
+      tap((cart) => {
         this.toastService.addedToCart(item.productName);
-        // Force refresh after adding item
-        setTimeout(() => this.forceRefreshCart(), 100);
+        // Force refresh after adding item to ensure UI updates
+        if (cart) {
+          this.cartSubject.next(cart);
+        }
+        // Additional refresh after a short delay to catch any server-side updates
+        setTimeout(() => this.forceRefreshCart(), 200);
       })
     );
   }

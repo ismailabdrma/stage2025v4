@@ -9,7 +9,15 @@
       </button>
       <button mat-stroked-button color="accent" (click)="initializeDefaults()">
         <mat-icon>refresh</mat-icon>
-        Initialiser Défauts
+        Installer Toutes les Villes du Maroc
+      </button>
+      <button mat-stroked-button color="primary" (click)="refreshData()">
+        <mat-icon>refresh</mat-icon>
+        Actualiser
+      </button>
+      <button mat-stroked-button color="warn" (click)="debugData()">
+        <mat-icon>bug_report</mat-icon>
+        Debug
       </button>
     </div>
   </div>
@@ -228,7 +236,7 @@
   <mat-card class="table-card">
     <mat-card-content>
       <div class="table-container">
-        <table mat-table [dataSource]="shippingFees" matSort>
+        <table mat-table [dataSource]="dataSource" matSort>
           <!-- Country Column -->
           <ng-container matColumnDef="country">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Pays</th>
@@ -271,7 +279,7 @@
           <ng-container matColumnDef="deliveryTime">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Délai</th>
             <td mat-cell *matCellDef="let fee">
-              <span class="delivery-time">{{ fee.deliveryTime || 'N/A' }}</span>
+              <span class="delivery-time">{{ fee.deliveryTimeDays || 'N/A' }} jours</span>
             </td>
           </ng-container>
           

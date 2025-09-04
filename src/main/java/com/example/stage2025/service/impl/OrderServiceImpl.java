@@ -155,6 +155,10 @@ public class OrderServiceImpl implements OrderService {
                     .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
             log.info("Found client: {}", client.getEmail());
             
+            // Check if this is the first address for this client
+            List<Address> existingAddresses = addressRepository.findByClientId(clientId);
+            boolean isFirstAddress = existingAddresses.isEmpty();
+            
             // Create new address
             Address address = Address.builder()
                     .firstName((String) newAddress.get("fullName"))
@@ -165,7 +169,7 @@ public class OrderServiceImpl implements OrderService {
                     .zipCode((String) newAddress.get("postalCode"))
                     .country((String) newAddress.get("country"))
                     .phone((String) newAddress.get("phone"))
-                    .defaultAddress(false)
+                    .defaultAddress(isFirstAddress) // Set as default if it's the first address
                     .client(client)
                     .build();
             

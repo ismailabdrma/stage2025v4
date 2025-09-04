@@ -43,16 +43,31 @@ import { ToastService } from "./shared/components/toast-notification/toast-notif
   template: `
     <div class="app-container">
       <mat-toolbar color="primary" class="app-toolbar">
-        <button mat-icon-button (click)="sidenav.toggle()" aria-label="Toggle navigation">
-          <mat-icon>menu</mat-icon>
-        </button>
-
         <a class="brand" routerLink="/" aria-label="Aller à l'accueil">
           <img src="assets/logo.svg" alt="Brand" height="28" />
         </a>
 
-        <!-- Search and cart only visible for non-admin users -->
+        <!-- Navigation buttons for non-admin users -->
         <ng-container *ngIf="!isAdmin">
+          <div class="nav-buttons">
+            <button mat-button routerLink="/products" routerLinkActive="active">
+              <mat-icon>inventory_2</mat-icon>
+              <span>Produits</span>
+            </button>
+            <button mat-button routerLink="/cart" routerLinkActive="active" (click)="toggleMiniCart()">
+              <mat-icon aria-hidden="false" [matBadge]="cartItemCount" [matBadgeHidden]="cartItemCount === 0" matBadgeColor="accent">shopping_cart</mat-icon>
+              <span>Panier</span>
+            </button>
+            <button mat-button routerLink="/orders" routerLinkActive="active">
+              <mat-icon>receipt_long</mat-icon>
+              <span>Commandes</span>
+            </button>
+            <button mat-button routerLink="/profile" routerLinkActive="active">
+              <mat-icon>person</mat-icon>
+              <span>Profil</span>
+            </button>
+          </div>
+
           <form class="search" (submit)="onSearch(searchInput.value)" role="search" aria-label="Recherche de produits">
             <div class="search-box">
               <mat-icon class="prefix">search</mat-icon>
@@ -62,19 +77,19 @@ import { ToastService } from "./shared/components/toast-notification/toast-notif
               </button>
             </div>
           </form>
-
-          <span class="spacer"></span>
-
-          <button class="cart-button" (click)="toggleMiniCart()" aria-label="Ouvrir le panier">
-            <mat-icon aria-hidden="false" [matBadge]="cartItemCount" [matBadgeHidden]="cartItemCount === 0" matBadgeColor="accent">shopping_cart</mat-icon>
-            <span>Panier</span>
-          </button>
         </ng-container>
 
-        <!-- Admin gets spacer only -->
+        <!-- Admin navigation -->
         <ng-container *ngIf="isAdmin">
-          <span class="spacer"></span>
+          <div class="nav-buttons">
+            <button mat-button routerLink="/admin" routerLinkActive="active">
+              <mat-icon>admin_panel_settings</mat-icon>
+              <span>Administration</span>
+            </button>
+          </div>
         </ng-container>
+
+        <span class="spacer"></span>
 
         <ng-container *ngIf="isAuthenticated$ | async; else loginButton">
           <button mat-button [matMenuTriggerFor]="userMenu">
@@ -95,57 +110,26 @@ import { ToastService } from "./shared/components/toast-notification/toast-notif
         </ng-template>
       </mat-toolbar>
 
-      <mat-sidenav-container class="sidenav-container">
-        <mat-sidenav #sidenav mode="side" opened="false" class="sidenav">
-          <mat-nav-list>
-            <ng-container *ngIf="!isAdmin; else adminMenu">
-            <a mat-list-item routerLink="/products" routerLinkActive="active">
-              <mat-icon matListItemIcon>inventory</mat-icon>
-              <span matListItemTitle>Produits</span>
-            </a>
-            <a mat-list-item routerLink="/cart" routerLinkActive="active">
-              <mat-icon matListItemIcon>shopping_cart</mat-icon>
-              <span matListItemTitle>Panier</span>
-            </a>
-            <a mat-list-item routerLink="/orders" routerLinkActive="active">
-              <mat-icon matListItemIcon>receipt</mat-icon>
-              <span matListItemTitle>Commandes</span>
-            </a>
-            <a mat-list-item routerLink="/profile" routerLinkActive="active">
-              <mat-icon matListItemIcon>person</mat-icon>
-              <span matListItemTitle>Profil</span>
-            </a>
-            </ng-container>
-            <ng-template #adminMenu>
-              <a mat-list-item routerLink="/admin" routerLinkActive="active">
-                <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
-                <span matListItemTitle>Administration</span>
-              </a>
-            </ng-template>
-          </mat-nav-list>
-        </mat-sidenav>
-
-        <mat-sidenav-content class="main-content">
-          <router-outlet></router-outlet>
-          <footer class="footer">
-            <div class="footer-grid">
-              <div>
-                <h4>Catalogue</h4>
-                <a routerLink="/products">Tous les produits</a>
-              </div>
-              <div>
-                <h4>Support</h4>
-                <a routerLink="/profile">Mon compte</a>
-              </div>
-              <div>
-                <h4>Société</h4>
-                <a routerLink="/">À propos</a>
-              </div>
+      <div class="main-content">
+        <router-outlet></router-outlet>
+        <footer class="footer">
+          <div class="footer-grid">
+            <div>
+              <h4>Catalogue</h4>
+              <a routerLink="/products">Tous les produits</a>
             </div>
-            <div class="copy">© Stage2025</div>
-          </footer>
-        </mat-sidenav-content>
-      </mat-sidenav-container>
+            <div>
+              <h4>Support</h4>
+              <a routerLink="/profile">Mon compte</a>
+            </div>
+            <div>
+              <h4>Société</h4>
+              <a routerLink="/">À propos</a>
+            </div>
+          </div>
+          <div class="copy">© Stage2025</div>
+        </footer>
+      </div>
 
       <!-- Mini Cart Drawer -->
       <app-mini-cart-drawer 
@@ -157,46 +141,157 @@ import { ToastService } from "./shared/components/toast-notification/toast-notif
   styles: [
     `
       .app-container { height: 100vh; display: flex; flex-direction: column; }
-      .app-toolbar { position: sticky; top: 0; z-index: 1000; }
-
-      .brand { display: flex; align-items: center; margin: 0 12px; text-decoration: none; }
-
-      .search { flex: 1 1 520px; max-width: 720px; margin-right: 16px; }
-      .search-box { display: grid; grid-template-columns: 32px 1fr 40px; align-items: center; gap: 6px; padding: 6px 8px; background: #fff; border-radius: 8px; border: 1px solid rgba(0,0,0,0.12); }
-      .search-box input { border: none; outline: none; font: inherit; padding: 8px 4px; }
-      .search-box button { border: none; background: transparent; cursor: pointer; }
-      .search-box .prefix { color: rgba(0,0,0,0.54); }
-
-      .spacer { flex: 1 1 auto; }
-      .cart-button { 
+      .app-toolbar { 
+        position: sticky; 
+        top: 0; 
+        z-index: 1000; 
         display: flex; 
         align-items: center; 
-        gap: 8px; 
-        background: transparent; 
-        border: 1px solid rgba(255,255,255,0.3); 
-        color: inherit; 
-        padding: 8px 12px; 
-        border-radius: 8px; 
-        cursor: pointer; 
+        gap: 16px;
+        padding: 0 16px;
+      }
+
+      .brand { 
+        display: flex; 
+        align-items: center; 
+        margin-right: 24px; 
+        text-decoration: none; 
+        flex-shrink: 0;
+      }
+
+      .nav-buttons {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .nav-buttons button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: inherit;
+        border-radius: 8px;
         transition: all 0.2s ease;
       }
-      .cart-button:hover { 
-        background: rgba(255,255,255,0.1); 
-        border-color: rgba(255,255,255,0.5); 
+
+      .nav-buttons button:hover {
+        background: rgba(255,255,255,0.1);
       }
 
-      .sidenav-container { flex: 1; }
-      .sidenav { width: 250px; }
-      .main-content { padding: 20px; }
+      .nav-buttons button.active {
+        background: rgba(255,255,255,0.2);
+      }
 
-      .footer { margin-top: 40px; padding: 24px 0; border-top: 1px solid rgba(0,0,0,0.08); color: #555; }
-      .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
-      .footer a { color: inherit; text-decoration: none; display: block; margin: 6px 0; }
-      .copy { margin-top: 12px; font-size: 12px; color: #777; }
+      .search { 
+        flex: 1 1 400px; 
+        max-width: 600px; 
+        margin: 0 16px; 
+      }
+      .search-box { 
+        display: grid; 
+        grid-template-columns: 32px 1fr 40px; 
+        align-items: center; 
+        gap: 6px; 
+        padding: 6px 8px; 
+        background: #fff; 
+        border-radius: 8px; 
+        border: 1px solid rgba(0,0,0,0.12); 
+      }
+      .search-box input { 
+        border: none; 
+        outline: none; 
+        font: inherit; 
+        padding: 8px 4px; 
+      }
+      .search-box button { 
+        border: none; 
+        background: transparent; 
+        cursor: pointer; 
+      }
+      .search-box .prefix { 
+        color: rgba(0,0,0,0.54); 
+      }
 
-      .active { background-color: rgba(0, 0, 0, 0.04); }
+      .spacer { flex: 1 1 auto; }
 
-      @media (max-width: 768px) { .main-content { padding: 10px; } }
+      .main-content { 
+        flex: 1; 
+        padding: 20px; 
+        overflow-y: auto;
+      }
+
+      .footer { 
+        margin-top: 40px; 
+        padding: 24px 0; 
+        border-top: 1px solid rgba(0,0,0,0.08); 
+        color: #555; 
+      }
+      .footer-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+        gap: 16px; 
+      }
+      .footer a { 
+        color: inherit; 
+        text-decoration: none; 
+        display: block; 
+        margin: 6px 0; 
+      }
+      .copy { 
+        margin-top: 12px; 
+        font-size: 12px; 
+        color: #777; 
+      }
+
+      /* Responsive Design */
+      @media (max-width: 1024px) {
+        .search {
+          flex: 1 1 300px;
+          max-width: 400px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .app-toolbar {
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 8px 12px;
+        }
+
+        .nav-buttons {
+          order: 3;
+          width: 100%;
+          justify-content: center;
+          margin-top: 8px;
+        }
+
+        .nav-buttons button {
+          flex: 1;
+          justify-content: center;
+          min-width: 0;
+        }
+
+        .nav-buttons button span {
+          display: none;
+        }
+
+        .search {
+          order: 2;
+          flex: 1 1 100%;
+          margin: 8px 0;
+        }
+
+        .main-content {
+          padding: 10px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .nav-buttons button {
+          padding: 8px 4px;
+        }
+      }
     `,
   ],
 })
@@ -224,10 +319,16 @@ export class AppComponent implements OnInit {
 
     this.user$.subscribe((user) => {
       this.isAdmin = user?.role === "ADMIN"
-    })
-
-    this.cartService.getCartItemCount().subscribe((count) => {
-      this.cartItemCount = count
+      
+      // Only subscribe to cart for non-admin users
+      if (!this.isAdmin) {
+        this.cartService.getCartItemCount().subscribe((count) => {
+          this.cartItemCount = count
+        })
+      } else {
+        // Admin users don't have carts
+        this.cartItemCount = 0
+      }
     })
   }
 

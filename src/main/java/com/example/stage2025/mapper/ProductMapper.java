@@ -56,6 +56,13 @@ public class ProductMapper {
             dto.setActive(null);
         }
 
+        // Status field
+        try {
+            dto.setStatus(p.getStatus() != null ? p.getStatus().toString() : null);
+        } catch (Exception ignored) {
+            dto.setStatus(null);
+        }
+
         dto.setExternalProductId(p.getExternalProductId()); // <-- ADD THIS LINE
 
         return dto;
