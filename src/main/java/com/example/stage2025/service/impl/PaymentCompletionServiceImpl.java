@@ -91,7 +91,22 @@ public class PaymentCompletionServiceImpl implements PaymentCompletionService {
                     "success", true,
                     "orderId", order.getId(),
                     "message", "Order already completed",
-                    "status", order.getStatus().toString()
+                    "status", order.getStatus().toString(),
+                    "idempotent", true
+                );
+            }
+            
+            // Additional check: if order already has a payment record, don't process again
+            if (order.getPayment() != null) {
+                log.info("Order {} already has a payment record (ID: {}), skipping duplicate processing", 
+                        order.getId(), order.getPayment().getId());
+                return Map.of(
+                    "success", true,
+                    "orderId", order.getId(),
+                    "message", "Order already has payment record",
+                    "status", order.getStatus().toString(),
+                    "paymentId", order.getPayment().getId(),
+                    "idempotent", true
                 );
             }
             
@@ -137,6 +152,23 @@ public class PaymentCompletionServiceImpl implements PaymentCompletionService {
             }
             
             log.info("Supplier found: {} (ID: {})", supplier.getName(), supplier.getId());
+
+            // Check for duplicate payment by external payment ID
+            if (paymentId != null && !paymentId.isEmpty()) {
+                var existingPayment = paymentRepository.findByExternalPaymentId(paymentId);
+                if (existingPayment.isPresent()) {
+                    log.info("Payment with external ID {} already exists (ID: {}), skipping duplicate processing", 
+                            paymentId, existingPayment.get().getId());
+                    return Map.of(
+                        "success", true,
+                        "orderId", order.getId(),
+                        "message", "Payment already processed with this external ID",
+                        "status", order.getStatus().toString(),
+                        "paymentId", existingPayment.get().getId(),
+                        "idempotent", true
+                    );
+                }
+            }
 
             // Calculate commission and create payment record
             log.info("Creating payment record...");

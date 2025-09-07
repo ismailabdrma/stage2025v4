@@ -3,6 +3,7 @@ package com.example.stage2025.controller;
 import com.example.stage2025.dto.SupplierDto;
 import com.example.stage2025.service.SupplierService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/suppliers")
 @RequiredArgsConstructor
+@Slf4j
 public class SupplierController {
 
     private final SupplierService supplierService;
@@ -42,26 +44,15 @@ public class SupplierController {
         // If supplier has own payment system, validate required fields
         if (dto.isHasOwnPaymentSystem()) {
             if ("SOAP".equals(dto.getType())) {
-                if (dto.getPaymentWsdlUrl() == null || dto.getPaymentWsdlUrl().isBlank()) {
+                // For SOAP suppliers with own payment system, just check if payment operation is selected
+                if (dto.getPaymentOperationName() == null || dto.getPaymentOperationName().isBlank()) {
                     return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
-                        "message", "Payment WSDL URL is required for SOAP suppliers with own payment system"
-                    ));
-                }
-                if (dto.getPaymentOperationNameConfig() == null || dto.getPaymentOperationNameConfig().isBlank()) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "Payment operation name is required for SOAP suppliers with own payment system"
-                    ));
-                }
-            } else if ("API".equals(dto.getType())) {
-                if (dto.getPaymentApiEndpoint() == null || dto.getPaymentApiEndpoint().isBlank()) {
-                    return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "Payment API endpoint is required for API suppliers with own payment system"
+                        "message", "Payment operation is required for SOAP suppliers with own payment system"
                     ));
                 }
             }
+            // For other types, no additional validation needed
         }
         
         return ResponseEntity.ok(supplierService.createSupplier(dto));
@@ -84,37 +75,116 @@ public class SupplierController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deleteSupplier(@PathVariable Long id) {
-        supplierService.deleteSupplier(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deleteSupplier(@PathVariable Long id, @RequestParam(required = false) Boolean force) {
+        try {
+            if (Boolean.TRUE.equals(force)) {
+                // Force delete - bypass constraint checks
+                supplierService.forceDeleteSupplier(id);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Supplier force deleted successfully",
+                    "supplierId", id
+                ));
+            } else {
+                // Normal delete with constraint checks
+                supplierService.deleteSupplier(id);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Supplier deleted successfully",
+                    "supplierId", id
+                ));
+            }
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                "success", false,
+                "message", e.getMessage(),
+                "error", "CONFLICT",
+                "suggestion", "Use ?force=true to force delete (WARNING: This will delete all associated data)"
+            ));
+        } catch (Exception e) {
+            log.error("Error deleting supplier {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "message", "Failed to delete supplier: " + e.getMessage(),
+                "error", "INTERNAL_SERVER_ERROR"
+            ));
+        }
     }
 
     @PostMapping("/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> activateSupplier(@PathVariable Long id) {
-        supplierService.activateSupplier(id);
-        return ResponseEntity.ok("Supplier activated");
+        try {
+            supplierService.activateSupplier(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Supplier activated successfully",
+                "supplierId", id
+            ));
+        } catch (Exception e) {
+            log.error("Error activating supplier {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", "Failed to activate supplier: " + e.getMessage()
+            ));
+        }
     }
 
     @PostMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deactivateSupplier(@PathVariable Long id) {
-        supplierService.deactivateSupplier(id);
-        return ResponseEntity.ok("Supplier deactivated");
+        try {
+            supplierService.deactivateSupplier(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Supplier deactivated successfully",
+                "supplierId", id
+            ));
+        } catch (Exception e) {
+            log.error("Error deactivating supplier {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", "Failed to deactivate supplier: " + e.getMessage()
+            ));
+        }
     }
 
     @PutMapping("/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> activateSupplierPut(@PathVariable Long id) {
-        supplierService.activateSupplier(id);
-        return ResponseEntity.ok("Supplier activated");
+        try {
+            supplierService.activateSupplier(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Supplier activated successfully",
+                "supplierId", id
+            ));
+        } catch (Exception e) {
+            log.error("Error activating supplier {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", "Failed to activate supplier: " + e.getMessage()
+            ));
+        }
     }
 
     @PutMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deactivateSupplierPut(@PathVariable Long id) {
-        supplierService.deactivateSupplier(id);
-        return ResponseEntity.ok("Supplier deactivated");
+        try {
+            supplierService.deactivateSupplier(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Supplier deactivated successfully",
+                "supplierId", id
+            ));
+        } catch (Exception e) {
+            log.error("Error deactivating supplier {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", "Failed to deactivate supplier: " + e.getMessage()
+            ));
+        }
     }
 
     @PostMapping("/{id}/refresh-metadata")

@@ -15,6 +15,7 @@ public interface SupplierService {
     boolean refreshSoapMetadata(Long supplierId);
     SupplierDto updateSupplier(Long id, SupplierDto dto);
     void deleteSupplier(Long id);
+    void forceDeleteSupplier(Long id);
     void activateSupplier(Long id);
     void deactivateSupplier(Long id);
 }

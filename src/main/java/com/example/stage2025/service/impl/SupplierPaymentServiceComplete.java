@@ -535,9 +535,35 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
             throw e;
         }
     }
-    @Override public SupplierPaymentDto getPaymentById(Long paymentId) {
+
+    @Override
+    @Transactional
+    public SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId, Object request) {
         SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
             .orElseThrow(() -> new RuntimeException("Payment not found"));
+        
+        // Update payment status to PROCESSING
+        payment.setStatus(PaymentStatus.PROCESSING);
+        payment.setProcessedDate(LocalDateTime.now());
+        payment.setProcessedByAdminId(adminId);
+        
+        // Add processing notes if provided
+        if (request != null) {
+            // This would be a proper request object in real implementation
+            payment.setProcessingNotes("Payment processed via admin panel with method selection");
+        }
+        
+        SupplierPayment saved = supplierPaymentRepository.save(payment);
+        return mapToDto(saved);
+    }
+
+    @Override 
+    @Transactional(readOnly = true)
+    public SupplierPaymentDto getPaymentById(Long paymentId) {
+        SupplierPayment payment = supplierPaymentRepository.findByIdWithSupplier(paymentId);
+        if (payment == null) {
+            throw new RuntimeException("Payment not found");
+        }
         return mapToDto(payment);
     }
     @Override public void notifySupplierPayment(SupplierPayment payment) {}
@@ -573,6 +599,25 @@ public class SupplierPaymentServiceComplete implements SupplierPaymentService {
         }
         return mapToDto(saved);
     }
+
+    @Override
+    @Transactional
+    public SupplierPaymentDto confirmPayment(Long paymentId, String notes, Long adminId) {
+        SupplierPayment payment = supplierPaymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found"));
+        
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setConfirmedDate(LocalDateTime.now());
+        if (notes != null) {
+            payment.setProcessingNotes(notes);
+        }
+        payment.setProcessedByAdminId(adminId);
+        
+        SupplierPayment saved = supplierPaymentRepository.save(payment);
+        notifySupplierPaymentProcessed(saved);
+        return mapToDto(saved);
+    }
+
     @Override 
     @Transactional
     public SupplierPaymentDto confirmPaymentReceived(Long paymentId, String supplierApiResponse) { 

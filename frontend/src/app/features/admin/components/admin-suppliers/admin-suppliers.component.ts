@@ -160,13 +160,33 @@ export class AdminSuppliersComponent implements OnInit {
         const successMessage = supplier.active ? 'Supplier deactivated successfully.' : 'Supplier activated successfully.';
 
         operation.subscribe({
-            next: () => {
-                this.snackBar.open(successMessage, 'Close', { duration: 3000 });
-                this.loadSuppliers();
+            next: (response: any) => {
+                // Handle both old and new response formats
+                if (response && typeof response === 'object' && 'success' in response) {
+                    // New response format
+                    if (response.success) {
+                        this.snackBar.open(response.message || successMessage, 'Close', { duration: 3000 });
+                        this.loadSuppliers();
+                    } else {
+                        this.snackBar.open(`Failed to update supplier status: ${response.error || 'Unknown error'}`, 'Close', { duration: 5000 });
+                    }
+                } else {
+                    // Old response format (simple string)
+                    this.snackBar.open(successMessage, 'Close', { duration: 3000 });
+                    this.loadSuppliers();
+                }
             },
             error: (err) => {
                 console.error('Failed to toggle supplier status', err);
-                this.snackBar.open('Failed to update supplier status.', 'Close', { duration: 3000 });
+                let errorMessage = 'Failed to update supplier status.';
+                
+                if (err.error && err.error.error) {
+                    errorMessage = err.error.error;
+                } else if (err.message) {
+                    errorMessage = err.message;
+                }
+                
+                this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
             }
         });
     }
@@ -174,16 +194,81 @@ export class AdminSuppliersComponent implements OnInit {
     deleteSupplier(id: number): void {
         if (confirm("Are you sure you want to delete this supplier?")) {
             this.supplierService.deleteSupplier(id).subscribe({
-                next: () => {
-                    this.snackBar.open('Supplier deleted successfully.', 'Close', { duration: 3000 });
-                    this.loadSuppliers();
+                next: (response: any) => {
+                    // Handle both old and new response formats
+                    if (response && typeof response === 'object' && 'success' in response) {
+                        if (response.success) {
+                            this.snackBar.open(response.message || 'Supplier deleted successfully.', 'Close', { duration: 3000 });
+                            this.loadSuppliers();
+                        } else {
+                            // Check if it's a conflict error with suggestion
+                            if (response.error === 'CONFLICT' && response.suggestion) {
+                                const forceDelete = confirm(`${response.message}\n\n${response.suggestion}\n\nDo you want to force delete?`);
+                                if (forceDelete) {
+                                    this.forceDeleteSupplier(id);
+                                }
+                            } else {
+                                this.snackBar.open(`Failed to delete supplier: ${response.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+                            }
+                        }
+                    } else {
+                        // Old response format (simple string)
+                        this.snackBar.open('Supplier deleted successfully.', 'Close', { duration: 3000 });
+                        this.loadSuppliers();
+                    }
                 },
                 error: (err) => {
                     console.error('Failed to delete supplier', err);
-                    this.snackBar.open('Failed to delete supplier.', 'Close', { duration: 3000 });
+                    let errorMessage = 'Failed to delete supplier.';
+                    
+                    if (err.error && err.error.message) {
+                        errorMessage = err.error.message;
+                        // Check if it's a conflict error with suggestion
+                        if (err.error.error === 'CONFLICT' && err.error.suggestion) {
+                            const forceDelete = confirm(`${err.error.message}\n\n${err.error.suggestion}\n\nDo you want to force delete?`);
+                            if (forceDelete) {
+                                this.forceDeleteSupplier(id);
+                                return;
+                            }
+                        }
+                    } else if (err.message) {
+                        errorMessage = err.message;
+                    }
+                    
+                    this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
                 }
             });
         }
+    }
+
+    forceDeleteSupplier(id: number): void {
+        this.supplierService.deleteSupplier(id, true).subscribe({
+            next: (response: any) => {
+                if (response && typeof response === 'object' && 'success' in response) {
+                    if (response.success) {
+                        this.snackBar.open(response.message || 'Supplier force deleted successfully.', 'Close', { duration: 3000 });
+                        this.loadSuppliers();
+                    } else {
+                        this.snackBar.open(`Failed to force delete supplier: ${response.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+                    }
+                } else {
+                    this.snackBar.open('Supplier force deleted successfully.', 'Close', { duration: 3000 });
+                    this.loadSuppliers();
+                }
+            },
+            error: (err) => {
+                console.error('Failed to force delete supplier', err);
+                let errorMessage = 'Failed to force delete supplier.';
+                
+                if (err.error && err.error.message) {
+                    errorMessage = err.error.message;
+                } else if (err.message) {
+                    errorMessage = err.message;
+                }
+                
+                this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
+            }
+        });
     }
 
     importProducts(supplierId: number): void {

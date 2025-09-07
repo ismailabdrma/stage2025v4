@@ -36,4 +36,9 @@ public interface SupplierPaymentRepository extends JpaRepository<SupplierPayment
     
     // Dashboard statistics methods
     List<SupplierPayment> findBySupplierAndStatus(com.example.stage2025.entity.Supplier supplier, PaymentStatus status);
+    
+    List<SupplierPayment> findBySupplier(com.example.stage2025.entity.Supplier supplier);
+    
+    @Query("SELECT sp FROM SupplierPayment sp LEFT JOIN FETCH sp.supplier WHERE sp.id = :paymentId")
+    SupplierPayment findByIdWithSupplier(@Param("paymentId") Long paymentId);
 }

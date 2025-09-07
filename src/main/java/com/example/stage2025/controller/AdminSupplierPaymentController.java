@@ -62,9 +62,19 @@ public class AdminSupplierPaymentController {
     // Process immediate payment
     @PostMapping("/{paymentId}/process")
     public ResponseEntity<SupplierPaymentDto> processPayment(
-            @PathVariable Long paymentId) {
+            @PathVariable Long paymentId,
+            @RequestBody ProcessPaymentRequest request) {
         // Admin id is optional; service will record it if provided elsewhere
-        SupplierPaymentDto payment = supplierPaymentService.processImmediatePayment(paymentId, null);
+        SupplierPaymentDto payment = supplierPaymentService.processImmediatePayment(paymentId, null, request);
+        return ResponseEntity.ok(payment);
+    }
+
+    // Confirm payment
+    @PostMapping("/{paymentId}/confirm")
+    public ResponseEntity<SupplierPaymentDto> confirmPayment(
+            @PathVariable Long paymentId,
+            @RequestBody ConfirmPaymentRequest request) {
+        SupplierPaymentDto payment = supplierPaymentService.confirmPayment(paymentId, request.notes(), null);
         return ResponseEntity.ok(payment);
     }
 
@@ -133,6 +143,8 @@ public class AdminSupplierPaymentController {
     // DTOs for requests
     public record UpdatePaymentStatusRequest(PaymentStatus status, String notes) {}
     public record CancelPaymentRequest(String reason) {}
+    public record ProcessPaymentRequest(String paymentMethod, String paymentReference, String processingNotes, Boolean confirmed) {}
+    public record ConfirmPaymentRequest(String notes) {}
 
     // Payment Statistics endpoint
     @GetMapping("/statistics")

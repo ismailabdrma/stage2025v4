@@ -504,11 +504,13 @@ public class EnterpriseOrderService implements OrderService {
     }
 
     @Override
+    @Transactional
     public void updateOrderStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new ResourceNotFoundException("Commande non trouvée"));
         order.setStatus(status);
         orderRepository.save(order);
+        log.info("Order {} status updated to {}", orderId, status);
     }
 
     @Override

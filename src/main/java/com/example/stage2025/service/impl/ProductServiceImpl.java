@@ -33,8 +33,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductDto> getAllProducts() {
-        // Use repository override with @EntityGraph to fetch category, supplier, and imageUrls
-        return productRepository.findAll()
+        // Only return active products from active suppliers for public display
+        return productRepository.findActiveProductsFromActiveSuppliers()
                 .stream()
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
@@ -185,6 +185,9 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Catégorie non trouvée : " + categoryName));
         return productRepository.findByCategory(category)
                 .stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()) && 
+                           p.getSupplier() != null && 
+                           p.getSupplier().isActive())
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -195,6 +198,8 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Fournisseur non trouvé : " + supplierName));
         return productRepository.findBySupplier(supplier)
                 .stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()) && 
+                           supplier.isActive())
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -206,7 +211,10 @@ public class ProductServiceImpl implements ProductService {
         Supplier supplier = supplierRepository.findByName(supplierName)
                 .orElseThrow(() -> new ResourceNotFoundException("Fournisseur non trouvé : " + supplierName));
         return productRepository.findByCategoryAndSupplier(category, supplier)
-                .stream().map(ProductMapper::toDto)
+                .stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()) && 
+                           supplier.isActive())
+                .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -219,7 +227,7 @@ public class ProductServiceImpl implements ProductService {
                                         Double minPrice,
                                         Double maxPrice,
                                         Pageable pageable) {
-        Specification<Product> spec = Specification.where(null);
+        Specification<Product> spec = Specification.where((root, query, criteriaBuilder) -> criteriaBuilder.conjunction());
 
         if (category != null && !category.isBlank()) {
             spec = spec.and((root, q, cb) -> cb.equal(cb.lower(root.get("category").get("name")), category.toLowerCase()));
@@ -237,7 +245,8 @@ public class ProductServiceImpl implements ProductService {
         if (!includeInactive) {
             spec = spec.and((root, q, cb) -> cb.and(
                 cb.isTrue(root.get("active")),
-                cb.equal(root.get("status"), ProductStatus.APPROVED)
+                cb.equal(root.get("status"), ProductStatus.APPROVED),
+                cb.isTrue(root.get("supplier").get("active"))
             ));
         }
         if (minPrice != null) {
@@ -255,6 +264,7 @@ public class ProductServiceImpl implements ProductService {
     public List<ProductDto> getFeaturedProducts() {
         return productRepository.findTop12ByActiveTrueAndStatusOrderByIdDesc(ProductStatus.APPROVED)
                 .stream()
+                .filter(p -> p.getSupplier() != null && p.getSupplier().isActive())
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -265,7 +275,10 @@ public class ProductServiceImpl implements ProductService {
         Product base = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
         return productRepository.findByCategory(base.getCategory()).stream()
-                .filter(p -> !p.getId().equals(productId) && Boolean.TRUE.equals(p.getActive()))
+                .filter(p -> !p.getId().equals(productId) && 
+                           Boolean.TRUE.equals(p.getActive()) && 
+                           p.getSupplier() != null && 
+                           p.getSupplier().isActive())
                 .limit(8)
                 .map(ProductMapper::toDto)
                 .collect(Collectors.toList());

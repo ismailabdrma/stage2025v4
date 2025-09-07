@@ -11,4 +11,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     
     @Query("SELECT oi FROM OrderItem oi JOIN oi.product p WHERE oi.order.id = :orderId AND p.supplier.id = :supplierId")
     List<OrderItem> findByOrderIdAndSupplierId(@Param("orderId") Long orderId, @Param("supplierId") Long supplierId);
+    
+    @Query("SELECT COUNT(oi) > 0 FROM OrderItem oi WHERE oi.product.id = :productId")
+    boolean existsByProductId(@Param("productId") Long productId);
 }

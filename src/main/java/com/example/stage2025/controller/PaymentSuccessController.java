@@ -1,5 +1,9 @@
 package com.example.stage2025.controller;
 
+import com.example.stage2025.entity.Order;
+import com.example.stage2025.entity.Supplier;
+import com.example.stage2025.repository.OrderRepository;
+import com.example.stage2025.repository.SupplierRepository;
 import com.example.stage2025.service.PaymentCompletionService;
 import com.example.stage2025.service.OrderSessionMappingService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +22,8 @@ public class PaymentSuccessController {
 
     private final PaymentCompletionService paymentCompletionService;
     private final OrderSessionMappingService orderSessionMappingService;
+    private final OrderRepository orderRepository;
+    private final SupplierRepository supplierRepository;
 
     /**
      * Simple test endpoint for health checks
@@ -28,6 +34,77 @@ public class PaymentSuccessController {
         response.put("status", "OK");
         response.put("message", "PaymentSuccessController is working");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Debug endpoint to test order lookup
+     */
+    @GetMapping("/debug/order/{orderId}")
+    public ResponseEntity<Map<String, Object>> debugOrder(@PathVariable String orderId) {
+        try {
+            log.info("Debug order lookup for orderId: {}", orderId);
+            
+            // Try to find order by ID
+            Long orderIdLong = Long.valueOf(orderId);
+            var orderOpt = orderRepository.findById(orderIdLong);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("orderId", orderId);
+            response.put("orderIdLong", orderIdLong);
+            response.put("orderFound", orderOpt.isPresent());
+            
+            if (orderOpt.isPresent()) {
+                Order order = orderOpt.get();
+                response.put("orderStatus", order.getStatus());
+                response.put("orderTotal", order.getTotal());
+                response.put("orderClient", order.getClient() != null ? order.getClient().getId() : "null");
+                response.put("orderItems", order.getItems() != null ? order.getItems().size() : "null");
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error in debug order lookup: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "exceptionType", e.getClass().getSimpleName()
+            ));
+        }
+    }
+
+    /**
+     * Debug endpoint to test service dependencies
+     */
+    @GetMapping("/debug/services")
+    public ResponseEntity<Map<String, Object>> debugServices() {
+        try {
+            Map<String, Object> response = new HashMap<>();
+            
+            // Test PaymentCompletionService
+            response.put("paymentCompletionService", paymentCompletionService != null ? "OK" : "NULL");
+            response.put("orderSessionMappingService", orderSessionMappingService != null ? "OK" : "NULL");
+            response.put("orderRepository", orderRepository != null ? "OK" : "NULL");
+            
+            // Test a simple service call
+            if (paymentCompletionService != null) {
+                try {
+                    Map<String, Object> testResult = paymentCompletionService.getPaymentStatus("test", "test");
+                    response.put("paymentCompletionServiceTest", "OK");
+                    response.put("testResult", testResult);
+                } catch (Exception e) {
+                    response.put("paymentCompletionServiceTest", "ERROR: " + e.getMessage());
+                }
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error in debug services: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "exceptionType", e.getClass().getSimpleName()
+            ));
+        }
     }
 
     /**
@@ -317,6 +394,133 @@ public class PaymentSuccessController {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "error", "Failed to process payment completion: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Handle supplier-specific payment success
+     * This endpoint is called by the frontend for supplier-owned payment systems
+     */
+    @PostMapping("/supplier-own/{orderId}")
+    public ResponseEntity<Map<String, Object>> handleSupplierOwnPaymentSuccess(
+            @PathVariable String orderId,
+            @RequestBody Map<String, Object> request) {
+        
+        try {
+            log.info("=== SUPPLIER-OWN PAYMENT SUCCESS DEBUG ===");
+            log.info("Supplier-own payment success endpoint called - orderId: {}, request: {}", orderId, request);
+            log.info("Request type: {}", request.getClass().getSimpleName());
+            log.info("Request keys: {}", request.keySet());
+            
+            // Extract parameters from request
+            Object supplierIdObj = request.get("supplierId");
+            Object paymentIdObj = request.get("paymentId");
+            Object amountObj = request.get("amount");
+            Object statusObj = request.get("status");
+            
+            log.info("Raw parameters - supplierIdObj: {} (type: {}), paymentIdObj: {} (type: {}), amountObj: {} (type: {}), statusObj: {} (type: {})", 
+                    supplierIdObj, supplierIdObj != null ? supplierIdObj.getClass().getSimpleName() : "null",
+                    paymentIdObj, paymentIdObj != null ? paymentIdObj.getClass().getSimpleName() : "null",
+                    amountObj, amountObj != null ? amountObj.getClass().getSimpleName() : "null",
+                    statusObj, statusObj != null ? statusObj.getClass().getSimpleName() : "null");
+            
+            String supplierId = supplierIdObj != null ? supplierIdObj.toString() : null;
+            String paymentId = paymentIdObj != null ? paymentIdObj.toString() : null;
+            String status = statusObj != null ? statusObj.toString() : "SUCCEEDED";
+            
+            log.info("Converted parameters - supplierId: {}, paymentId: {}, status: {}", supplierId, paymentId, status);
+            
+            if (supplierId == null) {
+                log.error("Missing required parameter - supplierId: {}", supplierId);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Missing required parameter: supplierId is required"
+                ));
+            }
+            
+            log.info("Processing supplier-own payment completion - orderId: {}, supplierId: {}, paymentId: {}, status: {}", 
+                    orderId, supplierId, paymentId, status);
+            
+            // Create a session ID for this payment (use orderId as session identifier)
+            String sessionId = "supplier-own-" + orderId + "-" + System.currentTimeMillis();
+            log.info("Generated sessionId: {}", sessionId);
+            
+            // Test basic order lookup first
+            try {
+                Long orderIdLong = Long.valueOf(orderId);
+                var orderOpt = orderRepository.findById(orderIdLong);
+                if (orderOpt.isPresent()) {
+                    Order order = orderOpt.get();
+                    log.info("Order found: id={}, status={}, total={}", order.getId(), order.getStatus(), order.getTotal());
+                } else {
+                    log.error("Order not found for ID: {}", orderId);
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "error", "Order not found with ID: " + orderId
+                    ));
+                }
+            } catch (NumberFormatException e) {
+                log.error("Invalid order ID format: {}", orderId);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Invalid order ID format: " + orderId
+                ));
+            }
+            
+            // Test supplier lookup
+            try {
+                Long supplierIdLong = Long.valueOf(supplierId);
+                var supplierOpt = supplierRepository.findById(supplierIdLong);
+                if (supplierOpt.isPresent()) {
+                    Supplier supplier = supplierOpt.get();
+                    log.info("Supplier found: id={}, name={}", supplier.getId(), supplier.getName());
+                } else {
+                    log.error("Supplier not found for ID: {}", supplierId);
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "error", "Supplier not found with ID: " + supplierId
+                    ));
+                }
+            } catch (NumberFormatException e) {
+                log.error("Invalid supplier ID format: {}", supplierId);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Invalid supplier ID format: " + supplierId
+                ));
+            }
+            
+            // Process the payment completion
+            log.info("Calling paymentCompletionService.processPaymentCompletion...");
+            Map<String, Object> result = paymentCompletionService.processPaymentCompletion(
+                    sessionId, orderId, supplierId, paymentId, status, Map.of());
+            
+            log.info("Supplier-own payment completion processed successfully: {}", result);
+            log.info("=== SUPPLIER-OWN PAYMENT SUCCESS DEBUG COMPLETE ===");
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            log.error("=== SUPPLIER-OWN PAYMENT SUCCESS ERROR ===");
+            log.error("Error processing supplier-own payment completion: {}", e.getMessage(), e);
+            log.error("Exception type: {}", e.getClass().getSimpleName());
+            log.error("Exception cause: {}", e.getCause() != null ? e.getCause().getMessage() : "No cause");
+            log.error("Stack trace:", e);
+            
+            // Check if it's a specific type of error
+            if (e instanceof NullPointerException) {
+                log.error("NullPointerException detected - likely missing dependency injection");
+            } else if (e instanceof IllegalArgumentException) {
+                log.error("IllegalArgumentException detected - likely invalid parameter");
+            } else if (e instanceof org.springframework.dao.DataAccessException) {
+                log.error("DataAccessException detected - likely database issue");
+            }
+            
+            log.error("=== SUPPLIER-OWN PAYMENT SUCCESS ERROR COMPLETE ===");
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "error", "Failed to process supplier-own payment completion: " + e.getMessage(),
+                    "exceptionType", e.getClass().getSimpleName(),
+                    "exceptionCause", e.getCause() != null ? e.getCause().getMessage() : "No cause"
             ));
         }
     }

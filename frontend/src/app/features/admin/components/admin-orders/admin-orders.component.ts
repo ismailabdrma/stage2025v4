@@ -16,6 +16,14 @@ import { MatOptionModule } from "@angular/material/core"
 import { OrderService } from "@core/services/order.service"
 import type { Order } from "@core/models/order.model"
 
+interface OrderStatusResponse {
+  success: boolean
+  message?: string
+  orderId?: number
+  newStatus?: string
+  error?: string
+}
+
 @Component({
   selector: "app-admin-orders",
   standalone: true,
@@ -97,13 +105,21 @@ export class AdminOrdersComponent implements OnInit {
     switch (status) {
       case "PENDING":
         return "warn"
+      case "PROCESSING":
+        return "accent"
       case "CONFIRMED":
+        return "primary"
+      case "PAID":
         return "primary"
       case "SHIPPED":
         return "accent"
       case "DELIVERED":
         return "primary"
+      case "COMPLETED":
+        return "primary"
       case "CANCELLED":
+        return "warn"
+      case "PAYMENT_FAILED":
         return "warn"
       default:
         return ""
@@ -112,13 +128,34 @@ export class AdminOrdersComponent implements OnInit {
 
   updateOrderStatus(order: Order, status: string): void {
     this.orderService.updateOrderStatus(order.id, status).subscribe({
-      next: (updatedOrder) => {
-        this.snackBar.open(`Order #${updatedOrder.id} status updated to ${updatedOrder.status}`, "Close", { duration: 3000 })
-        this.loadOrders() // Refresh the list
+      next: (response: Order | OrderStatusResponse) => {
+        // Handle both old and new response formats
+        if (response && typeof response === 'object' && 'success' in response) {
+          // New response format (OrderStatusResponse)
+          const statusResponse = response as OrderStatusResponse
+          if (statusResponse.success) {
+            this.snackBar.open(`Order #${order.id} status updated to ${status}`, "Close", { duration: 3000 })
+            this.loadOrders() // Refresh the list
+          } else {
+            this.snackBar.open(`Failed to update order status: ${statusResponse.error || 'Unknown error'}`, "Close", { duration: 5000 })
+          }
+        } else {
+          // Old response format (Order object)
+          this.snackBar.open(`Order #${order.id} status updated to ${status}`, "Close", { duration: 3000 })
+          this.loadOrders() // Refresh the list
+        }
       },
       error: (error) => {
         console.error("Error updating order status:", error)
-        this.snackBar.open("Failed to update order status.", "Close", { duration: 3000 })
+        let errorMessage = "Failed to update order status."
+        
+        if (error.error && error.error.error) {
+          errorMessage = error.error.error
+        } else if (error.message) {
+          errorMessage = error.message
+        }
+        
+        this.snackBar.open(errorMessage, "Close", { duration: 5000 })
       },
     })
   }

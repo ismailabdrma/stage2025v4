@@ -127,8 +127,12 @@ export class SupplierPaymentService {
   }
 
   // Payment actions
-  processPayment(paymentId: number): Observable<SupplierPayment> {
-    return this.http.post<SupplierPayment>(`${this.apiUrl}/${paymentId}/process`, {})
+  processPayment(paymentData: any): Observable<SupplierPayment> {
+    return this.http.post<SupplierPayment>(`${this.apiUrl}/${paymentData.paymentId}/process`, paymentData)
+  }
+
+  confirmPayment(paymentId: number): Observable<SupplierPayment> {
+    return this.http.post<SupplierPayment>(`${this.apiUrl}/${paymentId}/confirm`, {})
   }
 
   updatePaymentStatus(paymentId: number, status: string, notes?: string): Observable<SupplierPayment> {

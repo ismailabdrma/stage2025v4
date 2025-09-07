@@ -42,8 +42,9 @@ export class SupplierService {
         return this.http.put<Supplier>(`${this.api}/${id}`, supplier);
     }
 
-    deleteSupplier(id: number): Observable<void> {
-        return this.http.delete<void>(`${this.api}/${id}`);
+    deleteSupplier(id: number, force: boolean = false): Observable<any> {
+        const url = force ? `${this.api}/${id}?force=true` : `${this.api}/${id}`;
+        return this.http.delete<any>(url);
     }
 
     activateSupplier(id: number): Observable<void> {

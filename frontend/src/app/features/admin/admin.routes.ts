@@ -60,11 +60,6 @@ export const adminRoutes: Routes = [
             import("./components/system-status/system-status.component").then((m) => m.SystemStatusComponent),
       },
       {
-        path: "payment-completion",
-        loadComponent: () =>
-            import("./components/admin-payment-completion/admin-payment-completion.component").then((m) => m.AdminPaymentCompletionComponent),
-      },
-      {
         path: 'shipping-fees',
         loadComponent: () =>
           import("./components/shipping-fees/shipping-fees.component").then((m) => m.ShippingFeesComponent),

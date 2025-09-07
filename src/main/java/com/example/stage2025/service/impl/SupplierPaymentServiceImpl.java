@@ -13,6 +13,7 @@ import com.example.stage2025.repository.SupplierRepository;
 import com.example.stage2025.service.SupplierPaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -45,9 +46,12 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public SupplierPaymentDto getPaymentById(Long id) {
-        SupplierPayment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        SupplierPayment payment = paymentRepository.findByIdWithSupplier(id);
+        if (payment == null) {
+            throw new RuntimeException("Payment not found");
+        }
         return SupplierPaymentMapper.toDto(payment);
     }
 
@@ -80,6 +84,24 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
     }
 
     @Override
+    public SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId, Object request) {
+        SupplierPayment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        
+        // Update payment status to PROCESSING
+        payment.setStatus(PaymentStatus.PROCESSING);
+        payment.setProcessedDate(LocalDateTime.now());
+        
+        // Add processing notes if provided
+        if (request != null) {
+            // This would be a proper request object in real implementation
+            payment.setProcessingNotes("Payment processed via admin panel");
+        }
+        
+        return SupplierPaymentMapper.toDto(paymentRepository.save(payment));
+    }
+
+    @Override
     public List<SupplierPaymentDto> processScheduledPayments() {
         return Collections.emptyList();
     }
@@ -109,6 +131,22 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         if (status == PaymentStatus.PAID) {
             payment.setProcessedDate(LocalDateTime.now());
         }
+        SupplierPayment saved = paymentRepository.save(payment);
+        return SupplierPaymentMapper.toDto(saved);
+    }
+
+    @Override
+    public SupplierPaymentDto confirmPayment(Long paymentId, String notes, Long adminId) {
+        SupplierPayment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setConfirmedDate(LocalDateTime.now());
+        if (notes != null) {
+            payment.setProcessingNotes(notes);
+        }
+        payment.setProcessedByAdminId(adminId);
+        
         SupplierPayment saved = paymentRepository.save(payment);
         return SupplierPaymentMapper.toDto(saved);
     }

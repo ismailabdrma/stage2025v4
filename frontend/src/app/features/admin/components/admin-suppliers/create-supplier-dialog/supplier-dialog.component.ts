@@ -260,6 +260,20 @@ import { HttpClient, HttpClientModule } from "@angular/common/http";
                                                 <mat-icon color="primary">info</mat-icon>
                                                 <span>Customer will be redirected to supplier's payment system. Supplier handles payment directly.</span>
                                             </div>
+                                            
+                                            <!-- SOAP Payment Operation Selection -->
+                                            <div *ngIf="supplierForm.get('type')?.value === 'SOAP'" class="form-row">
+                                                <mat-form-field appearance="outline" class="full-width">
+                                                    <mat-label>Payment Operation</mat-label>
+                                                    <mat-select formControlName="paymentOperationName">
+                                                        <mat-option value="">Select Payment Operation</mat-option>
+                                                        <mat-option *ngFor="let operation of availableOperations" [value]="operation">
+                                                            {{ operation }}
+                                                        </mat-option>
+                                                    </mat-select>
+                                                    <mat-hint>Select the SOAP operation for payment processing</mat-hint>
+                                                </mat-form-field>
+                                            </div>
                                         </div>
                                         
                                         <div *ngIf="!supplierForm.get('hasOwnPaymentSystem')?.value">
@@ -652,6 +666,18 @@ export class CreateSupplierDialogComponent {
     isDragOver = false;
     uploadProgress = 0;
     
+    // Available SOAP operations for payment selection
+    availableOperations: string[] = [
+        'processPayment',
+        'createPayment',
+        'initiatePayment',
+        'handlePayment',
+        'processTransaction',
+        'createTransaction',
+        'paymentRequest',
+        'paymentProcess'
+    ];
+    
 
     private fb = inject(FormBuilder);
     private dialogRef = inject(MatDialogRef<CreateSupplierDialogComponent>);
@@ -693,7 +719,6 @@ export class CreateSupplierDialogComponent {
             // Payment System Configuration
             hasOwnPaymentSystem: [data?.hasOwnPaymentSystem || false],
             autoPaymentEnabled: [data?.autoPaymentEnabled !== false],
-            
             
             // Payment Schedule Configuration
             payoutFrequency: [data?.payoutFrequency || 'WEEKLY'],
@@ -1071,8 +1096,6 @@ export class CreateSupplierDialogComponent {
 
         // Append payment configuration (applies to all types)
         cleaned.hasOwnPaymentSystem = !!supplier.hasOwnPaymentSystem;
-        if (supplier.paymentApiEndpoint) cleaned.paymentApiEndpoint = supplier.paymentApiEndpoint;
-        if (supplier.commissionApiEndpoint) cleaned.commissionApiEndpoint = supplier.commissionApiEndpoint;
         if (supplier.payoutFrequency) cleaned.payoutFrequency = supplier.payoutFrequency;
         if (supplier.customPaymentSchedule) cleaned.customPaymentSchedule = supplier.customPaymentSchedule;
         if (supplier.customPaymentDays) cleaned.customPaymentDays = supplier.customPaymentDays;

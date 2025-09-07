@@ -78,6 +78,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   loadingSuppliers = true;
   loadingCategories = true;
   error: { message: string; details?: string } | null = null;
+  currentFilters: AppliedFilters | null = null;
   
   // Pagination
   currentPage: number = 1;
@@ -155,7 +156,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadProducts(): void {
+  loadProducts(filters?: AppliedFilters): void {
     this.loadingProducts = true;
     this.error = null;
     
@@ -163,6 +164,39 @@ export class ProductListComponent implements OnInit, OnDestroy {
       page: this.currentPage - 1,
       size: this.pageSize
     };
+
+    // Apply filters if provided
+    if (filters) {
+      if (filters.search) {
+        params.search = filters.search;
+      }
+      if (filters.category) {
+        // Find category name by ID
+        const category = this.filterOptions.categories.find(c => c.id === filters.category);
+        if (category) {
+          params.category = category.name;
+        }
+      }
+      if (filters.supplier) {
+        // Find supplier name by ID
+        const supplier = this.filterOptions.suppliers.find(s => s.id === filters.supplier);
+        if (supplier) {
+          params.supplier = supplier.name;
+        }
+      }
+      if (filters.minPrice) {
+        params.minPrice = filters.minPrice;
+      }
+      if (filters.maxPrice) {
+        params.maxPrice = filters.maxPrice;
+      }
+      if (filters.sortBy) {
+        params.sortBy = filters.sortBy;
+        if (filters.sortDirection) {
+          params.sortBy += ',' + filters.sortDirection;
+        }
+      }
+    }
 
     this.productService.getActiveProducts(params).subscribe({
       next: (data: any) => {
@@ -190,15 +224,17 @@ export class ProductListComponent implements OnInit, OnDestroy {
   }
 
   onFiltersChanged(filters: AppliedFilters): void {
-    // Apply filters and reload products
+    // Store current filters and reload products
+    this.currentFilters = filters;
     this.currentPage = 1; // Reset to first page when filters change
-    this.loadProducts();
+    this.loadProducts(filters);
   }
 
   onPageChange(event: PageEvent): void {
     this.currentPage = event.pageIndex + 1;
     this.pageSize = event.pageSize;
-    this.loadProducts();
+    // Use stored current filters for pagination
+    this.loadProducts(this.currentFilters || undefined);
   }
 
   toggleViewMode(): void {

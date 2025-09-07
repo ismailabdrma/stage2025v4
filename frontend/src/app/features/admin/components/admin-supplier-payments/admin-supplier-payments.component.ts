@@ -14,6 +14,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SupplierPaymentService } from '@core/services/supplier-payment.service';
+import { SupplierPaymentDetailsDialogComponent } from '../supplier-payment-details-dialog/supplier-payment-details-dialog.component';
 
 @Component({
   selector: 'app-admin-supplier-payments',
@@ -69,7 +70,25 @@ export class AdminSupplierPaymentsComponent implements OnInit {
   }
 
   viewPaymentDetails(id: number): void {
-    console.log('View payment details for ID:', id);
+    const payment = this.supplierPayments.find(p => p.id === id);
+    if (!payment) {
+      this.snackBar.open('Payment not found', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(SupplierPaymentDetailsDialogComponent, {
+      width: '800px',
+      maxWidth: '90vw',
+      data: { payment },
+      disableClose: false
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.success) {
+        this.loadSupplierPayments(); // Refresh the list
+        this.snackBar.open('Payment updated successfully', 'Close', { duration: 3000 });
+      }
+    });
   }
 
   editPayment(id: number): void {

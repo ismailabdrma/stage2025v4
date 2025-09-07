@@ -4,15 +4,20 @@ import com.example.stage2025.dto.SoapOperationMeta;
 import com.example.stage2025.dto.SupplierDto;
 import com.example.stage2025.entity.ApiSupplier;
 import com.example.stage2025.entity.ExcelSupplier;
+import com.example.stage2025.entity.Payment;
 import com.example.stage2025.entity.Product;
 import com.example.stage2025.entity.SoapSupplier;
 import com.example.stage2025.entity.SoapSupplierOperationMeta;
 import com.example.stage2025.entity.Supplier;
+import com.example.stage2025.entity.SupplierPayment;
 import com.example.stage2025.exception.ResourceNotFoundException;
 import com.example.stage2025.mapper.SupplierMapper;
 import com.example.stage2025.repository.ProductRepository;
 import com.example.stage2025.repository.SoapSupplierOperationMetaRepository;
 import com.example.stage2025.repository.SupplierRepository;
+import com.example.stage2025.repository.OrderItemRepository;
+import com.example.stage2025.repository.SupplierPaymentRepository;
+import com.example.stage2025.repository.PaymentRepository;
 import com.example.stage2025.service.SupplierService;
 import com.example.stage2025.service.EmailService;
 import com.example.stage2025.service.ProductFetcherFactory;
@@ -44,6 +49,9 @@ public class SupplierServiceImpl implements SupplierService {
     private final ProductFetcherFactory productFetcherFactory;
     private final CategoryRepository categoryRepository;
     private final SoapMetadataRefreshService soapMetadataRefreshService;
+    private final OrderItemRepository orderItemRepository;
+    private final SupplierPaymentRepository supplierPaymentRepository;
+    private final PaymentRepository paymentRepository;
 
     @Override
     public List<SupplierDto> getAllSuppliers() {
@@ -286,40 +294,133 @@ public class SupplierServiceImpl implements SupplierService {
         Supplier supplier = supplierRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
         
-        // Check if supplier has products
-        List<Product> products = productRepository.findBySupplierId(id);
-        
-        if (!products.isEmpty()) {
-            log.warn("Supplier '{}' has {} associated products. Proceeding with cascade deletion.", 
-                     supplier.getName(), products.size());
-            
-            // Option: Delete products first (safer cascade deletion)
-            for (Product product : products) {
-                log.debug("Deleting product: {} (ID: {})", product.getName(), product.getId());
-                productRepository.delete(product);
+        try {
+            // Check for existing orders with this supplier's products
+            List<Product> products = productRepository.findBySupplierId(id);
+            if (!products.isEmpty()) {
+                // Check if any products are in active orders
+                boolean hasActiveOrders = products.stream()
+                    .anyMatch(product -> {
+                        // Check if product is in any order items
+                        return orderItemRepository.existsByProductId(product.getId());
+                    });
+                
+                if (hasActiveOrders) {
+                    throw new IllegalStateException(
+                        "Cannot delete supplier '" + supplier.getName() + 
+                        "'. Supplier has products that are part of existing orders. " +
+                        "Please deactivate the supplier instead of deleting it."
+                    );
+                }
+                
+                log.warn("Supplier '{}' has {} associated products. Proceeding with cascade deletion.", 
+                         supplier.getName(), products.size());
+                
+                // Delete all products associated with this supplier
+                for (Product product : products) {
+                    log.debug("Deleting product: {} (ID: {})", product.getName(), product.getId());
+                    productRepository.delete(product);
+                }
+                log.info("Deleted {} products associated with supplier '{}'", products.size(), supplier.getName());
             }
-            log.info("Deleted {} products associated with supplier '{}'", products.size(), supplier.getName());
+            
+            // Delete supplier (this will also cascade delete import logs and operation metadata)
+            supplierRepository.deleteById(id);
+            log.info("Supplier '{}' deleted successfully", supplier.getName());
+            
+        } catch (IllegalStateException e) {
+            // Re-throw IllegalStateException as-is to preserve the 409 status
+            log.warn("Cannot delete supplier '{}': {}", supplier.getName(), e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to delete supplier '{}': {}", supplier.getName(), e.getMessage());
+            throw new RuntimeException("Failed to delete supplier: " + e.getMessage(), e);
         }
         
-        // Delete supplier (this will also cascade delete import logs and operation metadata)
-        supplierRepository.deleteById(id);
-        log.info("Supplier '{}' deleted successfully", supplier.getName());
     }
 
     @Override
+    @Transactional
+    public void forceDeleteSupplier(Long id) {
+        Supplier supplier = supplierRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
+        
+        try {
+            log.warn("Force deleting supplier '{}' - this will delete all associated data", supplier.getName());
+            
+            // 1. Delete all payments associated with this supplier
+            List<Payment> payments = paymentRepository.findBySupplierId(id);
+            if (!payments.isEmpty()) {
+                log.warn("Force deleting {} payments associated with supplier '{}'", payments.size(), supplier.getName());
+                paymentRepository.deleteAll(payments);
+            }
+            
+            // 2. Delete all supplier payments associated with this supplier
+            List<SupplierPayment> supplierPayments = supplierPaymentRepository.findBySupplierId(id);
+            if (!supplierPayments.isEmpty()) {
+                log.warn("Force deleting {} supplier payments associated with supplier '{}'", supplierPayments.size(), supplier.getName());
+                supplierPaymentRepository.deleteAll(supplierPayments);
+            }
+            
+            // 3. Delete all products associated with this supplier
+            List<Product> products = productRepository.findBySupplierId(id);
+            if (!products.isEmpty()) {
+                log.warn("Force deleting {} products associated with supplier '{}'", products.size(), supplier.getName());
+                for (Product product : products) {
+                    productRepository.delete(product);
+                }
+            }
+            
+            // 4. Delete supplier (this will also cascade delete import logs and operation metadata)
+            supplierRepository.deleteById(id);
+            log.info("Supplier '{}' force deleted successfully", supplier.getName());
+            
+        } catch (Exception e) {
+            log.error("Failed to force delete supplier '{}': {}", supplier.getName(), e.getMessage());
+            throw new RuntimeException("Failed to force delete supplier: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    @Transactional
     public void activateSupplier(Long id) {
         Supplier supplier = supplierRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
         supplier.setActive(true);
         supplierRepository.save(supplier);
+        
+        // Activate all products associated with this supplier
+        List<Product> products = productRepository.findBySupplierId(id);
+        if (!products.isEmpty()) {
+            log.info("Activating {} products for supplier '{}'", products.size(), supplier.getName());
+            for (Product product : products) {
+                product.setActive(true);
+                productRepository.save(product);
+            }
+        }
+        
+        log.info("Supplier '{}' and all its products activated successfully", supplier.getName());
     }
 
     @Override
+    @Transactional
     public void deactivateSupplier(Long id) {
         Supplier supplier = supplierRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier not found"));
         supplier.setActive(false);
         supplierRepository.save(supplier);
+        
+        // Deactivate all products associated with this supplier
+        List<Product> products = productRepository.findBySupplierId(id);
+        if (!products.isEmpty()) {
+            log.info("Deactivating {} products for supplier '{}'", products.size(), supplier.getName());
+            for (Product product : products) {
+                product.setActive(false);
+                productRepository.save(product);
+            }
+        }
+        
+        log.info("Supplier '{}' and all its products deactivated successfully", supplier.getName());
     }
 
     @Override

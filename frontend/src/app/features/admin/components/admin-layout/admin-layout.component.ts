@@ -127,10 +127,6 @@ import { ProductService } from '@core/services/product.service';
                 <span matListItemTitle>System Status</span>
               </a>
               
-              <a mat-list-item routerLink="/admin/payment-completion" routerLinkActive="active">
-                <mat-icon matListItemIcon>payment</mat-icon>
-                <span matListItemTitle>Payment Completion</span>
-              </a>
             </div>
           </mat-nav-list>
         </mat-sidenav>

@@ -25,7 +25,7 @@ export interface Order {
   customerEmail: string
   customerPhone?: string
   orderDate: string
-  status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED"
+  status: "PENDING" | "PROCESSING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "PAID" | "COMPLETED" | "PAYMENT_FAILED"
   items: OrderItem[]
   shippingAddress: ShippingAddress
   subtotal: number

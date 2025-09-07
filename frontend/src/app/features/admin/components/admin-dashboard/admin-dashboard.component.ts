@@ -632,13 +632,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.dashboardService.getDashboardStats().subscribe({
       next: (stats) => {
+        console.log('Dashboard stats loaded:', stats);
         this.stats = stats;
         this.loading = false;
       },
       error: (error) => {
         console.error('Error loading dashboard:', error);
         this.loading = false;
-        // Could show error message to user
+        // Create fallback data if API fails
+        this.stats = this.createFallbackStats();
       }
     });
 
@@ -756,5 +758,55 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   navigateTo(route: string) {
     this.router.navigate([route]);
+  }
+
+  private createFallbackStats(): DashboardStats {
+    return {
+      // Basic counts
+      totalUsers: 0,
+      totalProducts: 0,
+      activeProducts: 0,
+      inactiveProducts: 0,
+      pendingProducts: 0,
+      totalSuppliers: 0,
+      activeSuppliers: 0,
+      inactiveSuppliers: 0,
+      totalCategories: 0,
+      
+      // Order statistics
+      totalOrders: 0,
+      pendingOrders: 0,
+      processingOrders: 0,
+      completedOrders: 0,
+      shippedOrders: 0,
+      deliveredOrders: 0,
+      cancelledOrders: 0,
+      
+      // Revenue statistics
+      totalRevenue: 0,
+      todayRevenue: 0,
+      monthRevenue: 0,
+      averageOrderValue: 0,
+      
+      // Growth metrics
+      userGrowthRate: 0,
+      orderGrowthRate: 0,
+      revenueGrowthRate: 0,
+      
+      // System health
+      systemStatus: 'error',
+      lastUpdated: Date.now(),
+      error: 'Unable to load dashboard data',
+      
+      // Recent activity
+      recentOrders: [],
+      lowStockProducts: [],
+      pendingPayments: [],
+      
+      // Performance data
+      supplierPerformance: [],
+      topSellingProducts: [],
+      categoryDistribution: []
+    };
   }
 }

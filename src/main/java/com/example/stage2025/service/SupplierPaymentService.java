@@ -17,6 +17,7 @@ public interface SupplierPaymentService {
     // Core payment operations
     SupplierPaymentDto createPaymentForOrder(Order order);
     SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId);
+    SupplierPaymentDto processImmediatePayment(Long paymentId, Long adminId, Object request);
     List<SupplierPaymentDto> processScheduledPayments();
     
     // Batch payments (weekly/monthly)
@@ -26,6 +27,7 @@ public interface SupplierPaymentService {
     
     // Payment status management
     SupplierPaymentDto updatePaymentStatus(Long paymentId, PaymentStatus status, String notes, Long adminId);
+    SupplierPaymentDto confirmPayment(Long paymentId, String notes, Long adminId);
     SupplierPaymentDto confirmPaymentReceived(Long paymentId, String supplierApiResponse);
     SupplierPaymentDto cancelPayment(Long paymentId, String reason, Long adminId);
     

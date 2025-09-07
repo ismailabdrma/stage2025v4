@@ -1468,8 +1468,9 @@ export class OrderSuccessComponent implements OnInit {
         // Try multiple payment completion endpoints
         let paymentCompleted = false;
         
-        // Endpoint 1: Supplier-specific payment completion
+        // Try payment completion with supplier-specific endpoint first
         try {
+          console.log('🔄 Attempting payment completion with supplier-specific endpoint...');
           const response1 = await this.http.post<any>(
             `/api/payment-success/supplier-own/${this.orderId}`,
             {
@@ -1482,14 +1483,22 @@ export class OrderSuccessComponent implements OnInit {
           ).toPromise();
           
           console.log('✅ Payment completion endpoint 1 success:', response1);
-          paymentCompleted = true;
+          
+          // Check if payment was actually completed (not just idempotent response)
+          if (response1 && response1.success) {
+            paymentCompleted = true;
+            console.log('✅ Payment successfully completed via supplier-specific endpoint');
+          } else {
+            console.warn('⚠️ Endpoint 1 returned success=false, trying fallback...');
+          }
         } catch (error1) {
-          console.warn('⚠️ Endpoint 1 failed:', error1);
+          console.warn('⚠️ Supplier-specific endpoint failed:', error1);
         }
         
-        // Endpoint 2: Generic payment completion (fallback)
+        // Only try fallback if first endpoint failed or returned unsuccessful
         if (!paymentCompleted) {
           try {
+            console.log('🔄 Attempting payment completion with fallback endpoint...');
             // Create a proper session ID for our system
             const sessionId = `SUPPLIER_${this.supplierId}_${this.orderId}_${Date.now()}`;
             this.sessionId = sessionId; // Update the session ID for our system
@@ -1506,9 +1515,13 @@ export class OrderSuccessComponent implements OnInit {
             ).toPromise();
             
             console.log('✅ Payment completion endpoint 2 success:', response2);
-            paymentCompleted = true;
+            
+            if (response2 && response2.success) {
+              paymentCompleted = true;
+              console.log('✅ Payment successfully completed via fallback endpoint');
+            }
           } catch (error2) {
-            console.warn('⚠️ Endpoint 2 failed:', error2);
+            console.warn('⚠️ Fallback endpoint failed:', error2);
           }
         }
         

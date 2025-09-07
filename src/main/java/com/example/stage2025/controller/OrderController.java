@@ -103,13 +103,40 @@ public class OrderController {
     @PutMapping("/{orderId}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> putOrderStatus(@PathVariable Long orderId, @RequestBody Map<String, String> body) {
-        String statusStr = body.get("status");
-        if (statusStr == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing 'status' field"));
+        try {
+            String statusStr = body.get("status");
+            if (statusStr == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Missing 'status' field"
+                ));
+            }
+            
+            OrderStatus status;
+            try {
+                status = OrderStatus.valueOf(statusStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "Invalid status: " + statusStr + ". Valid statuses: " + 
+                            java.util.Arrays.toString(OrderStatus.values())
+                ));
+            }
+            
+            orderService.updateOrderStatus(orderId, status);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Order status updated successfully",
+                "orderId", orderId,
+                "newStatus", status.name()
+            ));
+        } catch (Exception e) {
+            log.error("Error updating order status for order {}: {}", orderId, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", "Failed to update order status: " + e.getMessage()
+            ));
         }
-        OrderStatus status = OrderStatus.valueOf(statusStr.toUpperCase());
-        orderService.updateOrderStatus(orderId, status);
-        return ResponseEntity.ok("Order status updated");
     }
 
     /** Admin: list all orders */

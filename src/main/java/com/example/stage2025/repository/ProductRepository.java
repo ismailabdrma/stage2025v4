@@ -88,4 +88,14 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
   @Query("SELECT p FROM Product p WHERE p.active = :active")
   @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
   List<Product> findByActiveStatus(@Param("active") Boolean active);
+  
+  // Get active products from active suppliers only (for public display)
+  @Query("SELECT p FROM Product p WHERE p.active = true AND p.supplier.active = true")
+  @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
+  List<Product> findActiveProductsFromActiveSuppliers();
+  
+  // Get active products from active suppliers with pagination
+  @Query("SELECT p FROM Product p WHERE p.active = true AND p.supplier.active = true")
+  @EntityGraph(attributePaths = {"category", "supplier", "imageUrls"})
+  Page<Product> findActiveProductsFromActiveSuppliers(Pageable pageable);
 }
