@@ -1,9 +1,15 @@
 <div class="auth-container">
   <div class="auth-content">
     <div class="auth-header">
-      <h1>Vérification Email</h1>
-      <p class="subtitle">Entrez le code de vérification envoyé à votre email</p>
+      <h1>Activation du compte</h1>
+      <p class="subtitle">Entrez le code de vérification envoyé à votre email pour activer votre compte</p>
       <p class="email-display" *ngIf="emailReadonly">{{ userEmail }}</p>
+      
+      <!-- Success message -->
+      <div *ngIf="message$ | async as message" class="success-message">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ message }}</span>
+      </div>
     </div>
     
     <mat-card class="auth-card">
@@ -37,7 +43,7 @@
           <button mat-raised-button color="primary" type="submit" 
                   class="verify-btn" [disabled]="verifyForm.invalid || (loading$ | async)">
             <mat-spinner diameter="20" *ngIf="loading$ | async"></mat-spinner>
-            <span *ngIf="!(loading$ | async)">Vérifier Email</span>
+            <span *ngIf="!(loading$ | async)">Activer le compte</span>
           </button>
 
           <button mat-stroked-button type="button" (click)="resendCode()" 
@@ -47,6 +53,10 @@
         </form>
         
         <div class="auth-links">
+          <button mat-raised-button color="primary" (click)="goToLogin()" class="login-btn" 
+                  style="width: 100%; margin-top: 16px;">
+            Aller à la page de connexion
+          </button>
           <a mat-button routerLink="/auth/login" class="link-btn">
             Retour à la connexion
           </a>

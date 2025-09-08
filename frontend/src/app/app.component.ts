@@ -1,6 +1,6 @@
 import { Component, type OnInit, inject } from "@angular/core"
 import { CommonModule } from "@angular/common"
-import { RouterOutlet, RouterModule, Router } from "@angular/router"
+import { RouterOutlet, RouterModule, Router, NavigationEnd } from "@angular/router"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
@@ -309,15 +309,27 @@ export class AppComponent implements OnInit {
   isMiniCartOpen = false
 
   ngOnInit(): void {
+    console.log('🔍 AppComponent ngOnInit called');
+    
     // Initialize auth state first - this checks token validity without HTTP calls
     const hasValidToken = this.authService.initializeAuthState()
+    console.log('🔍 Has valid token:', hasValidToken);
     
     // Only dispatch checkAuthStatus if we have a valid token
     if (hasValidToken) {
+      console.log('🔍 Dispatching checkAuthStatus');
       this.store.dispatch(AuthActions.checkAuthStatus())
     }
 
+    // Track navigation changes
+    this.router.events.subscribe(event => {
+      if (event instanceof NavigationEnd) {
+        console.log('🔍 Navigation changed to:', event.url);
+      }
+    });
+
     this.user$.subscribe((user) => {
+      console.log('🔍 User state changed:', user);
       this.isAdmin = user?.role === "ADMIN"
       
       // Only subscribe to cart for non-admin users

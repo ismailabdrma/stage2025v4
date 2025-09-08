@@ -80,16 +80,36 @@ export class SignupComponent implements OnInit {
 
   onSubmit(): void {
     if (this.signupForm.valid) {
-      // Always set role to CLIENT for security - only admins can create admin accounts
-      const signupData = {
-        ...this.signupForm.value,
-        role: "CLIENT"
+      // Don't send role field - backend automatically sets it to CLIENT
+      // Only send fields that exist in the form and are not empty
+      const signupData: any = {
+        username: this.signupForm.get('username')?.value,
+        email: this.signupForm.get('email')?.value,
+        password: this.signupForm.get('password')?.value
       }
+      
+      // Only add optional fields if they exist in the form and have values
+      const firstName = this.signupForm.get('firstName')?.value;
+      if (firstName && firstName.trim()) {
+        signupData.firstName = firstName;
+      }
+      
+      const lastName = this.signupForm.get('lastName')?.value;
+      if (lastName && lastName.trim()) {
+        signupData.lastName = lastName;
+      }
+      
+      const phone = this.signupForm.get('phone')?.value;
+      if (phone && phone.trim()) {
+        signupData.phone = phone;
+      }
+      
       // Store email for effects-based redirect safeguard
       const email = this.signupForm.get('email')?.value
       if (email) {
         sessionStorage.setItem('signup_email', email)
       }
+      console.log('🔍 Sending signup data:', signupData);
       this.store.dispatch(AuthActions.signup({ request: signupData }))
     }
   }

@@ -21,12 +21,13 @@ export class AuthEffects {
                     mergeMap((response : any) => {
                         if (response && (response.status === "OTP_REQUIRED" || response?.status?.toUpperCase?.() === 'OTP_REQUIRED')) {
                             // Regular users need OTP verification
+                            console.log('Login requires OTP, redirecting to verify-otp page');
                             this.router.navigate(["/auth/verify-otp"], {
                                 queryParams: { email: request.identifier }
                             });
                             return [
                                 AuthActions.loginRequiresOTP({ email: request.identifier }),
-                                AuthActions.loginSuccess({ message: "OTP sent to your email. Please verify." })
+                                AuthActions.loginSuccess({ message: "OTP sent to your email. Please verify to complete login." })
                             ];
                         } else if (response && response.token) {
                             // Admin users get JWT token directly - handle it
@@ -149,12 +150,18 @@ export class AuthEffects {
     verifyEmail$ = createEffect(() =>
         this.actions$.pipe(
             ofType(AuthActions.verifyEmail),
+            tap(({ request }) => console.log('Verify email action triggered with request:', request)),
             exhaustMap(({ request }) =>
                 this.authService.verifyEmail(request).pipe(
-                    map((message) => AuthActions.verifyEmailSuccess({ message })),
-                    catchError((error) =>
-                        of(AuthActions.authError({ error: error.message || "Email verification failed" }))
-                    )
+                    tap((message) => console.log('Email verification service response:', message)),
+                    map((message) => {
+                        console.log('Dispatching verifyEmailSuccess with message:', message);
+                        return AuthActions.verifyEmailSuccess({ message });
+                    }),
+                    catchError((error) => {
+                        console.error('Email verification error:', error);
+                        return of(AuthActions.authError({ error: error.message || "Email verification failed" }));
+                    })
                 )
             )
         )
@@ -164,9 +171,33 @@ export class AuthEffects {
         () =>
             this.actions$.pipe(
                 ofType(AuthActions.verifyEmailSuccess),
-                tap(() => this.router.navigate(["/auth/login"]))
+                tap((action) => {
+                    console.log('✅ Email verification successful!', action);
+                    console.log('🔄 Auto-redirecting to login in 2 seconds...');
+                    
+                    // Auto-redirect after 2 seconds to give user time to see the success message
+                    setTimeout(() => {
+                        console.log('🔄 Executing auto-redirect to login');
+                        this.router.navigate(["/auth/login"], { replaceUrl: true });
+                    }, 2000);
+                })
             ),
         { dispatch: false }
+    );
+
+    // --- RESEND OTP ---
+    resendOtp$ = createEffect(() =>
+        this.actions$.pipe(
+            ofType(AuthActions.resendOTP),
+            exhaustMap(({ email, otpType }) =>
+                this.authService.resendOtp(email, otpType).pipe(
+                    map((message) => AuthActions.resendOTPSuccess({ message })),
+                    catchError((error) =>
+                        of(AuthActions.authError({ error: error.message || "Failed to resend OTP" }))
+                    )
+                )
+            )
+        )
     );
 
     // --- FORGOT PASSWORD ---

@@ -18,13 +18,29 @@ export class AuthService {
 
   signup(request: SignupRequest): Observable<string> {
     return this.http.post<any>(`${this.apiUrl}/signup`, request).pipe(
-      map((resp: any) => (resp && typeof resp === 'object' ? resp.message : resp) || 'Registration successful')
+      map((resp: any) => {
+        if (resp && resp.status === 'SUCCESS') {
+          return resp.message || 'Registration successful';
+        } else if (resp && resp.status === 'ERROR') {
+          throw new Error(resp.message || 'Registration failed');
+        } else {
+          return (resp && typeof resp === 'object' ? resp.message : resp) || 'Registration successful';
+        }
+      })
     )
   }
 
   verifyEmail(request: OtpVerifyRequest): Observable<string> {
     return this.http.post<any>(`${this.apiUrl}/verify-email`, request).pipe(
-      map((resp: any) => (resp && typeof resp === 'object' ? resp.message : resp) || 'Email verified successfully')
+      map((resp: any) => {
+        if (resp && resp.status === 'SUCCESS') {
+          return resp.message || 'Email verified successfully';
+        } else if (resp && resp.status === 'ERROR') {
+          throw new Error(resp.message || 'Email verification failed');
+        } else {
+          return (resp && typeof resp === 'object' ? resp.message : resp) || 'Email verified successfully';
+        }
+      })
     )
   }
 
@@ -52,7 +68,17 @@ export class AuthService {
   }
 
   resendOtp(email: string, type: string): Observable<string> {
-    return this.http.post<string>(`${this.apiUrl}/resend-otp`, { email, type })
+    return this.http.post<any>(`${this.apiUrl}/resend-otp`, { email, type }).pipe(
+      map((resp: any) => {
+        if (resp && resp.status === 'SUCCESS') {
+          return resp.message || 'OTP resent successfully';
+        } else if (resp && resp.status === 'ERROR') {
+          throw new Error(resp.message || 'Failed to resend OTP');
+        } else {
+          return (resp && typeof resp === 'object' ? resp.message : resp) || 'OTP resent successfully';
+        }
+      })
+    )
   }
 
   forgotPassword(email: string): Observable<string> {

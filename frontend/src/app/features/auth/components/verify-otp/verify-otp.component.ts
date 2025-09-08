@@ -27,20 +27,30 @@ import { selectAuthError, selectAuthLoading } from "@core/store/auth/auth.select
     ],
     template: `
     <div class="otp-container">
-      <h2>Verify OTP</h2>
+      <h2>Vérification de connexion</h2>
+      <p class="subtitle">Un code de vérification a été envoyé à {{ email }}</p>
       <form [formGroup]="otpForm" (ngSubmit)="onSubmit()">
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Enter OTP</mat-label>
-          <input matInput formControlName="otp" maxlength="6">
+          <mat-label>Code de vérification</mat-label>
+          <input matInput formControlName="otp" maxlength="6" placeholder="123456">
           <mat-error *ngIf="otpForm.get('otp')?.hasError('required')">
-            OTP is required
+            Le code de vérification est requis
+          </mat-error>
+          <mat-error *ngIf="otpForm.get('otp')?.hasError('pattern')">
+            Le code doit contenir 6 chiffres
           </mat-error>
         </mat-form-field>
 
-        <button mat-raised-button color="primary" type="submit" [disabled]="otpForm.invalid || (loading$ | async)">
+        <button mat-raised-button color="primary" type="submit" [disabled]="otpForm.invalid || (loading$ | async)" class="verify-btn">
           <mat-spinner diameter="20" *ngIf="loading$ | async"></mat-spinner>
-          <span *ngIf="!(loading$ | async)">Verify & Login</span>
+          <span *ngIf="!(loading$ | async)">Vérifier et se connecter</span>
         </button>
+        
+        <div class="resend-section">
+          <button mat-button type="button" (click)="resendOtp()" [disabled]="loading$ | async">
+            Renvoyer le code
+          </button>
+        </div>
       </form>
     </div>
   `,
@@ -51,9 +61,24 @@ import { selectAuthError, selectAuthLoading } from "@core/store/auth/auth.select
       margin: 40px auto;
       text-align: center;
     }
+    .subtitle {
+      color: #666;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
     .full-width {
       width: 100%;
       margin-bottom: 16px;
+    }
+    .verify-btn {
+      width: 100%;
+      margin-bottom: 16px;
+      background: #FFEA00;
+      color: #1B1B1B;
+      font-weight: 700;
+    }
+    .resend-section {
+      margin-top: 16px;
     }
   `],
 })
@@ -90,13 +115,20 @@ export class VerifyOtpComponent implements OnInit {
 
     onSubmit(): void {
         if (this.otpForm.valid) {
+            console.log('Submitting OTP verification for login');
             this.store.dispatch(AuthActions.loginVerifyOTP({
                 request: {
                     email: this.email,
                     otp: this.otpForm.value.otp
                 }
             }));
-            // TODO: Implement intelligent redirection after successful OTP verification in NgRx effects
+        }
+    }
+
+    resendOtp(): void {
+        if (this.email) {
+            console.log('Resending OTP for login');
+            this.store.dispatch(AuthActions.resendOTP({ email: this.email, otpType: "LOGIN" }));
         }
     }
 }

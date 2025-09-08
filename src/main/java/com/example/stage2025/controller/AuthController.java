@@ -33,31 +33,72 @@ public class AuthController {
     /** --- 1. Registration (send OTP) --- */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
-        if (userRepo.findByUsername(req.getUsername()).isPresent()) {
-            return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Username already exists"));
+        try {
+            System.out.println("🔍 Register request received: " + req);
+            
+            // Validate required fields
+            if (req.getUsername() == null || req.getUsername().trim().isEmpty()) {
+                System.out.println("🔍 Validation failed: Username is required");
+                return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Username is required"));
+            }
+            if (req.getEmail() == null || req.getEmail().trim().isEmpty()) {
+                System.out.println("🔍 Validation failed: Email is required");
+                return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Email is required"));
+            }
+            if (req.getPassword() == null || req.getPassword().trim().isEmpty()) {
+                System.out.println("🔍 Validation failed: Password is required");
+                return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Password is required"));
+            }
+            
+            if (userRepo.findByUsername(req.getUsername()).isPresent()) {
+                System.out.println("🔍 Username already exists: " + req.getUsername());
+                return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Username already exists"));
+            }
+            if (userRepo.findByEmail(req.getEmail()).isPresent()) {
+                System.out.println("🔍 Email already exists: " + req.getEmail());
+                return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Email already exists"));
+            }
+
+            System.out.println("🔍 Creating new user...");
+            Client user = new Client();
+            user.setUsername(req.getUsername());
+            user.setEmail(req.getEmail());
+            user.setPassword(encoder.encode(req.getPassword()));
+            user.setRole(Role.CLIENT);
+            user.setActive(false); // Not active until OTP verification
+            
+            // Set optional fields if provided and not empty
+            if (req.getFirstName() != null && !req.getFirstName().trim().isEmpty()) {
+                user.setFirstName(req.getFirstName().trim());
+            }
+            if (req.getLastName() != null && !req.getLastName().trim().isEmpty()) {
+                user.setLastName(req.getLastName().trim());
+            }
+            if (req.getPhone() != null && !req.getPhone().trim().isEmpty()) {
+                user.setPhone(req.getPhone().trim());
+            }
+
+            System.out.println("🔍 Saving user to database...");
+            userRepo.save(user);
+            System.out.println("🔍 User saved successfully with ID: " + user.getId());
+
+            // Send OTP to email
+            System.out.println("🔍 Sending OTP to email...");
+            otpService.sendOtp(user.getEmail(), user.getId(), "REGISTRATION");
+            System.out.println("🔍 OTP sent successfully");
+
+            return ResponseEntity.ok(new ApiResponse("SUCCESS", "Registration successful! OTP sent to email."));
+        } catch (Exception e) {
+            System.out.println("🔍 Error during registration: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Registration failed: " + e.getMessage()));
         }
-        if (userRepo.findByEmail(req.getEmail()).isPresent()) {
-            return ResponseEntity.badRequest().body(new ApiResponse("ERROR", "Email already exists"));
-        }
-
-        Client user = new Client();
-        user.setUsername(req.getUsername());
-        user.setEmail(req.getEmail());
-        user.setPassword(encoder.encode(req.getPassword()));
-        user.setRole(Role.CLIENT);
-        user.setActive(false); // Not active until OTP verification
-
-        userRepo.save(user);
-
-        // Send OTP to email
-        otpService.sendOtp(user.getEmail(), user.getId(), "REGISTRATION");
-
-        return ResponseEntity.ok(new ApiResponse("SUCCESS", "Registration successful! OTP sent to email."));
     }
 
     /** Alias for legacy/frontend endpoint: /signup -> /register */
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody RegisterRequest req) {
+        System.out.println("🔍 Received signup request: " + req);
         return register(req);
     }
 

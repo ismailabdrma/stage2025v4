@@ -219,24 +219,32 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    console.log('🔍 LoginComponent ngOnInit called');
+    console.log('🔍 Current URL:', window.location.href);
+    
     this.store.dispatch(AuthActions.resetAuthUI());
     this.route.queryParams.subscribe(params => {
+      console.log('🔍 Login query params:', params);
       if (params["email"]) {
         this.loginForm.patchValue({ identifier: params["email"] });
+        console.log('🔍 Email prefilled:', params["email"]);
       }
       if (params["redirect"]) {
         sessionStorage.setItem('redirectUrl', params["redirect"])
+        console.log('🔍 Redirect URL stored:', params["redirect"]);
       }
     });
 
     this.message$.subscribe(message => {
       if (message) {
+        console.log('🔍 Login message:', message);
         this.snackBar.open(message, "Close", { duration: 5000 });
       }
     });
 
     this.error$.subscribe(error => {
       if (error) {
+        console.log('🔍 Login error:', error);
         this.snackBar.open(error, "Close", { duration: 5000 });
       }
     });

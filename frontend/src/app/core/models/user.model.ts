@@ -18,7 +18,9 @@ export interface SignupRequest {
   username: string
   email: string
   password: string
-  role: "ADMIN" | "CLIENT"
+  firstName?: string
+  lastName?: string
+  phone?: string
 }
 
 export interface OtpVerifyRequest {
