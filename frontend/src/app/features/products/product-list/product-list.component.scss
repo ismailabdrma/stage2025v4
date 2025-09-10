@@ -51,9 +51,251 @@ scss
   }
 }
 
-// Filters Section
-.filters-section {
-  margin-bottom: 32px;
+// Main Content Layout
+.main-content {
+  display: flex;
+  gap: 24px;
+  min-height: 600px;
+}
+
+// Left Sidebar - Filters
+.filters-sidebar {
+  width: 320px;
+  min-width: 320px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 16px;
+  padding: 0;
+  height: fit-content;
+  position: sticky;
+  top: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+
+  &.hidden {
+    display: none;
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 24px 16px 24px;
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    border-radius: 16px 16px 0 0;
+    color: white;
+
+    h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      &::before {
+        content: "🔍";
+        font-size: 18px;
+      }
+    }
+
+    .close-filters {
+      display: none; // Hidden on desktop, shown on mobile
+      color: white;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+    }
+  }
+
+  .filters-content {
+    padding: 24px;
+    background: white;
+    border-radius: 0 0 16px 16px;
+
+    // Override the search filters component styles for better integration
+    ::ng-deep .search-filters-container {
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+      margin: 0;
+      border-radius: 0;
+
+      .search-section {
+        margin-bottom: 24px;
+
+        .search-field {
+          .mat-mdc-form-field {
+            .mat-mdc-text-field-wrapper {
+              background: #f8f9fa;
+              border-radius: 12px;
+              border: 2px solid #e9ecef;
+              transition: all 0.3s ease;
+
+              &:hover {
+                border-color: #1976d2;
+              }
+
+              &.mdc-text-field--focused {
+                border-color: #1976d2;
+                box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+              }
+            }
+          }
+        }
+      }
+
+      .quick-filters {
+        margin-bottom: 24px;
+
+        .filter-chips {
+          .mat-mdc-chip {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1976d2;
+            border: 1px solid #90caf9;
+            border-radius: 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+
+            &:hover {
+              background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
+              transform: translateY(-1px);
+              box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2);
+            }
+
+            &.mdc-evolution-chip--selected {
+              background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+              color: white;
+              border-color: #1976d2;
+            }
+          }
+        }
+      }
+
+      .advanced-filters {
+        .mat-expansion-panel {
+          background: #f8f9fa;
+          border-radius: 12px;
+          border: 1px solid #e9ecef;
+          box-shadow: none;
+
+          .mat-expansion-panel-header {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-weight: 600;
+            color: #1976d2;
+
+            .mat-expansion-panel-header-title {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+          }
+
+          .mat-expansion-panel-body {
+            padding: 20px;
+            background: white;
+            border-radius: 0 0 12px 12px;
+          }
+        }
+      }
+
+      .filters-grid {
+        gap: 20px;
+
+        .mat-mdc-form-field {
+          .mat-mdc-text-field-wrapper {
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+
+            &:hover {
+              border-color: #1976d2;
+            }
+
+            &.mdc-text-field--focused {
+              border-color: #1976d2;
+              box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+            }
+          }
+        }
+      }
+
+      .filter-actions {
+        background: #f8f9fa;
+        margin: 0 -20px -20px -20px;
+        padding: 20px;
+        border-radius: 0 0 12px 12px;
+        border-top: 1px solid #e9ecef;
+
+        .clear-btn {
+          background: #f8f9fa;
+          color: #6c757d;
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          font-weight: 500;
+          transition: all 0.3s ease;
+
+          &:hover {
+            background: #e9ecef;
+            color: #495057;
+            transform: translateY(-1px);
+          }
+        }
+
+        .apply-btn {
+          background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+          color: white;
+          border-radius: 8px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+          transition: all 0.3s ease;
+
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
+          }
+        }
+      }
+
+      .active-filters {
+        background: #e8f5e8;
+        border: 1px solid #c8e6c9;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 20px;
+
+        h4 {
+          color: #2e7d32;
+          font-weight: 600;
+          margin-bottom: 12px;
+        }
+
+        .active-filter-chips {
+          .mat-mdc-chip {
+            background: #4caf50;
+            color: white;
+            border-radius: 16px;
+            font-weight: 500;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Right Content - Products
+.products-main {
+  flex: 1;
+  min-width: 0; // Prevents flex item from overflowing
 }
 
 // Loading Section
@@ -142,6 +384,15 @@ scss
     }
   }
 
+  .main-content {
+    gap: 16px;
+  }
+
+  .filters-sidebar {
+    width: 300px;
+    min-width: 300px;
+  }
+
   .products-container {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 16px;
@@ -165,6 +416,33 @@ scss
       p {
         font-size: 14px;
       }
+    }
+  }
+
+  .main-content {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .filters-sidebar {
+    width: 100%;
+    min-width: unset;
+    position: static;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+    .sidebar-header {
+      border-radius: 12px 12px 0 0;
+      padding: 20px;
+
+      .close-filters {
+        display: block; // Show close button on mobile
+      }
+    }
+
+    .filters-content {
+      padding: 20px;
     }
   }
 

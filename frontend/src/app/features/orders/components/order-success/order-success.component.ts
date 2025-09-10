@@ -1476,7 +1476,7 @@ export class OrderSuccessComponent implements OnInit {
             {
               orderId: this.orderId,
               supplierId: this.supplierId,
-              paymentId: params['payment_id'] || params['transaction_id'] || 'SUPPLIER_PAYMENT',
+              paymentId: params['payment_id'] || params['transaction_id'] || `SUPPLIER_${this.supplierId}_${this.orderId}_${Date.now()}`,
               amount: this.orderDetails?.total || 0,
               status: 'SUCCEEDED'
             }

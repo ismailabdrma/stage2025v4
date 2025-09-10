@@ -50,6 +50,8 @@
     font-weight: 500;
     transition: all 0.2s ease;
     border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
     
     &:hover {
       background: #1976d2;
@@ -62,6 +64,29 @@
       font-size: 20px;
       width: 20px;
       height: 20px;
+    }
+
+    // Special styling for the first link (user profile)
+    &:first-child {
+      background: linear-gradient(135deg, #FFEA00 0%, #FFD700 100%);
+      color: #1B1B1B;
+      font-weight: 700;
+      border: 2px solid #FFD700;
+      box-shadow: 0 2px 8px rgba(255, 234, 0, 0.3);
+      
+      &:hover {
+        background: linear-gradient(135deg, #FFD700 0%, #FFC107 100%);
+        color: #1B1B1B;
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(255, 234, 0, 0.4);
+      }
+      
+      mat-icon {
+        color: #1976d2;
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
     }
   }
   

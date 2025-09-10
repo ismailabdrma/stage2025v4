@@ -13,5 +13,7 @@ public class OrderItemDto {
     private Integer quantity;
     private Double unitPrice;
     private String productName;
+    private Double supplierPrice; // Supplier's actual price for this item
+    private String supplierName; // Supplier name for this item
 
 }

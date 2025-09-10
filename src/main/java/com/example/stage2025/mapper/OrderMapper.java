@@ -50,6 +50,31 @@ public class OrderMapper {
         dto.setItems(order.getItems().stream()
                 .map(OrderItemMapper::toDto)
                 .collect(Collectors.toList()));
+        
+        // Calculate total supplier price and get primary supplier name
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            double totalSupplierPrice = order.getItems().stream()
+                    .mapToDouble(item -> {
+                        if (item.getProduct() != null && item.getProduct().getSupplierPrice() != null) {
+                            return item.getProduct().getSupplierPrice() * item.getQuantity();
+                        }
+                        return 0.0;
+                    })
+                    .sum();
+            dto.setSupplierPrice(totalSupplierPrice);
+            
+            // Get the primary supplier name (first item's supplier)
+            String primarySupplierName = order.getItems().get(0).getSupplierName();
+            if (primarySupplierName == null && order.getItems().get(0).getProduct() != null && 
+                order.getItems().get(0).getProduct().getSupplier() != null) {
+                primarySupplierName = order.getItems().get(0).getProduct().getSupplier().getName();
+            }
+            dto.setSupplierName(primarySupplierName);
+        } else {
+            dto.setSupplierPrice(0.0);
+            dto.setSupplierName("Unknown Supplier");
+        }
+        
         return dto;
     }
 }

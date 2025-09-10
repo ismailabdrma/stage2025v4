@@ -175,24 +175,49 @@ public class PaymentCompletionServiceImpl implements PaymentCompletionService {
             Payment payment = createPaymentRecord(order, supplier, paymentId, sessionId, webhookData);
             log.info("Payment record created, now saving to database...");
             
-            // CRITICAL FIX: Save the payment FIRST to ensure it has an ID
-            log.info("Saving payment to database...");
+            // CRITICAL FIX: Update order status to PAID FIRST
+            log.info("Updating order status to PAID...");
+            order.setStatus(OrderStatus.PAID);
+            order.setUpdatedAt(LocalDateTime.now());
+            
+            // CRITICAL FIX: Ensure order has a sessionId for supplier-owned payments
+            if (order.getSessionId() == null && sessionId != null) {
+                order.setSessionId(sessionId);
+                log.info("Set sessionId on order: {}", sessionId);
+            } else if (order.getSessionId() == null) {
+                // Generate a sessionId for supplier-owned payments
+                String generatedSessionId = "SUPPLIER_" + supplier.getId() + "_" + order.getId() + "_" + System.currentTimeMillis();
+                order.setSessionId(generatedSessionId);
+                log.info("Generated and set sessionId on order: {}", generatedSessionId);
+            }
+            
+            // CRITICAL FIX: Link payment to order BEFORE saving
+            log.info("Linking payment to order...");
+            order.setPayment(payment); // Link the payment entity BEFORE saving
+            payment.setOrder(order); // Ensure bidirectional relationship
+            
+            // CRITICAL FIX: Save the payment with proper order relationship
+            log.info("Saving payment to database with order relationship...");
             Payment savedPayment = paymentRepository.save(payment);
             log.info("Payment saved with ID: {}", savedPayment.getId());
             
-            // Update order status to PAID and link the SAVED payment
-            log.info("Updating order status to PAID and linking payment...");
-            order.setStatus(OrderStatus.PAID);
-            order.setPayment(savedPayment); // Link the SAVED payment entity
-            order.setUpdatedAt(LocalDateTime.now());
+            // CRITICAL FIX: Update order with saved payment and force immediate commit
+            log.info("Updating order with saved payment and forcing immediate commit...");
+            order.setPayment(savedPayment); // Use the saved payment entity
+            log.info("Before saveAndFlush - Order ID: {}, Status: {}, Payment ID: {}, Session ID: {}", 
+                    order.getId(), order.getStatus(), 
+                    order.getPayment() != null ? order.getPayment().getId() : "NULL",
+                    order.getSessionId());
+            Order savedOrder = orderRepository.saveAndFlush(order);
+            log.info("After saveAndFlush - Order ID: {}, Status: {}, Payment ID: {}, Session ID: {}", 
+                    savedOrder.getId(), savedOrder.getStatus(), 
+                    savedOrder.getPayment() != null ? savedOrder.getPayment().getId() : "NULL",
+                    savedOrder.getSessionId());
+            log.info("Order status update committed to database for order {}", savedOrder.getId());
             
             // Mark order as completed for this supplier
             log.info("Marking supplier as completed...");
-            markSupplierAsCompleted(order, supplier.getId());
-            
-            // Save the updated order with payment relationship
-            log.info("Saving updated order with payment relationship...");
-            Order savedOrder = orderRepository.save(order);
+            markSupplierAsCompleted(savedOrder, supplier.getId());
             
             // PRODUCTION-READY VALIDATION: Ensure the payment relationship is properly established
             log.info("Validating payment relationship...");
@@ -205,6 +230,14 @@ public class PaymentCompletionServiceImpl implements PaymentCompletionService {
                 Order reloadedOrder = orderRepository.findById(savedOrder.getId()).orElse(savedOrder);
                 
                 if (reloadedOrder.getPayment() != null && reloadedOrder.getPayment().getId() != null) {
+                    // CRITICAL FIX: Ensure the reloaded order still has PAID status
+                    if (reloadedOrder.getStatus() != OrderStatus.PAID) {
+                        log.warn("Reloaded order status is not PAID, updating to PAID: {}", reloadedOrder.getStatus());
+                        reloadedOrder.setStatus(OrderStatus.PAID);
+                        reloadedOrder.setUpdatedAt(LocalDateTime.now());
+                        orderRepository.save(reloadedOrder);
+                        log.info("Order status updated to PAID after reload for order {}", reloadedOrder.getId());
+                    }
                     savedOrder = reloadedOrder;
                     log.info("Payment relationship successfully established after reload for order {}", savedOrder.getId());
                 } else {
@@ -214,23 +247,66 @@ public class PaymentCompletionServiceImpl implements PaymentCompletionService {
                 }
             }
             
+            // CRITICAL FIX: Double-check that order status is PAID before proceeding
+            if (savedOrder.getStatus() != OrderStatus.PAID) {
+                log.warn("Order status is not PAID after all processing, forcing update to PAID: {}", savedOrder.getStatus());
+                savedOrder.setStatus(OrderStatus.PAID);
+                savedOrder.setUpdatedAt(LocalDateTime.now());
+                savedOrder = orderRepository.save(savedOrder);
+                log.info("Order status forcefully updated to PAID for order {}", savedOrder.getId());
+            }
+            
             log.info("Order {} marked as PAID successfully with payment_id: {}", 
                     savedOrder.getId(), 
                     savedOrder.getPayment() != null ? savedOrder.getPayment().getId() : "NULL");
 
-            // Send confirmation emails
+            // Send confirmation emails (non-blocking to avoid transaction rollback)
             log.info("Sending confirmation emails for order {} - client: {}, supplier: {}", 
                     savedOrder.getId(), 
                     savedOrder.getClient() != null ? savedOrder.getClient().getEmail() : "NULL",
                     supplier.getContactEmail());
             
-            log.info("Calling sendPaymentConfirmationEmails...");
-            sendPaymentConfirmationEmails(savedOrder, payment, supplier);
-            log.info("Confirmation emails sent successfully for order {}", savedOrder.getId());
+            try {
+                log.info("Calling sendPaymentConfirmationEmails...");
+                sendPaymentConfirmationEmails(savedOrder, payment, supplier);
+                log.info("Confirmation emails sent successfully for order {}", savedOrder.getId());
+            } catch (Exception e) {
+                log.warn("Failed to send confirmation emails for order {} (non-blocking): {}", savedOrder.getId(), e.getMessage());
+                // Don't fail the payment process if emails fail
+            }
             
             log.info("Payment completion process completed successfully!");
 
-            // Clean up session mapping
+            // Create session mapping if it doesn't exist (for supplier-owned payments)
+            if (sessionId != null) {
+                try {
+                    // Check if session mapping already exists
+                    var existingMapping = orderSessionMappingService.getSessionMapping(sessionId);
+                    if (existingMapping == null) {
+                        log.info("Creating session mapping for supplier-owned payment - sessionId: {}, orderId: {}, supplierId: {}", 
+                                sessionId, savedOrder.getId(), supplier.getId());
+                        orderSessionMappingService.storeSessionMapping(sessionId, savedOrder.getId(), supplier.getId(), "SOAP_SUPPLIER");
+                        log.info("Session mapping created successfully for supplier-owned payment");
+                    } else {
+                        log.info("Session mapping already exists for sessionId: {}", sessionId);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to create session mapping for supplier-owned payment: {}", e.getMessage());
+                }
+            } else {
+                // For supplier-owned payments without sessionId, create one
+                String generatedSessionId = "SUPPLIER_" + supplier.getId() + "_" + savedOrder.getId() + "_" + System.currentTimeMillis();
+                try {
+                    log.info("Creating session mapping for supplier-owned payment without sessionId - generatedSessionId: {}, orderId: {}, supplierId: {}", 
+                            generatedSessionId, savedOrder.getId(), supplier.getId());
+                    orderSessionMappingService.storeSessionMapping(generatedSessionId, savedOrder.getId(), supplier.getId(), "SOAP_SUPPLIER");
+                    log.info("Session mapping created successfully for supplier-owned payment with generated sessionId");
+                } catch (Exception e) {
+                    log.warn("Failed to create session mapping for supplier-owned payment with generated sessionId: {}", e.getMessage());
+                }
+            }
+            
+            // Clean up session mapping (remove it after successful payment completion)
             if (sessionId != null) {
                 log.info("Removing session mapping for sessionId: {}", sessionId);
                 orderSessionMappingService.removeSessionMapping(sessionId);
@@ -247,6 +323,42 @@ public class PaymentCompletionServiceImpl implements PaymentCompletionService {
                     payment.getAmount(), 
                     payment.getCommissionAmount(), 
                     payment.getSupplierAmount());
+            
+            // CRITICAL FINAL CHECK: Verify order status is PAID in database
+            Order finalOrder = orderRepository.findById(savedOrder.getId()).orElse(savedOrder);
+            log.info("Final validation - Order ID: {}, Status: {}, Payment ID: {}, Session ID: {}", 
+                    finalOrder.getId(), finalOrder.getStatus(), 
+                    finalOrder.getPayment() != null ? finalOrder.getPayment().getId() : "NULL",
+                    finalOrder.getSessionId());
+            
+            // Force update order with payment information
+            boolean needsUpdate = false;
+            if (finalOrder.getStatus() != OrderStatus.PAID) {
+                log.error("CRITICAL ERROR: Order status is not PAID in database after all processing: {}", finalOrder.getStatus());
+                finalOrder.setStatus(OrderStatus.PAID);
+                needsUpdate = true;
+            }
+            if (finalOrder.getPayment() == null || finalOrder.getPayment().getId() == null) {
+                log.error("CRITICAL ERROR: Order payment is not linked in database after all processing");
+                finalOrder.setPayment(savedPayment);
+                needsUpdate = true;
+            }
+            if (finalOrder.getSessionId() == null) {
+                log.error("CRITICAL ERROR: Order sessionId is not set in database after all processing");
+                finalOrder.setSessionId(sessionId != null ? sessionId : "SUPPLIER_" + supplier.getId() + "_" + finalOrder.getId() + "_" + System.currentTimeMillis());
+                needsUpdate = true;
+            }
+            
+            if (needsUpdate) {
+                finalOrder.setUpdatedAt(LocalDateTime.now());
+                orderRepository.saveAndFlush(finalOrder);
+                log.info("Order forcefully updated in final validation for order {} - Status: {}, Payment ID: {}, Session ID: {}", 
+                        finalOrder.getId(), finalOrder.getStatus(), 
+                        finalOrder.getPayment() != null ? finalOrder.getPayment().getId() : "NULL",
+                        finalOrder.getSessionId());
+            } else {
+                log.info("Order status confirmed as PAID in final validation for order {}", finalOrder.getId());
+            }
             log.info("==========================================");
             
             log.info("Payment completion process completed successfully!");

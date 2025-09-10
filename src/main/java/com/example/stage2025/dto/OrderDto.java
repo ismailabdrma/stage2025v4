@@ -26,6 +26,8 @@ public class OrderDto {
     private Long clientId;
     private ShippingAddressDto shippingAddress;
     private List<OrderItemDto> items;
+    private Double supplierPrice; // Total supplier price for all items
+    private String supplierName; // Primary supplier name
 
 
 }

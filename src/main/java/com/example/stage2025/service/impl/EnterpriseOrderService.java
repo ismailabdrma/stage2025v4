@@ -11,6 +11,7 @@ import com.example.stage2025.mapper.OrderMapper;
 import com.example.stage2025.repository.*;
 import com.example.stage2025.service.OrderService;
 import com.example.stage2025.service.EmailService;
+import com.example.stage2025.service.OrderSessionMappingService;
 import com.example.stage2025.service.SupplierPaymentService;
 import com.example.stage2025.service.impl.SoapPaymentService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class EnterpriseOrderService implements OrderService {
     private final EmailService emailService;
     private final SupplierPaymentService supplierPaymentService;
     private final SoapPaymentService soapPaymentService;
+    private final OrderSessionMappingService orderSessionMappingService;
 
     // In-memory locks for critical sections (in production, use Redis)
     private final Map<String, ReentrantLock> orderLocks = new ConcurrentHashMap<>();

@@ -27,65 +27,84 @@
     </div>
   </div>
 
-  <!-- Search and Filters -->
-  <div class="filters-section" *ngIf="showFilters">
-    <app-search-filters
-      [filterOptions]="filterOptions"
-      (filtersChanged)="onFiltersChanged($event)">
-    </app-search-filters>
-  </div>
+  <!-- Main Content Area with Sidebar -->
+  <div class="main-content">
+    <!-- Left Sidebar - Filters -->
+    <aside class="filters-sidebar" [class.hidden]="!showFilters">
+      <div class="sidebar-header">
+        <h3>Filtres</h3>
+        <button 
+          mat-icon-button 
+          (click)="toggleFilters()"
+          class="close-filters"
+          matTooltip="Fermer les filtres">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      
+      <div class="filters-content">
+        <app-search-filters
+          [filterOptions]="filterOptions"
+          (filtersChanged)="onFiltersChanged($event)">
+        </app-search-filters>
+      </div>
+    </aside>
 
-  <!-- Loading State -->
-  <div *ngIf="isLoading" class="loading-section">
-    <app-loading-spinner 
-      text="Chargement des produits..."
-      subtext="Veuillez patienter">
-    </app-loading-spinner>
-  </div>
+    <!-- Right Content - Products -->
+    <main class="products-main">
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loading-section">
+        <app-loading-spinner 
+          text="Chargement des produits..."
+          subtext="Veuillez patienter">
+        </app-loading-spinner>
+      </div>
 
-  <!-- Error State -->
-  <div *ngIf="error && !isLoading" class="error-section">
-    <app-error-boundary 
-      [error]="error"
-      (retry)="retry()"
-      (goHome)="goHome()">
-    </app-error-boundary>
-  </div>
+      <!-- Error State -->
+      <div *ngIf="error && !isLoading" class="error-section">
+        <app-error-boundary 
+          [error]="error"
+          (retry)="retry()"
+          (goHome)="goHome()">
+        </app-error-boundary>
+      </div>
 
-  <!-- Products Grid/List -->
-  <div *ngIf="!isLoading && !error && hasProducts" class="products-section">
-    <div class="products-container" [class.list-view]="viewMode === 'list'">
-      <app-product-card 
-        *ngFor="let product of products; trackBy: trackByProductId"
-        [product]="mapToProductCard(product)"
-        [layout]="viewMode"
-        class="product-item">
-      </app-product-card>
-    </div>
+      <!-- Products Grid/List -->
+      <div *ngIf="!isLoading && !error && hasProducts" class="products-section">
+        <div class="products-container" [class.list-view]="viewMode === 'list'">
+          <app-product-card 
+            *ngFor="let product of products; trackBy: trackByProductId"
+            [product]="mapToProductCard(product)"
+            [layout]="viewMode"
+            class="product-item">
+          </app-product-card>
+        </div>
 
-    <!-- Pagination -->
-    <div class="pagination-section" *ngIf="totalPages > 1">
-      <mat-paginator
-        [length]="totalProducts"
-        [pageSize]="pageSize"
-        [pageSizeOptions]="[12, 24, 48, 96]"
-        [pageIndex]="currentPage - 1"
-        (page)="onPageChange($event)"
-        showFirstLastButtons>
-      </mat-paginator>
-    </div>
-  </div>
+        <!-- Pagination -->
+        <div class="pagination-section" *ngIf="totalPages > 1">
+          <mat-paginator
+            [length]="totalProducts"
+            [pageSize]="pageSize"
+            [pageSizeOptions]="[12, 24, 48, 96]"
+            [pageIndex]="currentPage - 1"
+            (page)="onPageChange($event)"
+            showFirstLastButtons>
+          </mat-paginator>
+        </div>
+      </div>
 
-  <!-- Empty State -->
-  <div *ngIf="!isLoading && !error && !hasProducts" class="empty-section">
-    <app-empty-state
-      icon="inventory_2"
-      iconColor="primary"
-      title="Aucun produit trouvé"
-      description="Aucun produit ne correspond à vos critères de recherche. Essayez de modifier vos filtres ou de faire une nouvelle recherche."
-      actionText="Voir tous les produits"
-      actionIcon="refresh"
-      (actionClick)="retry()">
-    </app-empty-state>
+      <!-- Empty State -->
+      <div *ngIf="!isLoading && !error && !hasProducts" class="empty-section">
+        <app-empty-state
+          icon="inventory_2"
+          iconColor="primary"
+          title="Aucun produit trouvé"
+          description="Aucun produit ne correspond à vos critères de recherche. Essayez de modifier vos filtres ou de faire une nouvelle recherche."
+          actionText="Voir tous les produits"
+          actionIcon="refresh"
+          (actionClick)="retry()">
+        </app-empty-state>
+      </div>
+    </main>
   </div>
 </div>

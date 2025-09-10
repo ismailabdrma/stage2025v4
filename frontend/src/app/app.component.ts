@@ -94,7 +94,7 @@ import { ToastService } from "./shared/components/toast-notification/toast-notif
         <ng-container *ngIf="isAuthenticated$ | async; else loginButton">
           <button mat-button [matMenuTriggerFor]="userMenu">
             <mat-icon>account_circle</mat-icon>
-            Mon compte
+            {{ displayName }}
           </button>
 
           <mat-menu #userMenu="matMenu">
@@ -307,6 +307,7 @@ export class AppComponent implements OnInit {
   cartItemCount = 0
   isAdmin = false
   isMiniCartOpen = false
+  displayName = 'Mon compte'
 
   ngOnInit(): void {
     console.log('🔍 AppComponent ngOnInit called');
@@ -314,6 +315,11 @@ export class AppComponent implements OnInit {
     // Initialize auth state first - this checks token validity without HTTP calls
     const hasValidToken = this.authService.initializeAuthState()
     console.log('🔍 Has valid token:', hasValidToken);
+    
+    // Try to get username from token immediately
+    if (hasValidToken) {
+      this.setDisplayNameFromToken();
+    }
     
     // Only dispatch checkAuthStatus if we have a valid token
     if (hasValidToken) {
@@ -331,6 +337,26 @@ export class AppComponent implements OnInit {
     this.user$.subscribe((user) => {
       console.log('🔍 User state changed:', user);
       this.isAdmin = user?.role === "ADMIN"
+      
+      // Update display name based on user data
+      if (user) {
+        const firstName = user.firstName || '';
+        const lastName = user.lastName || '';
+        const username = user.username || 'Utilisateur';
+        
+        if (firstName && lastName) {
+          this.displayName = `${firstName} ${lastName}`;
+        } else if (firstName) {
+          this.displayName = firstName;
+        } else if (lastName) {
+          this.displayName = lastName;
+        } else {
+          this.displayName = username;
+        }
+        console.log('✅ Display name updated:', this.displayName);
+      } else {
+        this.displayName = 'Mon compte';
+      }
       
       // Only subscribe to cart for non-admin users
       if (!this.isAdmin) {
@@ -358,5 +384,34 @@ export class AppComponent implements OnInit {
 
   closeMiniCart(): void {
     this.isMiniCartOpen = false
+  }
+
+  private setDisplayNameFromToken(): void {
+    const token = this.authService.getToken();
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log('🔍 JWT Payload in AppComponent:', payload);
+        
+        const username = payload.sub || payload.username || payload.preferred_username || payload.name || 'Utilisateur';
+        const firstName = payload.firstName || payload.given_name || '';
+        const lastName = payload.lastName || payload.family_name || '';
+        
+        if (firstName && lastName) {
+          this.displayName = `${firstName} ${lastName}`;
+        } else if (firstName) {
+          this.displayName = firstName;
+        } else if (lastName) {
+          this.displayName = lastName;
+        } else {
+          this.displayName = username;
+        }
+        
+        console.log('✅ Display name set from token:', this.displayName);
+      } catch (error) {
+        console.error('❌ Error parsing token in AppComponent:', error);
+        this.displayName = 'Utilisateur';
+      }
+    }
   }
 }
