@@ -1,3 +1,4 @@
 # Ignore Angular cache & dependencies inside frontend folder
 frontend/.angular/
 frontend/node_modules/
+jdk-windows/

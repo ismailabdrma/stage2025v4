@@ -51,6 +51,35 @@ cd stage2025v2
 npm run install-all
 ```
 
+### 1.b Installation automatique locale du JDK 17 (Gestion des versions inférieures)
+
+Pour les utilisateurs ayant une version de Java inférieure à 17 installée sur leur machine, un script d’installation locale est fourni afin de télécharger et configurer un JDK 17 directement dans le dossier du projet sans modifier la configuration Java globale.
+
+#### macOS / Linux
+```bash
+chmod +x install-jdk-17-macOS.sh
+./install-jdk-17-macOS.sh
+```
+
+Le script `install-jdk-17-macOS.sh` détecte automatiquement l’architecture (Intel ou ARM) et télécharge la version adaptée du JDK 17 dans un dossier `jdk` local.
+
+#### Windows
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install-jdk-17-windows.ps1
+```
+
+Le script PowerShell `install-jdk-17-windows.ps1` télécharge et extrait le JDK 17 64 bits dans un dossier `jdk-windows` local.
+
+#### Configuration dans IntelliJ IDEA
+
+Après l’exécution des scripts, configurez IntelliJ pour utiliser le JDK local :
+
+- **macOS / Linux** : sélectionnez le SDK pointant vers `./jdk/<nom-dossier>/Contents/Home`
+- **Windows** : sélectionnez le SDK pointant vers `.\jdk-windows\<nom-dossier>`
+
+Cette méthode garantit le bon fonctionnement de la plateforme quelle que soit la version Java installée globalement sur la machine, sans modifier l’environnement système.
+
 ### 2. Configure Stripe (Required for Payments)
 
 1. Sign up for a Stripe account at [stripe.com](https://stripe.com)
@@ -113,7 +142,7 @@ stage2025v2/
 │   │   │   │   ├── orders/   # Order management & payments
 │   │   │   │   ├── profile/  # User profile
 │   │   │   │   └── admin/    # Admin panel
-│   │   │   └── shared/       # Shared components
+│   │   └── shared/           # Shared components
 │   │   └── environments/     # Environment configs
 │   └── package.json
 ├── src/main/java/           # Spring Boot Backend
@@ -240,3 +269,5 @@ If you encounter any issues:
 4. Check that all environment variables are set
 
 For additional support, please open an issue in the repository.
+
+`

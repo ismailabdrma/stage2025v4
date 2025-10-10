@@ -631,6 +631,9 @@ SELECT COUNT(*) FROM orders;
 - [Guide de sécurité](SECURITY.md)
 - [Rapport technique](Rapport_Stage2025.tex)
 
+
+
+
 ---
 
 *Dernière mise à jour : Décembre 2024*

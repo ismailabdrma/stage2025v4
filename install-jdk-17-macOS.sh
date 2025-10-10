@@ -33,3 +33,10 @@ rm $(basename $JDK_URL)
 echo "JDK installed in $(pwd)"
 
 cd ..
+cd frontend || { echo "Frontend directory not found!"; exit 1; }
+
+# Step 3: Run npm install
+echo "Running npm install in frontend..."
+npm install
+
+echo "Setup complete. you can run the ng serve"
